@@ -92,7 +92,7 @@ function Index() {
           id: `${now}-${i}-${Math.random().toString(36).slice(2, 7)}`,
           macro: m,
           grams,
-          foodName: p.name,
+          foodName: displayName(p.name),
           addedAt: now,
         });
       }
