@@ -296,6 +296,28 @@ function Index() {
         <p className="px-5 pt-2 pb-6 text-[11px] text-neutral-400 text-center">
           버블을 탭하면 제거됩니다
         </p>
+
+        <AlertDialog open={openResetDialog} onOpenChange={setOpenResetDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>오늘 기록을 모두 지울까요?</AlertDialogTitle>
+              <AlertDialogDescription className="text-[13px] text-neutral-500">
+                지운 기록은 되돌릴 수 없어요.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setOpenResetDialog(false)}>
+                취소
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmReset}
+                className="bg-red-600 text-white hover:bg-red-700"
+              >
+                지우기
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
 
       {/* FAB */}
