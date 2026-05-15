@@ -125,7 +125,7 @@ function Index() {
     const tid = `undo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     lastToastIdRef.current = tid;
 
-    toast("삭제했어요", {
+    toast(`${removed[0]?.foodName ?? "음식"} 삭제`, {
       id: tid,
       duration: 5000,
       action: {
