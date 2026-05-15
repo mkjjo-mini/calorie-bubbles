@@ -1,26 +1,191 @@
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { AnimatePresence, motion } from "framer-motion";
+import { BubbleField } from "@/components/BubbleField";
+import {
+  caloriesFor,
+  DAILY_GOAL_KCAL,
+  FOOD_PRESETS,
+  MACRO_COLORS,
+  MACRO_KCAL,
+  MACRO_LABELS,
+  type BubbleEntry,
+  type Macro,
+} from "@/lib/foods";
 
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
+function todayKey() {
+  const d = new Date();
+  return `cal-tracker-${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function loadEntries(): BubbleEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(todayKey());
+    if (!raw) return [];
+    return JSON.parse(raw) as BubbleEntry[];
+  } catch {
+    return [];
+  }
 }
 
 function Index() {
-  return <PlaceholderIndex />;
+  const [entries, setEntries] = useState<BubbleEntry[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setEntries(loadEntries());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    localStorage.setItem(todayKey(), JSON.stringify(entries));
+  }, [entries, hydrated]);
+
+  const totals = useMemo(() => {
+    const t = { carbs: 0, protein: 0, fat: 0 };
+    for (const e of entries) t[e.macro] += e.grams;
+    return t;
+  }, [entries]);
+
+  const totalKcal = Math.round(
+    totals.carbs * MACRO_KCAL.carbs +
+      totals.protein * MACRO_KCAL.protein +
+      totals.fat * MACRO_KCAL.fat,
+  );
+  const pct = Math.min(100, (totalKcal / DAILY_GOAL_KCAL) * 100);
+
+  function addPreset(presetId: string) {
+    const p = FOOD_PRESETS.find((x) => x.id === presetId);
+    if (!p) return;
+    const now = Date.now();
+    const additions: BubbleEntry[] = [];
+    (["carbs", "protein", "fat"] as Macro[]).forEach((m, i) => {
+      const grams = p[m];
+      if (grams > 0) {
+        additions.push({
+          id: `${now}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+          macro: m,
+          grams,
+          foodName: p.name,
+          addedAt: now,
+        });
+      }
+    });
+    setEntries((prev) => [...prev, ...additions]);
+  }
+
+  function removeBubble(id: string) {
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  function reset() {
+    setEntries([]);
+  }
+
+  // Mobile-first: viewport width up to 375 for the bubble field
+  const fieldWidth = 375;
+  const fieldHeight = 380;
+
+  return (
+    <div className="min-h-screen w-full bg-white flex justify-center">
+      <main className="w-full max-w-[375px] flex flex-col">
+        {/* Header */}
+        <header className="px-5 pt-6 pb-3">
+          <div className="flex items-baseline justify-between">
+            <h1 className="text-lg font-semibold text-neutral-900">오늘의 칼로리</h1>
+            <button
+              onClick={reset}
+              className="text-xs text-neutral-400 hover:text-neutral-600"
+            >
+              초기화
+            </button>
+          </div>
+
+          <div className="mt-3 flex items-baseline gap-1">
+            <span className="text-3xl font-bold tabular-nums text-neutral-900">
+              {totalKcal}
+            </span>
+            <span className="text-sm text-neutral-400">/ {DAILY_GOAL_KCAL} kcal</span>
+          </div>
+
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100">
+            <motion.div
+              className="h-full rounded-full"
+              style={{
+                background: `linear-gradient(90deg, ${MACRO_COLORS.carbs}, ${MACRO_COLORS.protein}, ${MACRO_COLORS.fat})`,
+              }}
+              initial={false}
+              animate={{ width: `${pct}%` }}
+              transition={{ type: "spring", stiffness: 120, damping: 20 }}
+            />
+          </div>
+
+          <div className="mt-3 flex justify-between text-[11px] text-neutral-500">
+            {(["carbs", "protein", "fat"] as Macro[]).map((m) => (
+              <div key={m} className="flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ background: MACRO_COLORS[m] }}
+                />
+                <span>
+                  {MACRO_LABELS[m]} {Math.round(totals[m])}g
+                </span>
+              </div>
+            ))}
+          </div>
+        </header>
+
+        {/* Bubble field */}
+        <section className="relative mx-auto" style={{ width: fieldWidth }}>
+          <div
+            className="rounded-2xl bg-gradient-to-b from-neutral-50 to-white border border-neutral-100"
+            style={{ width: fieldWidth, height: fieldHeight }}
+          >
+            <AnimatePresence>
+              <BubbleField
+                bubbles={entries}
+                width={fieldWidth}
+                height={fieldHeight}
+                onRemove={removeBubble}
+              />
+            </AnimatePresence>
+          </div>
+          {entries.length === 0 && (
+            <p className="absolute inset-0 flex items-center justify-center text-sm text-neutral-300 pointer-events-none">
+              음식을 추가해 보세요
+            </p>
+          )}
+        </section>
+
+        {/* Input panel */}
+        <section className="px-5 py-4">
+          <h2 className="text-xs font-medium text-neutral-500 mb-2">음식 추가</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {FOOD_PRESETS.map((p) => {
+              const kcal = Math.round(caloriesFor(p));
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => addPreset(p.id)}
+                  className="flex flex-col items-start rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left transition active:scale-95 hover:border-neutral-300 hover:bg-neutral-50"
+                >
+                  <span className="text-sm font-medium text-neutral-900">{p.name}</span>
+                  <span className="text-[11px] text-neutral-400">{kcal} kcal</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-[11px] text-neutral-400 text-center">
+            버블을 탭하면 제거됩니다
+          </p>
+        </section>
+      </main>
+    </div>
+  );
 }
