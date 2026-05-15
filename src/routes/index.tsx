@@ -7,6 +7,7 @@ import { EmptyStomach } from "@/components/EmptyStomach";
 import {
   caloriesFor,
   DAILY_GOAL_KCAL,
+  displayName,
   FOOD_PRESETS,
   MACRO_COLORS,
   MACRO_KCAL,
