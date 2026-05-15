@@ -206,7 +206,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
               opacity: [1, 0.95, 0.95, 1, 1, 0],
             }}
             transition={{
-              duration: 1.8,
+              duration: 1.1,
               times: [0, 0.25, 0.5, 0.75, 0.92, 1],
               ease: "easeInOut",
             }}
