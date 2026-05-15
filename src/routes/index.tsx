@@ -155,9 +155,13 @@ function Index() {
   }
 
   function reset() {
-    const confirmed = window.confirm("오늘 기록을 모두 초기화할까요?");
-    if (!confirmed) return;
+    setOpenResetDialog(true);
+  }
+
+  function confirmReset() {
     setEntries([]);
+    setOpenResetDialog(false);
+    toast("오늘 기록을 지웠어요");
   }
 
   // Mobile-first: viewport width up to 375 for the bubble field
