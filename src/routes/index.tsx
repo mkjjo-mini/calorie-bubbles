@@ -198,6 +198,7 @@ function Index() {
         {/* Bubble field — bowl/stomach container */}
         <section className="relative mx-auto px-5" style={{ width: fieldWidth }}>
           <motion.div
+            ref={bowlRef}
             animate={bowlControls}
             className={`relative overflow-hidden shadow-inner ${
               stage === 3 ? "animate-pulse" : ""
