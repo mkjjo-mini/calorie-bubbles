@@ -85,6 +85,7 @@ function Index() {
   }, [entries.length, stage, bowlControls]);
 
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bowlRef = useRef<HTMLDivElement>(null);
 
   function addPreset(presetId: string) {
     const p = FOOD_PRESETS.find((x) => x.id === presetId);
