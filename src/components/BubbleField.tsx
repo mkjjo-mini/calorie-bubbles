@@ -68,13 +68,12 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
   }, [bubbles, width]);
 
   function squish(b: Body, axis: "vertical" | "horizontal") {
-    // vertical impact (floor or top→bottom hit) → flatten Y, widen X
     if (axis === "vertical") {
-      b.sx = 1.3;
-      b.sy = 0.7;
+      b.sx = 1.12;
+      b.sy = 0.88;
     } else {
-      b.sx = 0.7;
-      b.sy = 1.3;
+      b.sx = 0.88;
+      b.sy = 1.12;
     }
     b.vsx = 0;
     b.vsy = 0;
@@ -86,7 +85,7 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
     const gravity = 0.18;
     const damping = 0.992;
     const restitution = 0.5;
-    const SQUISH_THRESHOLD = 1.4; // min impact velocity to trigger squish
+    const SQUISH_THRESHOLD = 3.5; // only significant impacts trigger squish
 
     for (const b of bodies) {
       b.vy += gravity;
@@ -163,10 +162,18 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
       }
     }
 
-    // soft-body spring back to (1,1) — emulates spring(stiffness:300, damping:10)
-    const K = 0.35;
-    const D = 0.18;
+    // spring back to (1,1) — emulates spring(stiffness:180, damping:20) at ~60fps
+    const K = 0.05; // stiffness * dt^2
+    const D = 0.33; // damping * dt
     for (const b of bodies) {
+      // skip if already at rest (avoid useless work)
+      if (Math.abs(b.sx - 1) < 0.001 && Math.abs(b.sy - 1) < 0.001 && Math.abs(b.vsx) < 0.001 && Math.abs(b.vsy) < 0.001) {
+        b.sx = 1;
+        b.sy = 1;
+        b.vsx = 0;
+        b.vsy = 0;
+        continue;
+      }
       b.vsx += (1 - b.sx) * K;
       b.vsx *= 1 - D;
       b.sx += b.vsx;
@@ -179,16 +186,13 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
   });
 
   const bodies = Array.from(bodiesRef.current.values());
-  const t = tRef.current;
 
   return (
     <div className="relative overflow-hidden" style={{ width, height }}>
       {bodies.map((b) => {
         const color = MACRO_COLORS[b.macro];
-        // gentle wobble like a water balloon
-        const wobble = Math.sin(t * 0.005 + b.wobblePhase) * 0.035;
-        const dispX = b.sx + wobble;
-        const dispY = b.sy - wobble;
+        const dispX = b.sx;
+        const dispY = b.sy;
         return (
           <motion.button
             key={b.id}
