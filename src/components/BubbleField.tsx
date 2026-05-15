@@ -157,17 +157,18 @@ export function BubbleField({
               background: `radial-gradient(circle at 30% 30%, ${color}ee, ${color}aa 60%, ${color}66)`,
               boxShadow: `inset -6px -8px 14px ${color}55, 0 4px 10px ${color}44`,
               border: `1px solid ${color}`,
-              color: "#1a1a1a",
             }}
             aria-label={`${n.foodName} 제거`}
           >
-            {r > 28 && (
-              <span className="text-[10px] font-medium opacity-80 leading-tight px-1">
-                {MACRO_LABELS[n.macro]}
+            {r >= 20 && (
+              <span
+                className="text-[13px] font-semibold leading-tight px-1 break-words max-w-full"
+                style={{
+                  color: n.macro === "carbs" ? "#333" : "#fff",
+                }}
+              >
+                {n.foodName}
               </span>
-            )}
-            {r > 24 && (
-              <span className="text-xs font-bold leading-tight">{n.grams}g</span>
             )}
           </motion.button>
         );
