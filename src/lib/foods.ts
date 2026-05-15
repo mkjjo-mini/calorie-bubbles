@@ -45,6 +45,32 @@ export const MACRO_KCAL: Record<Macro, number> = {
 
 export const DAILY_GOAL_KCAL = 2000;
 
+export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
+
+export const MEAL_SLOT_META: Record<MealSlot, { emoji: string; label: string }> = {
+  breakfast: { emoji: "🌅", label: "아침" },
+  lunch: { emoji: "🌞", label: "점심" },
+  dinner: { emoji: "🌙", label: "저녁" },
+  snack: { emoji: "🍪", label: "간식" },
+};
+
+export const MEAL_SLOT_ORDER: MealSlot[] = ["breakfast", "lunch", "dinner", "snack"];
+
+/** Infer meal slot from timestamp using Asia/Seoul hour. */
+export function inferMealSlot(addedAt: number): MealSlot {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: "Asia/Seoul",
+    }).format(new Date(addedAt)),
+  ) % 24;
+  if (hour >= 5 && hour <= 10) return "breakfast";
+  if (hour >= 11 && hour <= 13) return "lunch";
+  if (hour >= 17 && hour <= 20) return "dinner";
+  return "snack";
+}
+
 export interface BubbleEntry {
   id: string;
   foodLogId: string;
@@ -52,6 +78,7 @@ export interface BubbleEntry {
   grams: number;
   foodName: string;
   addedAt: number;
+  meal_slot?: MealSlot;
 }
 
 export function caloriesFor(entry: { carbs: number; protein: number; fat: number }) {
