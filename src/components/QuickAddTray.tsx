@@ -168,25 +168,25 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
             animate={{
               x: [
                 f.from.x,
-                f.from.x + f.curveDir * f.curveAmt * 0.5,
-                f.from.x + f.curveDir * f.curveAmt,
-                f.to.x + f.curveDir * f.curveAmt * 0.3,
+                f.from.x + f.curveDir * f.curveAmt * 0.6,
+                f.from.x + f.curveDir * f.curveAmt * 0.3,
+                f.to.x,
                 f.to.x,
               ],
               y: [
                 f.from.y,
-                f.from.y - 80,
-                Math.min(f.from.y, f.to.y) - 140,
-                f.to.y - 60,
+                (f.from.y + f.to.y) / 2,
+                f.to.y + 40,
+                f.to.y,
                 f.to.y,
               ],
-              scale: [0.6, 1.0, 1.05, 1.0, 0.85],
+              scale: [0.6, 1.0, 1.0, 1.1, 1.6],
               opacity: [1, 1, 1, 1, 0],
             }}
             transition={{
-              duration: 1.6,
-              times: [0, 0.2, 0.55, 0.85, 1],
-              ease: ["easeOut", "easeInOut", "easeInOut", "easeIn"],
+              duration: 1.4,
+              times: [0, 0.35, 0.7, 0.88, 1],
+              ease: ["easeOut", "easeInOut", "easeOut", "easeOut"],
             }}
             onAnimationComplete={() => {
               onAdd(f.entries);
