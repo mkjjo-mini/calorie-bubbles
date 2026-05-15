@@ -46,9 +46,9 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
         map.set(b.id, {
           id: b.id,
           x: Math.random() * (width - r * 2) + r,
-          y: -r - Math.random() * 80,
+          y: height + r + Math.random() * 40, // spawn just below container
           vx: (Math.random() - 0.5) * 1.2,
-          vy: 0.5 + Math.random() * 0.5,
+          vy: -2 - Math.random() * 1.2, // initial upward velocity
           r,
           macro: b.macro,
           grams: b.grams,
@@ -56,7 +56,7 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
         });
       }
     }
-  }, [bubbles, width]);
+  }, [bubbles, width, height]);
 
   useAnimationFrame(() => {
     const bodies = Array.from(bodiesRef.current.values());
