@@ -9,7 +9,7 @@ import {
   type Simulation,
   type SimulationNodeDatum,
 } from "d3-force";
-import { MACRO_COLORS, MACRO_LABELS, type BubbleEntry } from "@/lib/foods";
+import { MACRO_COLORS, type BubbleEntry } from "@/lib/foods";
 
 interface Props {
   bubbles: BubbleEntry[];
