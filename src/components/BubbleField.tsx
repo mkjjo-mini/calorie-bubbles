@@ -19,61 +19,80 @@ interface Body {
   macro: BubbleEntry["macro"];
   grams: number;
   foodName: string;
+  // soft-body squish
+  sx: number;
+  sy: number;
+  vsx: number;
+  vsy: number;
+  wobblePhase: number;
 }
 
-// Map grams to radius
 function radiusFor(grams: number) {
-  // sqrt scale so area is proportional to grams
   return Math.max(18, Math.min(70, 10 + Math.sqrt(grams) * 6));
 }
 
 export function BubbleField({ bubbles, width, height, onRemove }: Props) {
   const bodiesRef = useRef<Map<string, Body>>(new Map());
+  const tRef = useRef(0);
   const [, setTick] = useState(0);
 
   // sync bodies with incoming bubbles
   useEffect(() => {
     const map = bodiesRef.current;
     const incomingIds = new Set(bubbles.map((b) => b.id));
-    // remove gone
     for (const id of map.keys()) {
       if (!incomingIds.has(id)) map.delete(id);
     }
-    // add new
     for (const b of bubbles) {
       if (!map.has(b.id)) {
         const r = radiusFor(b.grams);
+        // spawn from top center with slight horizontal jitter
         map.set(b.id, {
           id: b.id,
-          x: Math.random() * (width - r * 2) + r,
-          y: height + r + Math.random() * 40, // spawn just below container
-          vx: (Math.random() - 0.5) * 1.2,
-          vy: -2 - Math.random() * 1.2, // initial upward velocity
+          x: width / 2 + (Math.random() - 0.5) * 30,
+          y: -r - Math.random() * 30,
+          vx: (Math.random() - 0.5) * 1.4,
+          vy: 1.2 + Math.random() * 0.6,
           r,
           macro: b.macro,
           grams: b.grams,
           foodName: b.foodName,
+          sx: 1,
+          sy: 1,
+          vsx: 0,
+          vsy: 0,
+          wobblePhase: Math.random() * Math.PI * 2,
         });
       }
     }
-  }, [bubbles, width, height]);
+  }, [bubbles, width]);
 
-  useAnimationFrame(() => {
+  function squish(b: Body, axis: "vertical" | "horizontal") {
+    // vertical impact (floor or top→bottom hit) → flatten Y, widen X
+    if (axis === "vertical") {
+      b.sx = 1.3;
+      b.sy = 0.7;
+    } else {
+      b.sx = 0.7;
+      b.sy = 1.3;
+    }
+    b.vsx = 0;
+    b.vsy = 0;
+  }
+
+  useAnimationFrame((time) => {
+    tRef.current = time;
     const bodies = Array.from(bodiesRef.current.values());
-    const buoyancy = -0.06; // floats up
-    const damping = 0.99;
-    const restitution = 0.55;
+    const gravity = 0.18;
+    const damping = 0.992;
+    const restitution = 0.5;
+    const SQUISH_THRESHOLD = 1.4; // min impact velocity to trigger squish
 
     for (const b of bodies) {
-      b.vy += buoyancy;
+      b.vy += gravity;
       b.vx *= damping;
-      b.vy *= damping;
-      // gentle drift
-      b.vx += (Math.random() - 0.5) * 0.05;
-      b.vy += (Math.random() - 0.5) * 0.04;
-
-      // terminal upward velocity so they don't fly
-      if (b.vy < -2.2) b.vy = -2.2;
+      // tiny horizontal jitter for life-like motion
+      b.vx += (Math.random() - 0.5) * 0.03;
 
       b.x += b.vx;
       b.y += b.vy;
@@ -81,28 +100,30 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
       // walls
       if (b.x - b.r < 0) {
         b.x = b.r;
+        if (b.vx < -SQUISH_THRESHOLD) squish(b, "horizontal");
         b.vx = -b.vx * restitution;
       }
       if (b.x + b.r > width) {
         b.x = width - b.r;
+        if (b.vx > SQUISH_THRESHOLD) squish(b, "horizontal");
         b.vx = -b.vx * restitution;
       }
-      // top - bubbles gather at top
-      if (b.y - b.r < 0) {
-        b.y = b.r;
+      // floor — bubbles stack here
+      if (b.y + b.r > height) {
+        b.y = height - b.r;
+        if (b.vy > SQUISH_THRESHOLD) squish(b, "vertical");
         b.vy = -b.vy * restitution;
+        // friction when on floor
+        b.vx *= 0.9;
       }
-      // bottom - if somehow they sink, push back up gently
-      if (b.y - b.r > height) {
-        // off-screen below: keep rising
-      }
-      if (b.y + b.r > height + 200) {
-        b.y = height + 200 - b.r;
-        b.vy = -1;
+      // soft ceiling
+      if (b.y - b.r < -120) {
+        b.y = -120 + b.r;
+        b.vy = Math.abs(b.vy);
       }
     }
 
-    // collisions
+    // bubble-bubble collisions
     for (let i = 0; i < bodies.length; i++) {
       for (let j = i + 1; j < bodies.length; j++) {
         const a = bodies[i];
@@ -124,42 +145,67 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
           const dvy = b.vy - a.vy;
           const vn = dvx * nx + dvy * ny;
           if (vn < 0) {
-            const impulse = -(1 + 0.7) * vn / 2;
+            const impulse = (-(1 + 0.55) * vn) / 2;
             a.vx -= impulse * nx;
             a.vy -= impulse * ny;
             b.vx += impulse * nx;
             b.vy += impulse * ny;
+
+            // squish along normal direction
+            const impactStrength = -vn;
+            if (impactStrength > SQUISH_THRESHOLD) {
+              const axis = Math.abs(ny) > Math.abs(nx) ? "vertical" : "horizontal";
+              squish(a, axis);
+              squish(b, axis);
+            }
           }
         }
       }
+    }
+
+    // soft-body spring back to (1,1) — emulates spring(stiffness:300, damping:10)
+    const K = 0.35;
+    const D = 0.18;
+    for (const b of bodies) {
+      b.vsx += (1 - b.sx) * K;
+      b.vsx *= 1 - D;
+      b.sx += b.vsx;
+      b.vsy += (1 - b.sy) * K;
+      b.vsy *= 1 - D;
+      b.sy += b.vsy;
     }
 
     setTick((t) => (t + 1) % 1000000);
   });
 
   const bodies = Array.from(bodiesRef.current.values());
+  const t = tRef.current;
 
   return (
-    <div
-      className="relative overflow-hidden"
-      style={{ width, height }}
-    >
+    <div className="relative overflow-hidden" style={{ width, height }}>
       {bodies.map((b) => {
         const color = MACRO_COLORS[b.macro];
+        // gentle wobble like a water balloon
+        const wobble = Math.sin(t * 0.005 + b.wobblePhase) * 0.035;
+        const dispX = b.sx + wobble;
+        const dispY = b.sy - wobble;
         return (
           <motion.button
             key={b.id}
             onClick={() => onRemove(b.id)}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 18 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             className="absolute flex flex-col items-center justify-center rounded-full text-center shadow-lg"
             style={{
               width: b.r * 2,
               height: b.r * 2,
               left: b.x - b.r,
               top: b.y - b.r,
+              transform: `scale(${dispX}, ${dispY})`,
+              transformOrigin: "center",
+              willChange: "transform",
               background: `radial-gradient(circle at 30% 30%, ${color}ee, ${color}aa 60%, ${color}66)`,
               boxShadow: `inset -6px -8px 14px ${color}55, 0 6px 16px ${color}55`,
               border: `1px solid ${color}`,
