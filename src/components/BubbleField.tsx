@@ -7,6 +7,7 @@ interface Props {
   width: number;
   height: number;
   onRemove: (id: string) => void;
+  compression?: number;
 }
 
 interface Body {
