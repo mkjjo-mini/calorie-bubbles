@@ -95,6 +95,7 @@ function Index() {
 
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bowlRef = useRef<HTMLDivElement>(null);
+  const [openResetDialog, setOpenResetDialog] = useState(false);
 
   function addPreset(presetId: string) {
     const p = FOOD_PRESETS.find((x) => x.id === presetId);
