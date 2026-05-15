@@ -19,6 +19,9 @@ export const FOOD_PRESETS: FoodPreset[] = [
   { id: "avocado", name: "아보카도 1/2", carbs: 9, protein: 2, fat: 15 },
   { id: "tofu", name: "두부 1/2모", carbs: 3, protein: 12, fat: 7 },
   { id: "americano", name: "아메리카노", carbs: 2, protein: 0, fat: 0 },
+  { id: "sweetpotato", name: "고구마 1개", carbs: 30, protein: 2, fat: 0 },
+  { id: "samgyeopsal", name: "삼겹살 200g", carbs: 0, protein: 40, fat: 60 },
+  { id: "proteinbar", name: "프로틴바 1개", carbs: 20, protein: 20, fat: 5 },
 ];
 
 export const MACRO_COLORS: Record<Macro, string> = {

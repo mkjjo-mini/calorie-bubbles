@@ -46,9 +46,9 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
         map.set(b.id, {
           id: b.id,
           x: Math.random() * (width - r * 2) + r,
-          y: -r - Math.random() * 80,
+          y: height + r + Math.random() * 40, // spawn just below container
           vx: (Math.random() - 0.5) * 1.2,
-          vy: 0.5 + Math.random() * 0.5,
+          vy: -2 - Math.random() * 1.2, // initial upward velocity
           r,
           macro: b.macro,
           grams: b.grams,
@@ -56,20 +56,24 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
         });
       }
     }
-  }, [bubbles, width]);
+  }, [bubbles, width, height]);
 
   useAnimationFrame(() => {
     const bodies = Array.from(bodiesRef.current.values());
-    const gravity = 0.08;
-    const damping = 0.985;
-    const restitution = 0.65;
+    const buoyancy = -0.06; // floats up
+    const damping = 0.99;
+    const restitution = 0.55;
 
     for (const b of bodies) {
-      b.vy += gravity;
+      b.vy += buoyancy;
       b.vx *= damping;
       b.vy *= damping;
       // gentle drift
-      b.vx += (Math.random() - 0.5) * 0.04;
+      b.vx += (Math.random() - 0.5) * 0.05;
+      b.vy += (Math.random() - 0.5) * 0.04;
+
+      // terminal upward velocity so they don't fly
+      if (b.vy < -2.2) b.vy = -2.2;
 
       b.x += b.vx;
       b.y += b.vy;
@@ -83,15 +87,18 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
         b.x = width - b.r;
         b.vx = -b.vx * restitution;
       }
-      if (b.y + b.r > height) {
-        b.y = height - b.r;
+      // top - bubbles gather at top
+      if (b.y - b.r < 0) {
+        b.y = b.r;
         b.vy = -b.vy * restitution;
-        // little nudge so they don't perfectly settle
-        if (Math.abs(b.vy) < 1.2) b.vy -= 0.6 + Math.random() * 0.6;
       }
-      if (b.y - b.r < -200) {
-        b.y = -200 + b.r;
-        b.vy = 0;
+      // bottom - if somehow they sink, push back up gently
+      if (b.y - b.r > height) {
+        // off-screen below: keep rising
+      }
+      if (b.y + b.r > height + 200) {
+        b.y = height + 200 - b.r;
+        b.vy = -1;
       }
     }
 
