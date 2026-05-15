@@ -32,7 +32,7 @@ function radiusFor(grams: number) {
   return Math.max(18, Math.min(70, 10 + Math.sqrt(grams) * 6));
 }
 
-export function BubbleField({ bubbles, width, height, onRemove }: Props) {
+export function BubbleField({ bubbles, width, height, onRemove, compression = 1 }: Props) {
   const bodiesRef = useRef<Map<string, Body>>(new Map());
   const tRef = useRef(0);
   const [, setTick] = useState(0);
