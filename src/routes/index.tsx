@@ -40,6 +40,7 @@ function loadEntries(): BubbleEntry[] {
 function Index() {
   const [entries, setEntries] = useState<BubbleEntry[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setEntries(loadEntries());
