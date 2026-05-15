@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { toast } from "sonner";
 import { BubbleField } from "@/components/BubbleField";
