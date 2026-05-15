@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { toast } from "sonner";
 import { BubbleField } from "@/components/BubbleField";
 import { Wave } from "@/components/Wave";
 import { EmptyStomach } from "@/components/EmptyStomach";
 import {
-  caloriesFor,
+  
   DAILY_GOAL_KCAL,
   displayName,
   FOOD_PRESETS,
@@ -40,6 +40,7 @@ function loadEntries(): BubbleEntry[] {
 function Index() {
   const [entries, setEntries] = useState<BubbleEntry[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setEntries(loadEntries());
@@ -264,21 +265,12 @@ function Index() {
         {/* Input panel */}
         <section className="px-5 py-4">
           <h2 className="text-xs font-medium text-neutral-500 mb-2">음식 추가</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {FOOD_PRESETS.map((p) => {
-              const kcal = Math.round(caloriesFor(p));
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => addPreset(p.id)}
-                  className="flex flex-col items-start rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left transition active:scale-95 hover:border-neutral-300 hover:bg-neutral-50"
-                >
-                  <span className="text-sm font-medium text-neutral-900">{p.name}</span>
-                  <span className="text-[11px] text-neutral-400">{kcal} kcal</span>
-                </button>
-              );
-            })}
-          </div>
+          <button
+            onClick={() => navigate({ to: "/add" })}
+            className="w-full h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold transition active:scale-95 hover:bg-neutral-800"
+          >
+            음식 추가 +
+          </button>
           <p className="mt-3 text-[11px] text-neutral-400 text-center">
             버블을 탭하면 제거됩니다
           </p>
