@@ -309,8 +309,6 @@ function Index() {
           </AnimatePresence>
         </section>
 
-        <MealLogList entries={entries} onChangeSlot={changeSlot} />
-
         {/* Quick add tray */}
         <QuickAddTray
           bubbleContainerRef={bowlRef}
@@ -321,6 +319,8 @@ function Index() {
             setEntries((prev) => [...prev, ...stamped]);
           }}
         />
+
+        <MealLogList entries={entries} onChangeSlot={changeSlot} />
 
         <p className="px-5 pt-2 pb-6 text-[11px] text-neutral-400 text-center">
           버블을 탭하면 제거됩니다
