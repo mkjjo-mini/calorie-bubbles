@@ -80,16 +80,20 @@ function Index() {
     prevLenRef.current = entries.length;
   }, [entries.length, stage, bowlControls]);
 
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   function addPreset(presetId: string) {
     const p = FOOD_PRESETS.find((x) => x.id === presetId);
     if (!p) return;
     const now = Date.now();
+    const foodLogId = `${now}-${Math.random().toString(36).slice(2, 9)}`;
     const additions: BubbleEntry[] = [];
     (["carbs", "protein", "fat"] as Macro[]).forEach((m, i) => {
       const grams = p[m];
       if (grams > 0) {
         additions.push({
-          id: `${now}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+          id: `${foodLogId}-${i}`,
+          foodLogId,
           macro: m,
           grams,
           foodName: displayName(p.name),
@@ -101,7 +105,33 @@ function Index() {
   }
 
   function removeBubble(id: string) {
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+    const target = entries.find((e) => e.id === id);
+    if (!target) return;
+    const logId = target.foodLogId;
+    const removed = entries.filter((e) => e.foodLogId === logId);
+    setEntries((prev) => prev.filter((e) => e.foodLogId !== logId));
+
+    // cancel previous undo
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      toast.dismiss("undo-delete");
+    }
+
+    toast("삭제했어요", {
+      id: "undo-delete",
+      duration: 5000,
+      action: {
+        label: "되돌리기",
+        onClick: () => {
+          setEntries((prev) => [...prev, ...removed]);
+          if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+        },
+      },
+    });
+
+    undoTimerRef.current = setTimeout(() => {
+      undoTimerRef.current = null;
+    }, 5000);
   }
 
   function reset() {
