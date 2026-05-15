@@ -192,8 +192,8 @@ export function BubbleField({ bubbles, width, height, onRemove, compression = 1 
     <div className="relative overflow-hidden" style={{ width, height }}>
       {bodies.map((b) => {
         const color = MACRO_COLORS[b.macro];
-        const dispX = b.sx;
-        const dispY = b.sy;
+        const dispX = b.sx * compression;
+        const dispY = b.sy * compression;
         return (
           <motion.button
             key={b.id}
