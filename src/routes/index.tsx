@@ -162,14 +162,31 @@ function Index() {
 
         {/* Bubble field — bowl/stomach container */}
         <section className="relative mx-auto px-5" style={{ width: fieldWidth }}>
-          <div
-            className="relative overflow-hidden border border-neutral-200/70 shadow-inner"
+          <motion.div
+            animate={bowlControls}
+            className={`relative overflow-hidden shadow-inner ${
+              stage === 3 ? "animate-pulse" : ""
+            }`}
             style={{
               width: fieldWidth - 40,
               height: fieldHeight,
               borderRadius: "44% 44% 38% 38% / 18% 18% 50% 50%",
               background:
                 "radial-gradient(120% 80% at 50% 10%, #f8fafc 0%, #eef2f6 60%, #e5eaf0 100%)",
+              border: `${stage >= 2 ? 2 : 1}px solid ${
+                stage >= 3
+                  ? "rgba(255,107,107,0.85)"
+                  : stage === 2
+                    ? "rgba(255,193,7,0.85)"
+                    : "rgba(229,231,235,0.7)"
+              }`,
+              boxShadow:
+                stage >= 3
+                  ? "0 0 24px rgba(255,107,107,0.45), inset 0 4px 12px rgba(0,0,0,0.04)"
+                  : stage === 2
+                    ? "0 0 22px rgba(255,193,7,0.45), inset 0 4px 12px rgba(0,0,0,0.04)"
+                    : "inset 0 4px 12px rgba(0,0,0,0.04)",
+              transition: "border-color 0.4s, box-shadow 0.4s",
             }}
           >
             <AnimatePresence>
@@ -178,6 +195,7 @@ function Index() {
                 width={fieldWidth - 40}
                 height={fieldHeight}
                 onRemove={removeBubble}
+                compression={compression}
               />
             </AnimatePresence>
 
@@ -190,7 +208,24 @@ function Index() {
                 <EmptyStomach />
               </div>
             )}
-          </div>
+          </motion.div>
+
+          {/* Stage warning */}
+          <AnimatePresence>
+            {stage >= 3 && (
+              <motion.p
+                key={stage}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                className={`mt-2 text-center text-xs font-medium ${
+                  stage === 4 ? "text-red-500" : "text-amber-600"
+                }`}
+              >
+                {stage === 4 ? "배 터질 것 같아요 😵" : "목표를 초과했어요"}
+              </motion.p>
+            )}
+          </AnimatePresence>
         </section>
 
 
