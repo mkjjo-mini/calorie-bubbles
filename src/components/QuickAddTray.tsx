@@ -108,14 +108,27 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
       x: chipRect.left + chipRect.width / 2,
       y: chipRect.top + chipRect.height / 2,
     };
-    const to = {
-      x: containerRect.left + containerRect.width / 2,
-      y: containerRect.top + 24,
-    };
+    // aim toward bowl center, but stop where line crosses bowl boundary
+    const cx = containerRect.left + containerRect.width / 2;
+    const cy = containerRect.top + containerRect.height / 2;
+    const dx = cx - from.x;
+    const dy = cy - from.y;
+    const tx = dx > 0
+      ? (containerRect.right - from.x) / dx
+      : dx < 0
+        ? (containerRect.left - from.x) / dx
+        : Infinity;
+    const ty = dy > 0
+      ? (containerRect.bottom - from.y) / dy
+      : dy < 0
+        ? (containerRect.top - from.y) / dy
+        : Infinity;
+    const t = Math.max(0, Math.min(tx, ty, 1));
+    const to = { x: from.x + dx * t, y: from.y + dy * t };
     const id = ++flyIdRef.current;
     const color = MACRO_COLORS[dominantMacro(p)];
     const curveDir: 1 | -1 = Math.random() > 0.5 ? 1 : -1;
-    const curveAmt = 80 + Math.random() * 80; // 80-160px lateral curve
+    const curveAmt = 60 + Math.random() * 80; // 60-140px lateral curve
     setFlying((prev) => [...prev, { id, from, to, curveDir, curveAmt, color, entries }]);
   }
 
@@ -168,25 +181,23 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
             animate={{
               x: [
                 f.from.x,
-                f.from.x + f.curveDir * f.curveAmt * 0.6,
-                f.from.x + f.curveDir * f.curveAmt * 0.3,
+                f.from.x + f.curveDir * f.curveAmt,
                 f.to.x,
                 f.to.x,
               ],
               y: [
                 f.from.y,
                 (f.from.y + f.to.y) / 2,
-                f.to.y + 40,
                 f.to.y,
                 f.to.y,
               ],
-              scale: [0.6, 1.0, 1.0, 1.1, 1.6],
-              opacity: [1, 1, 1, 1, 0],
+              scale: [0.6, 1.0, 1.1, 1.6],
+              opacity: [1, 1, 1, 0],
             }}
             transition={{
-              duration: 1.4,
-              times: [0, 0.35, 0.7, 0.88, 1],
-              ease: ["easeOut", "easeInOut", "easeOut", "easeOut"],
+              duration: 1.2,
+              times: [0, 0.5, 0.85, 1],
+              ease: ["easeOut", "easeInOut", "easeOut"],
             }}
             onAnimationComplete={() => {
               onAdd(f.entries);
