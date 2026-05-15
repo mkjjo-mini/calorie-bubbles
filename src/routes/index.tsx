@@ -109,6 +109,8 @@ function Index() {
     setEntries((prev) => [...prev, ...additions]);
   }
 
+  const lastToastIdRef = useRef<string | number | null>(null);
+
   function removeBubble(id: string) {
     const target = entries.find((e) => e.id === id);
     if (!target) return;
@@ -117,25 +119,28 @@ function Index() {
     setEntries((prev) => prev.filter((e) => e.foodLogId !== logId));
 
     // cancel previous undo
-    if (undoTimerRef.current) {
-      clearTimeout(undoTimerRef.current);
-      toast.dismiss("undo-delete");
-    }
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    if (lastToastIdRef.current != null) toast.dismiss(lastToastIdRef.current);
+
+    const tid = `undo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    lastToastIdRef.current = tid;
 
     toast("삭제했어요", {
-      id: "undo-delete",
+      id: tid,
       duration: 5000,
       action: {
         label: "되돌리기",
         onClick: () => {
           setEntries((prev) => [...prev, ...removed]);
           if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+          lastToastIdRef.current = null;
         },
       },
     });
 
     undoTimerRef.current = setTimeout(() => {
       undoTimerRef.current = null;
+      lastToastIdRef.current = null;
     }, 5000);
   }
 
