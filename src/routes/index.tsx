@@ -176,7 +176,6 @@ function Index() {
           </div>
         </section>
 
-        </section>
 
         {/* Input panel */}
         <section className="px-5 py-4">
