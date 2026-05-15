@@ -66,6 +66,8 @@ interface FlyState {
   id: number;
   from: { x: number; y: number };
   to: { x: number; y: number };
+  curveDir: 1 | -1;
+  curveAmt: number;
   color: string;
   entries: BubbleEntry[];
 }
@@ -112,7 +114,9 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     };
     const id = ++flyIdRef.current;
     const color = MACRO_COLORS[dominantMacro(p)];
-    setFlying((prev) => [...prev, { id, from, to, color, entries }]);
+    const curveDir: 1 | -1 = Math.random() > 0.5 ? 1 : -1;
+    const curveAmt = 80 + Math.random() * 80; // 80-160px lateral curve
+    setFlying((prev) => [...prev, { id, from, to, curveDir, curveAmt, color, entries }]);
   }
 
   function handleTap(p: FoodPreset, chipEl: HTMLElement) {
