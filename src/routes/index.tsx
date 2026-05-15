@@ -17,15 +17,18 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { MealLogList } from "@/components/MealLogList";
 import {
   DAILY_GOAL_KCAL,
   displayName,
   FOOD_PRESETS,
+  inferMealSlot,
   MACRO_COLORS,
   MACRO_KCAL,
   MACRO_LABELS,
   type BubbleEntry,
   type Macro,
+  type MealSlot,
 } from "@/lib/foods";
 
 export const Route = createFileRoute("/")({
@@ -54,8 +57,20 @@ function Index() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setEntries(loadEntries());
+    const loaded = loadEntries();
+    let mutated = false;
+    const backfilled = loaded.map((e) => {
+      if (!e.meal_slot) {
+        mutated = true;
+        return { ...e, meal_slot: inferMealSlot(e.addedAt) };
+      }
+      return e;
+    });
+    setEntries(backfilled);
     setHydrated(true);
+    if (mutated) {
+      localStorage.setItem(todayKey(), JSON.stringify(backfilled));
+    }
   }, []);
 
   useEffect(() => {
@@ -103,6 +118,7 @@ function Index() {
     const now = Date.now();
     const foodLogId = `${now}-${Math.random().toString(36).slice(2, 9)}`;
     const additions: BubbleEntry[] = [];
+    const slot = inferMealSlot(now);
     (["carbs", "protein", "fat"] as Macro[]).forEach((m, i) => {
       const grams = p[m];
       if (grams > 0) {
@@ -113,10 +129,17 @@ function Index() {
           grams,
           foodName: displayName(p.name),
           addedAt: now,
+          meal_slot: slot,
         });
       }
     });
     setEntries((prev) => [...prev, ...additions]);
+  }
+
+  function changeSlot(foodLogId: string, slot: MealSlot) {
+    setEntries((prev) =>
+      prev.map((e) => (e.foodLogId === foodLogId ? { ...e, meal_slot: slot } : e)),
+    );
   }
 
   const lastToastIdRef = useRef<string | number | null>(null);
@@ -286,11 +309,17 @@ function Index() {
           </AnimatePresence>
         </section>
 
+        <MealLogList entries={entries} onChangeSlot={changeSlot} />
 
         {/* Quick add tray */}
         <QuickAddTray
           bubbleContainerRef={bowlRef}
-          onAdd={(items) => setEntries((prev) => [...prev, ...items])}
+          onAdd={(items) => {
+            const stamped = items.map((it) =>
+              it.meal_slot ? it : { ...it, meal_slot: inferMealSlot(it.addedAt) },
+            );
+            setEntries((prev) => [...prev, ...stamped]);
+          }}
         />
 
         <p className="px-5 pt-2 pb-6 text-[11px] text-neutral-400 text-center">
