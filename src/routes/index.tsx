@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { BubbleField } from "@/components/BubbleField";
+import { Wave } from "@/components/Wave";
+import { EmptyStomach } from "@/components/EmptyStomach";
 import {
   caloriesFor,
   DAILY_GOAL_KCAL,
