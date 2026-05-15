@@ -85,7 +85,7 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
     const gravity = 0.18;
     const damping = 0.992;
     const restitution = 0.5;
-    const SQUISH_THRESHOLD = 1.4; // min impact velocity to trigger squish
+    const SQUISH_THRESHOLD = 3.5; // only significant impacts trigger squish
 
     for (const b of bodies) {
       b.vy += gravity;
