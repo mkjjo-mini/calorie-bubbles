@@ -60,7 +60,24 @@ function Index() {
       totals.protein * MACRO_KCAL.protein +
       totals.fat * MACRO_KCAL.fat,
   );
-  const pct = Math.min(100, (totalKcal / DAILY_GOAL_KCAL) * 100);
+  const rawPct = (totalKcal / DAILY_GOAL_KCAL) * 100;
+  const pct = Math.min(100, rawPct);
+
+  // Stage by progress: 1 (<50%), 2 (50-100%), 3 (100-120%), 4 (120%+)
+  const stage = rawPct >= 120 ? 4 : rawPct >= 100 ? 3 : rawPct >= 50 ? 2 : 1;
+  const compression = stage === 4 ? 0.7 : stage === 3 ? 0.78 : 1;
+
+  const bowlControls = useAnimationControls();
+  const prevLenRef = useRef(0);
+  useEffect(() => {
+    if (entries.length > prevLenRef.current && stage === 4) {
+      bowlControls.start({
+        x: [0, -4, 4, -4, 4, 0],
+        transition: { duration: 0.3 },
+      });
+    }
+    prevLenRef.current = entries.length;
+  }, [entries.length, stage, bowlControls]);
 
   function addPreset(presetId: string) {
     const p = FOOD_PRESETS.find((x) => x.id === presetId);
