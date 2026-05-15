@@ -57,8 +57,20 @@ function Index() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setEntries(loadEntries());
+    const loaded = loadEntries();
+    let mutated = false;
+    const backfilled = loaded.map((e) => {
+      if (!e.meal_slot) {
+        mutated = true;
+        return { ...e, meal_slot: inferMealSlot(e.addedAt) };
+      }
+      return e;
+    });
+    setEntries(backfilled);
     setHydrated(true);
+    if (mutated) {
+      localStorage.setItem(todayKey(), JSON.stringify(backfilled));
+    }
   }, []);
 
   useEffect(() => {
