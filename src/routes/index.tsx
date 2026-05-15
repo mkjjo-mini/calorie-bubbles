@@ -145,6 +145,8 @@ function Index() {
   }
 
   function reset() {
+    const confirmed = window.confirm("오늘 기록을 모두 초기화할까요?");
+    if (!confirmed) return;
     setEntries([]);
   }
 
