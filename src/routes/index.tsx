@@ -8,7 +8,16 @@ import { EmptyStomach } from "@/components/EmptyStomach";
 import { QuickAddTray } from "@/components/QuickAddTray";
 import { Plus } from "lucide-react";
 import {
-  
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import {
   DAILY_GOAL_KCAL,
   displayName,
   FOOD_PRESETS,
