@@ -266,20 +266,26 @@ function Index() {
         </section>
 
 
-        {/* Input panel */}
-        <section className="px-5 py-4">
-          <h2 className="text-xs font-medium text-neutral-500 mb-2">음식 추가</h2>
-          <button
-            onClick={() => navigate({ to: "/add" })}
-            className="w-full h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold transition active:scale-95 hover:bg-neutral-800"
-          >
-            음식 추가 +
-          </button>
-          <p className="mt-3 text-[11px] text-neutral-400 text-center">
-            버블을 탭하면 제거됩니다
-          </p>
-        </section>
+        {/* Quick add tray */}
+        <QuickAddTray
+          bubbleContainerRef={bowlRef}
+          onAdd={(items) => setEntries((prev) => [...prev, ...items])}
+        />
+
+        <p className="px-5 pt-2 pb-6 text-[11px] text-neutral-400 text-center">
+          버블을 탭하면 제거됩니다
+        </p>
       </main>
+
+      {/* FAB */}
+      <button
+        onClick={() => navigate({ to: "/add" })}
+        aria-label="음식 추가"
+        className="fixed z-40 flex items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg active:scale-95 transition hover:bg-neutral-800"
+        style={{ bottom: 24, right: 24, width: 56, height: 56 }}
+      >
+        <Plus className="w-6 h-6" />
+      </button>
     </div>
   );
 }
