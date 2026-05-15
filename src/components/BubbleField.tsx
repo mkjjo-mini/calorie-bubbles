@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { motion, useAnimationFrame } from "framer-motion";
+import { motion } from "framer-motion";
+import {
+  forceCenter,
+  forceCollide,
+  forceSimulation,
+  forceX,
+  forceY,
+  type Simulation,
+  type SimulationNodeDatum,
+} from "d3-force";
 import { MACRO_COLORS, MACRO_LABELS, type BubbleEntry } from "@/lib/foods";
 
 interface Props {
@@ -10,221 +19,155 @@ interface Props {
   compression?: number;
 }
 
-interface Body {
+interface Node extends SimulationNodeDatum {
   id: string;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  r: number;
+  r: number; // base radius
   macro: BubbleEntry["macro"];
   grams: number;
   foodName: string;
-  // soft-body squish
-  sx: number;
-  sy: number;
-  vsx: number;
-  vsy: number;
-  wobblePhase: number;
 }
 
 function radiusFor(grams: number) {
   return Math.max(18, Math.min(70, 10 + Math.sqrt(grams) * 6));
 }
 
-export function BubbleField({ bubbles, width, height, onRemove, compression = 1 }: Props) {
-  const bodiesRef = useRef<Map<string, Body>>(new Map());
-  const tRef = useRef(0);
+export function BubbleField({
+  bubbles,
+  width,
+  height,
+  onRemove,
+  compression = 1,
+}: Props) {
+  const nodesRef = useRef<Map<string, Node>>(new Map());
+  const simRef = useRef<Simulation<Node, undefined> | null>(null);
   const [, setTick] = useState(0);
 
-  // sync bodies with incoming bubbles
+  const cx = width / 2;
+  const cy = height / 2;
+
+  // Initialize simulation once
   useEffect(() => {
-    const map = bodiesRef.current;
+    const sim = forceSimulation<Node>([])
+      .alphaDecay(0.02)
+      .velocityDecay(0.35)
+      .force("center", forceCenter(cx, cy).strength(0.05))
+      .force("x", forceX(cx).strength(0.04))
+      .force("y", forceY(cy).strength(0.04))
+      .force(
+        "collide",
+        forceCollide<Node>((d) => (d.r + 2) * compression)
+          .strength(1)
+          .iterations(4),
+      )
+      .on("tick", () => {
+        // clamp to rectangular bounds (container has overflow:hidden)
+        for (const n of nodesRef.current.values()) {
+          const r = (n.r + 1) * compression;
+          if (n.x! < r) n.x = r;
+          if (n.x! > width - r) n.x = width - r;
+          if (n.y! < r) n.y = r;
+          if (n.y! > height - r) n.y = height - r;
+        }
+        setTick((t) => (t + 1) % 1000000);
+      });
+    simRef.current = sim;
+    return () => {
+      sim.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Update collision force when compression or container size changes
+  useEffect(() => {
+    const sim = simRef.current;
+    if (!sim) return;
+    sim
+      .force("center", forceCenter(cx, cy).strength(0.05))
+      .force("x", forceX(cx).strength(0.04))
+      .force("y", forceY(cy).strength(0.04))
+      .force(
+        "collide",
+        forceCollide<Node>((d) => (d.r + 2) * compression)
+          .strength(1)
+          .iterations(4),
+      );
+    sim.alpha(0.6).restart();
+  }, [cx, cy, compression]);
+
+  // Sync nodes with bubbles prop
+  useEffect(() => {
+    const map = nodesRef.current;
     const incomingIds = new Set(bubbles.map((b) => b.id));
-    for (const id of map.keys()) {
-      if (!incomingIds.has(id)) map.delete(id);
+
+    // remove gone
+    let changed = false;
+    for (const id of Array.from(map.keys())) {
+      if (!incomingIds.has(id)) {
+        map.delete(id);
+        changed = true;
+      }
     }
+    // add new — drop them in from above near center to "push" existing aside
     for (const b of bubbles) {
       if (!map.has(b.id)) {
         const r = radiusFor(b.grams);
-        // spawn from top center with slight horizontal jitter
         map.set(b.id, {
           id: b.id,
-          x: width / 2 + (Math.random() - 0.5) * 30,
-          y: -r - Math.random() * 30,
-          vx: (Math.random() - 0.5) * 1.4,
-          vy: 1.2 + Math.random() * 0.6,
           r,
           macro: b.macro,
           grams: b.grams,
           foodName: b.foodName,
-          sx: 1,
-          sy: 1,
-          vsx: 0,
-          vsy: 0,
-          wobblePhase: Math.random() * Math.PI * 2,
+          x: cx + (Math.random() - 0.5) * 20,
+          y: 10 + Math.random() * 20,
+          vx: 0,
+          vy: 2,
         });
-      }
-    }
-  }, [bubbles, width]);
-
-  function squish(b: Body, axis: "vertical" | "horizontal") {
-    if (axis === "vertical") {
-      b.sx = 1.12;
-      b.sy = 0.88;
-    } else {
-      b.sx = 0.88;
-      b.sy = 1.12;
-    }
-    b.vsx = 0;
-    b.vsy = 0;
-  }
-
-  useAnimationFrame((time) => {
-    tRef.current = time;
-    const bodies = Array.from(bodiesRef.current.values());
-    const gravity = 0.18;
-    const damping = 0.992;
-    const restitution = 0.5;
-    const SQUISH_THRESHOLD = 3.5; // only significant impacts trigger squish
-
-    for (const b of bodies) {
-      b.vy += gravity;
-      b.vx *= damping;
-      // tiny horizontal jitter for life-like motion
-      b.vx += (Math.random() - 0.5) * 0.03;
-
-      b.x += b.vx;
-      b.y += b.vy;
-
-      // walls
-      if (b.x - b.r < 0) {
-        b.x = b.r;
-        if (b.vx < -SQUISH_THRESHOLD) squish(b, "horizontal");
-        b.vx = -b.vx * restitution;
-      }
-      if (b.x + b.r > width) {
-        b.x = width - b.r;
-        if (b.vx > SQUISH_THRESHOLD) squish(b, "horizontal");
-        b.vx = -b.vx * restitution;
-      }
-      // floor — bubbles stack here
-      if (b.y + b.r > height) {
-        b.y = height - b.r;
-        if (b.vy > SQUISH_THRESHOLD) squish(b, "vertical");
-        b.vy = -b.vy * restitution;
-        // friction when on floor
-        b.vx *= 0.9;
-      }
-      // soft ceiling
-      if (b.y - b.r < -120) {
-        b.y = -120 + b.r;
-        b.vy = Math.abs(b.vy);
+        changed = true;
       }
     }
 
-    // bubble-bubble collisions
-    for (let i = 0; i < bodies.length; i++) {
-      for (let j = i + 1; j < bodies.length; j++) {
-        const a = bodies[i];
-        const b = bodies[j];
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const dist = Math.hypot(dx, dy) || 0.0001;
-        const min = a.r + b.r;
-        if (dist < min) {
-          const nx = dx / dist;
-          const ny = dy / dist;
-          const overlap = (min - dist) / 2;
-          a.x -= nx * overlap;
-          a.y -= ny * overlap;
-          b.x += nx * overlap;
-          b.y += ny * overlap;
+    const sim = simRef.current;
+    if (!sim || !changed) return;
+    sim.nodes(Array.from(map.values()));
+    sim.alpha(0.9).restart();
+  }, [bubbles, cx]);
 
-          const dvx = b.vx - a.vx;
-          const dvy = b.vy - a.vy;
-          const vn = dvx * nx + dvy * ny;
-          if (vn < 0) {
-            const impulse = (-(1 + 0.55) * vn) / 2;
-            a.vx -= impulse * nx;
-            a.vy -= impulse * ny;
-            b.vx += impulse * nx;
-            b.vy += impulse * ny;
-
-            // squish along normal direction
-            const impactStrength = -vn;
-            if (impactStrength > SQUISH_THRESHOLD) {
-              const axis = Math.abs(ny) > Math.abs(nx) ? "vertical" : "horizontal";
-              squish(a, axis);
-              squish(b, axis);
-            }
-          }
-        }
-      }
-    }
-
-    // spring back to (1,1) — emulates spring(stiffness:180, damping:20) at ~60fps
-    const K = 0.05; // stiffness * dt^2
-    const D = 0.33; // damping * dt
-    for (const b of bodies) {
-      // skip if already at rest (avoid useless work)
-      if (Math.abs(b.sx - 1) < 0.001 && Math.abs(b.sy - 1) < 0.001 && Math.abs(b.vsx) < 0.001 && Math.abs(b.vsy) < 0.001) {
-        b.sx = 1;
-        b.sy = 1;
-        b.vsx = 0;
-        b.vsy = 0;
-        continue;
-      }
-      b.vsx += (1 - b.sx) * K;
-      b.vsx *= 1 - D;
-      b.sx += b.vsx;
-      b.vsy += (1 - b.sy) * K;
-      b.vsy *= 1 - D;
-      b.sy += b.vsy;
-    }
-
-    setTick((t) => (t + 1) % 1000000);
-  });
-
-  const bodies = Array.from(bodiesRef.current.values());
+  const nodes = Array.from(nodesRef.current.values());
 
   return (
     <div className="relative overflow-hidden" style={{ width, height }}>
-      {bodies.map((b) => {
-        const color = MACRO_COLORS[b.macro];
-        const dispX = b.sx * compression;
-        const dispY = b.sy * compression;
+      {nodes.map((n) => {
+        const color = MACRO_COLORS[n.macro];
+        const r = n.r * compression;
         return (
           <motion.button
-            key={b.id}
-            onClick={() => onRemove(b.id)}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            key={n.id}
+            onClick={() => onRemove(n.id)}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 22 }}
             className="absolute flex flex-col items-center justify-center rounded-full text-center shadow-lg"
             style={{
-              width: b.r * 2,
-              height: b.r * 2,
-              left: b.x - b.r,
-              top: b.y - b.r,
-              transform: `scale(${dispX}, ${dispY})`,
-              transformOrigin: "center",
-              willChange: "transform",
+              width: r * 2,
+              height: r * 2,
+              left: (n.x ?? 0) - r,
+              top: (n.y ?? 0) - r,
+              willChange: "transform, left, top",
               background: `radial-gradient(circle at 30% 30%, ${color}ee, ${color}aa 60%, ${color}66)`,
-              boxShadow: `inset -6px -8px 14px ${color}55, 0 6px 16px ${color}55`,
+              boxShadow: `inset -6px -8px 14px ${color}55, 0 4px 10px ${color}44`,
               border: `1px solid ${color}`,
               color: "#1a1a1a",
             }}
-            aria-label={`${b.foodName} 제거`}
+            aria-label={`${n.foodName} 제거`}
           >
-            {b.r > 28 && (
+            {r > 28 && (
               <span className="text-[10px] font-medium opacity-80 leading-tight px-1">
-                {MACRO_LABELS[b.macro]}
+                {MACRO_LABELS[n.macro]}
               </span>
             )}
-            {b.r > 24 && (
-              <span className="text-xs font-bold leading-tight">{b.grams}g</span>
+            {r > 24 && (
+              <span className="text-xs font-bold leading-tight">{n.grams}g</span>
             )}
           </motion.button>
         );
