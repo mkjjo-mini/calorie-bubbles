@@ -108,27 +108,34 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
       x: chipRect.left + chipRect.width / 2,
       y: chipRect.top + chipRect.height / 2,
     };
-    // aim toward bowl center, but stop where line crosses bowl boundary
+    // pop where chip meets the nearest bowl edge (straight line from chip to bowl center)
     const cx = containerRect.left + containerRect.width / 2;
     const cy = containerRect.top + containerRect.height / 2;
     const dx = cx - from.x;
     const dy = cy - from.y;
-    const tx = dx > 0
-      ? (containerRect.right - from.x) / dx
-      : dx < 0
-        ? (containerRect.left - from.x) / dx
-        : Infinity;
-    const ty = dy > 0
-      ? (containerRect.bottom - from.y) / dy
-      : dy < 0
-        ? (containerRect.top - from.y) / dy
-        : Infinity;
-    const t = Math.max(0, Math.min(tx, ty, 1));
+    // approximate bowl as ellipse inscribed in containerRect
+    const rx = containerRect.width / 2;
+    const ry = containerRect.height / 2;
+    // ray from (from) toward (cx,cy): point on ellipse where it enters
+    // parametrize as P = from + t*(d), find smallest t>0 where ((P.x-cx)/rx)^2 + ((P.y-cy)/ry)^2 = 1
+    const ox = from.x - cx;
+    const oy = from.y - cy;
+    const A = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+    const B = 2 * ((ox * dx) / (rx * rx) + (oy * dy) / (ry * ry));
+    const C = (ox * ox) / (rx * rx) + (oy * oy) / (ry * ry) - 1;
+    const disc = B * B - 4 * A * C;
+    let t = 1;
+    if (disc >= 0 && A > 0) {
+      const t1 = (-B - Math.sqrt(disc)) / (2 * A);
+      const t2 = (-B + Math.sqrt(disc)) / (2 * A);
+      const candidates = [t1, t2].filter((v) => v > 0 && v <= 1);
+      if (candidates.length) t = Math.min(...candidates);
+    }
     const to = { x: from.x + dx * t, y: from.y + dy * t };
     const id = ++flyIdRef.current;
     const color = MACRO_COLORS[dominantMacro(p)];
     const curveDir: 1 | -1 = Math.random() > 0.5 ? 1 : -1;
-    const curveAmt = 60 + Math.random() * 80; // 60-140px lateral curve
+    const curveAmt = 40 + Math.random() * 60;
     setFlying((prev) => [...prev, { id, from, to, curveDir, curveAmt, color, entries }]);
   }
 
