@@ -309,11 +309,17 @@ function Index() {
           </AnimatePresence>
         </section>
 
+        <MealLogList entries={entries} onChangeSlot={changeSlot} />
 
         {/* Quick add tray */}
         <QuickAddTray
           bubbleContainerRef={bowlRef}
-          onAdd={(items) => setEntries((prev) => [...prev, ...items])}
+          onAdd={(items) => {
+            const stamped = items.map((it) =>
+              it.meal_slot ? it : { ...it, meal_slot: inferMealSlot(it.addedAt) },
+            );
+            setEntries((prev) => [...prev, ...stamped]);
+          }}
         />
 
         <p className="px-5 pt-2 pb-6 text-[11px] text-neutral-400 text-center">
