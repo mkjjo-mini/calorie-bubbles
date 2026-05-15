@@ -162,10 +162,18 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
       }
     }
 
-    // soft-body spring back to (1,1) — emulates spring(stiffness:300, damping:10)
-    const K = 0.35;
-    const D = 0.18;
+    // spring back to (1,1) — emulates spring(stiffness:180, damping:20) at ~60fps
+    const K = 0.05; // stiffness * dt^2
+    const D = 0.33; // damping * dt
     for (const b of bodies) {
+      // skip if already at rest (avoid useless work)
+      if (Math.abs(b.sx - 1) < 0.001 && Math.abs(b.sy - 1) < 0.001 && Math.abs(b.vsx) < 0.001 && Math.abs(b.vsy) < 0.001) {
+        b.sx = 1;
+        b.sy = 1;
+        b.vsx = 0;
+        b.vsy = 0;
+        continue;
+      }
       b.vsx += (1 - b.sx) * K;
       b.vsx *= 1 - D;
       b.sx += b.vsx;
