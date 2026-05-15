@@ -143,26 +143,39 @@ function Index() {
           </div>
         </header>
 
-        {/* Bubble field */}
-        <section className="relative mx-auto" style={{ width: fieldWidth }}>
+        {/* Bubble field — bowl/stomach container */}
+        <section className="relative mx-auto px-5" style={{ width: fieldWidth }}>
           <div
-            className="rounded-2xl bg-gradient-to-b from-neutral-50 to-white border border-neutral-100"
-            style={{ width: fieldWidth, height: fieldHeight }}
+            className="relative overflow-hidden border border-neutral-200/70 shadow-inner"
+            style={{
+              width: fieldWidth - 40,
+              height: fieldHeight,
+              borderRadius: "44% 44% 38% 38% / 18% 18% 50% 50%",
+              background:
+                "radial-gradient(120% 80% at 50% 10%, #f8fafc 0%, #eef2f6 60%, #e5eaf0 100%)",
+            }}
           >
             <AnimatePresence>
               <BubbleField
                 bubbles={entries}
-                width={fieldWidth}
+                width={fieldWidth - 40}
                 height={fieldHeight}
                 onRemove={removeBubble}
               />
             </AnimatePresence>
+
+            {/* Wave at bottom of bowl */}
+            <Wave width={fieldWidth - 40} height={48} />
+
+            {/* Empty state */}
+            {entries.length === 0 && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <EmptyStomach />
+              </div>
+            )}
           </div>
-          {entries.length === 0 && (
-            <p className="absolute inset-0 flex items-center justify-center text-sm text-neutral-300 pointer-events-none">
-              음식을 추가해 보세요
-            </p>
-          )}
+        </section>
+
         </section>
 
         {/* Input panel */}
