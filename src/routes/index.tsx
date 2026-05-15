@@ -144,21 +144,19 @@ function Index() {
 
   const lastToastIdRef = useRef<string | number | null>(null);
 
-  function removeBubble(id: string) {
-    const target = entries.find((e) => e.id === id);
-    if (!target) return;
-    const logId = target.foodLogId;
+  function removeByLogId(logId: string, label?: string) {
     const removed = entries.filter((e) => e.foodLogId === logId);
+    if (removed.length === 0) return;
     setEntries((prev) => prev.filter((e) => e.foodLogId !== logId));
 
-    // cancel previous undo
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     if (lastToastIdRef.current != null) toast.dismiss(lastToastIdRef.current);
 
     const tid = `undo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     lastToastIdRef.current = tid;
+    const name = label ?? removed[0]?.foodName ?? "음식";
 
-    toast(`${removed[0]?.foodName ?? "음식"} 삭제`, {
+    toast(`${name} 삭제했어요`, {
       id: tid,
       duration: 5000,
       action: {
@@ -175,6 +173,19 @@ function Index() {
       undoTimerRef.current = null;
       lastToastIdRef.current = null;
     }, 5000);
+  }
+
+  function removeBubble(id: string) {
+    const target = entries.find((e) => e.id === id);
+    if (!target) return;
+    removeByLogId(target.foodLogId);
+  }
+
+  function replaceQty(logId: string, newEntries: BubbleEntry[]) {
+    setEntries((prev) => {
+      const without = prev.filter((e) => e.foodLogId !== logId);
+      return [...without, ...newEntries];
+    });
   }
 
   function reset() {
@@ -320,7 +331,12 @@ function Index() {
           }}
         />
 
-        <MealLogList entries={entries} onChangeSlot={changeSlot} />
+        <MealLogList
+          entries={entries}
+          onChangeSlot={changeSlot}
+          onDelete={(logId) => removeByLogId(logId)}
+          onReplaceQty={replaceQty}
+        />
 
         <p className="px-5 pt-2 pb-6 text-[11px] text-neutral-400 text-center">
           버블을 탭하면 제거됩니다
