@@ -277,7 +277,7 @@ function Chip({
       onPointerLeave={cancel}
       onPointerCancel={cancel}
       onContextMenu={(e) => e.preventDefault()}
-      className="shrink-0 rounded-2xl border border-neutral-200 bg-white text-left active:scale-95 transition"
+      className="shrink-0 rounded-[20px] border border-neutral-200 bg-white text-left active:scale-95 transition"
       style={{
         padding: "10px 14px",
         minWidth: 88,
