@@ -17,15 +17,18 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { MealLogList } from "@/components/MealLogList";
 import {
   DAILY_GOAL_KCAL,
   displayName,
   FOOD_PRESETS,
+  inferMealSlot,
   MACRO_COLORS,
   MACRO_KCAL,
   MACRO_LABELS,
   type BubbleEntry,
   type Macro,
+  type MealSlot,
 } from "@/lib/foods";
 
 export const Route = createFileRoute("/")({
