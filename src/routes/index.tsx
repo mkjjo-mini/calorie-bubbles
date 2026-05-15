@@ -118,6 +118,7 @@ function Index() {
     const now = Date.now();
     const foodLogId = `${now}-${Math.random().toString(36).slice(2, 9)}`;
     const additions: BubbleEntry[] = [];
+    const slot = inferMealSlot(now);
     (["carbs", "protein", "fat"] as Macro[]).forEach((m, i) => {
       const grams = p[m];
       if (grams > 0) {
@@ -128,10 +129,17 @@ function Index() {
           grams,
           foodName: displayName(p.name),
           addedAt: now,
+          meal_slot: slot,
         });
       }
     });
     setEntries((prev) => [...prev, ...additions]);
+  }
+
+  function changeSlot(foodLogId: string, slot: MealSlot) {
+    setEntries((prev) =>
+      prev.map((e) => (e.foodLogId === foodLogId ? { ...e, meal_slot: slot } : e)),
+    );
   }
 
   const lastToastIdRef = useRef<string | number | null>(null);
