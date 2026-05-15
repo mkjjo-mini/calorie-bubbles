@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { BubbleField } from "@/components/BubbleField";
 import { Wave } from "@/components/Wave";
 import { EmptyStomach } from "@/components/EmptyStomach";
