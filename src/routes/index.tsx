@@ -8,7 +8,16 @@ import { EmptyStomach } from "@/components/EmptyStomach";
 import { QuickAddTray } from "@/components/QuickAddTray";
 import { Plus } from "lucide-react";
 import {
-  
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import {
   DAILY_GOAL_KCAL,
   displayName,
   FOOD_PRESETS,
@@ -86,6 +95,7 @@ function Index() {
 
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bowlRef = useRef<HTMLDivElement>(null);
+  const [openResetDialog, setOpenResetDialog] = useState(false);
 
   function addPreset(presetId: string) {
     const p = FOOD_PRESETS.find((x) => x.id === presetId);
@@ -145,9 +155,13 @@ function Index() {
   }
 
   function reset() {
-    const confirmed = window.confirm("오늘 기록을 모두 초기화할까요?");
-    if (!confirmed) return;
+    setOpenResetDialog(true);
+  }
+
+  function confirmReset() {
     setEntries([]);
+    setOpenResetDialog(false);
+    toast("오늘 기록을 지웠어요");
   }
 
   // Mobile-first: viewport width up to 375 for the bubble field
@@ -282,6 +296,28 @@ function Index() {
         <p className="px-5 pt-2 pb-6 text-[11px] text-neutral-400 text-center">
           버블을 탭하면 제거됩니다
         </p>
+
+        <AlertDialog open={openResetDialog} onOpenChange={setOpenResetDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>오늘 기록을 모두 지울까요?</AlertDialogTitle>
+              <AlertDialogDescription className="text-[13px] text-neutral-500">
+                지운 기록은 되돌릴 수 없어요.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setOpenResetDialog(false)}>
+                취소
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmReset}
+                className="bg-red-600 text-white hover:bg-red-700"
+              >
+                지우기
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
 
       {/* FAB */}
