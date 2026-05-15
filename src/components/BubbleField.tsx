@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   forceCenter,
   forceCollide,
@@ -136,43 +136,45 @@ export function BubbleField({
 
   return (
     <div className="relative overflow-hidden" style={{ width, height }}>
-      {nodes.map((n) => {
-        const color = MACRO_COLORS[n.macro];
-        const r = n.r * compression;
-        return (
-          <motion.button
-            key={n.id}
-            onClick={() => onRemove(n.id)}
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 22 }}
-            className="absolute flex flex-col items-center justify-center rounded-full text-center shadow-lg"
-            style={{
-              width: r * 2,
-              height: r * 2,
-              left: (n.x ?? 0) - r,
-              top: (n.y ?? 0) - r,
-              willChange: "transform, left, top",
-              background: `radial-gradient(circle at 30% 30%, ${color}ee, ${color}aa 60%, ${color}66)`,
-              boxShadow: `inset -6px -8px 14px ${color}55, 0 4px 10px ${color}44`,
-              border: `1px solid ${color}`,
-            }}
-            aria-label={`${n.foodName} 제거`}
-          >
-            {r >= 20 && (
-              <span
-                className="text-[13px] font-semibold leading-tight px-1 break-words max-w-full"
-                style={{
-                  color: n.macro === "carbs" ? "#333" : "#fff",
-                }}
-              >
-                {n.foodName}
-              </span>
-            )}
-          </motion.button>
-        );
-      })}
+      <AnimatePresence>
+        {nodes.map((n) => {
+          const color = MACRO_COLORS[n.macro];
+          const r = n.r * compression;
+          return (
+            <motion.button
+              key={n.id}
+              onClick={() => onRemove(n.id)}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0 }}
+              transition={{ duration: 0.3 }}
+              className="absolute flex flex-col items-center justify-center rounded-full text-center shadow-lg"
+              style={{
+                width: r * 2,
+                height: r * 2,
+                left: (n.x ?? 0) - r,
+                top: (n.y ?? 0) - r,
+                willChange: "transform, left, top",
+                background: `radial-gradient(circle at 30% 30%, ${color}ee, ${color}aa 60%, ${color}66)`,
+                boxShadow: `inset -6px -8px 14px ${color}55, 0 4px 10px ${color}44`,
+                border: `1px solid ${color}`,
+              }}
+              aria-label={`${n.foodName} 제거`}
+            >
+              {r >= 20 && (
+                <span
+                  className="text-[13px] font-semibold leading-tight px-1 break-words max-w-full"
+                  style={{
+                    color: n.macro === "carbs" ? "#333" : "#fff",
+                  }}
+                >
+                  {n.foodName}
+                </span>
+              )}
+            </motion.button>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }

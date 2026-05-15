@@ -47,6 +47,7 @@ export const DAILY_GOAL_KCAL = 2000;
 
 export interface BubbleEntry {
   id: string;
+  foodLogId: string;
   macro: Macro;
   grams: number;
   foodName: string;
