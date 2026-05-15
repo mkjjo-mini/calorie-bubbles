@@ -186,16 +186,13 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
   });
 
   const bodies = Array.from(bodiesRef.current.values());
-  const t = tRef.current;
 
   return (
     <div className="relative overflow-hidden" style={{ width, height }}>
       {bodies.map((b) => {
         const color = MACRO_COLORS[b.macro];
-        // gentle wobble like a water balloon
-        const wobble = Math.sin(t * 0.005 + b.wobblePhase) * 0.035;
-        const dispX = b.sx + wobble;
-        const dispY = b.sy - wobble;
+        const dispX = b.sx;
+        const dispY = b.sy;
         return (
           <motion.button
             key={b.id}
