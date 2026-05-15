@@ -162,12 +162,21 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
             key={f.id}
             initial={{ x: f.from.x, y: f.from.y, scale: 0.6, opacity: 1 }}
             animate={{
-              x: [f.from.x, (f.from.x + f.to.x) / 2, f.to.x],
-              y: [f.from.y, Math.min(f.from.y, f.to.y) - 80, f.to.y],
-              scale: [0.6, 1.0, 0.9],
-              opacity: [1, 1, 0],
+              x: [f.from.x, f.from.x, (f.from.x + f.to.x) / 2, f.to.x],
+              y: [
+                f.from.y,
+                f.from.y - 16,
+                (f.from.y + f.to.y) / 2 - 60,
+                f.to.y,
+              ],
+              scale: [0.6, 1.0, 1.1, 0.95],
+              opacity: [1, 1, 1, 0],
             }}
-            transition={{ duration: 0.45, ease: [0.34, 1.56, 0.64, 1], times: [0, 0.6, 1] }}
+            transition={{
+              duration: 0.83,
+              times: [0, 0.217, 0.6, 1],
+              ease: ["easeOut", [0.34, 1.56, 0.64, 1], [0.34, 1.56, 0.64, 1]],
+            }}
             onAnimationComplete={() => {
               onAdd(f.entries);
               setFlying((prev) => prev.filter((x) => x.id !== f.id));
