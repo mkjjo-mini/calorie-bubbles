@@ -6,7 +6,7 @@ import { BubbleField } from "@/components/BubbleField";
 import { Wave } from "@/components/Wave";
 import { EmptyStomach } from "@/components/EmptyStomach";
 import {
-  caloriesFor,
+  
   DAILY_GOAL_KCAL,
   displayName,
   FOOD_PRESETS,
