@@ -271,13 +271,13 @@ function Chip({
     <motion.button
       ref={ref}
       animate={echo > 0 ? { scale: [1, 0.92, 1.05, 1] } : { scale: 1 }}
-      transition={{ duration: 0.25 }}
+      transition={{ duration: 0.4 }}
       onPointerDown={start}
       onPointerUp={release}
       onPointerLeave={cancel}
       onPointerCancel={cancel}
       onContextMenu={(e) => e.preventDefault()}
-      className="shrink-0 rounded-full border border-neutral-200 bg-white text-left active:scale-95 transition"
+      className="shrink-0 rounded-2xl border border-neutral-200 bg-white text-left active:scale-95 transition"
       style={{
         padding: "10px 14px",
         minWidth: 88,
