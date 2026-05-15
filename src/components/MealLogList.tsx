@@ -83,8 +83,7 @@ export function MealLogList({ entries, onChangeSlot }: Props) {
     return groups;
   }, [entries]);
 
-  const isEmpty = MEAL_SLOT_ORDER.every((s) => grouped[s].length === 0);
-  if (isEmpty) return null;
+  if (entries.length === 0) return null;
 
   return (
     <>
@@ -95,7 +94,6 @@ export function MealLogList({ entries, onChangeSlot }: Props) {
         >
           {MEAL_SLOT_ORDER.map((slot) => {
             const items = grouped[slot];
-            if (items.length === 0) return null;
             const meta = MEAL_SLOT_META[slot];
             const slotKcal = items.reduce((s, x) => s + x.kcal, 0);
             return (
@@ -106,15 +104,19 @@ export function MealLogList({ entries, onChangeSlot }: Props) {
                   </span>
                   <span className="text-neutral-400 tabular-nums">{slotKcal} kcal</span>
                 </div>
-                <AnimatePresence initial={false}>
-                  {items.map((it) => (
-                    <LogRow
-                      key={it.foodLogId}
-                      item={it}
-                      onLongPress={() => setSheetFor(it)}
-                    />
-                  ))}
-                </AnimatePresence>
+                {items.length === 0 ? (
+                  <div className="px-4 py-2 text-[12px] text-neutral-300">비어 있음</div>
+                ) : (
+                  <AnimatePresence initial={false}>
+                    {items.map((it) => (
+                      <LogRow
+                        key={it.foodLogId}
+                        item={it}
+                        onLongPress={() => setSheetFor(it)}
+                      />
+                    ))}
+                  </AnimatePresence>
+                )}
               </motion.div>
             );
           })}
