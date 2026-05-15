@@ -56,3 +56,8 @@ export interface BubbleEntry {
 export function caloriesFor(entry: { carbs: number; protein: number; fat: number }) {
   return entry.carbs * 4 + entry.protein * 4 + entry.fat * 9;
 }
+
+/** Strip quantity suffix (e.g. "닭가슴살 100g" -> "닭가슴살") */
+export function displayName(fullName: string): string {
+  return fullName.split(" ")[0];
+}

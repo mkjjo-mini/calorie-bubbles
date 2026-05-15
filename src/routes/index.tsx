@@ -7,6 +7,7 @@ import { EmptyStomach } from "@/components/EmptyStomach";
 import {
   caloriesFor,
   DAILY_GOAL_KCAL,
+  displayName,
   FOOD_PRESETS,
   MACRO_COLORS,
   MACRO_KCAL,
@@ -91,7 +92,7 @@ function Index() {
           id: `${now}-${i}-${Math.random().toString(36).slice(2, 7)}`,
           macro: m,
           grams,
-          foodName: p.name,
+          foodName: displayName(p.name),
           addedAt: now,
         });
       }
