@@ -68,13 +68,12 @@ export function BubbleField({ bubbles, width, height, onRemove }: Props) {
   }, [bubbles, width]);
 
   function squish(b: Body, axis: "vertical" | "horizontal") {
-    // vertical impact (floor or top→bottom hit) → flatten Y, widen X
     if (axis === "vertical") {
-      b.sx = 1.3;
-      b.sy = 0.7;
+      b.sx = 1.12;
+      b.sy = 0.88;
     } else {
-      b.sx = 0.7;
-      b.sy = 1.3;
+      b.sx = 0.88;
+      b.sy = 1.12;
     }
     b.vsx = 0;
     b.vsy = 0;
