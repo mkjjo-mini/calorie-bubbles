@@ -150,7 +150,7 @@ export function BubbleField({
       <AnimatePresence>
         {nodes.map((n, i) => {
           const color = MACRO_COLORS[n.macro];
-          const r = n.r;
+          const r = n.r * visualScale;
           // deterministic per-bubble phase so each sways differently
           const phase = (i * 0.37) % 1;
           const swayDur = 3.6 + (i % 5) * 0.4;
