@@ -189,7 +189,16 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
   if (!hydrated) return null;
 
   const favList = favorites
-    .map((id) => PRESETS.find((p) => p.id === id))
+    .map((key) => {
+      // favorites에는 preset id 또는 customFood id/name이 들어올 수 있음 (혼재)
+      const preset = PRESETS.find((p) => p.id === key);
+      if (preset) return preset;
+      const customById = customs.find((c) => c.id === key);
+      if (customById) return customToPreset(customById);
+      const lower = key.toLowerCase();
+      const customByName = customs.find((c) => c.name.toLowerCase() === lower);
+      return customByName ? customToPreset(customByName) : undefined;
+    })
     .filter((x): x is FoodPreset => !!x);
   const recentList = recents
     .slice(0, 10)

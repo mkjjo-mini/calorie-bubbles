@@ -294,6 +294,12 @@ function AddFoodPage() {
         const next = prependCustomFood(customFoods, newCustom);
         persistCustom(next);
         effectiveId = newCustom.id;
+        // API 음식 첫 추가 시 자동 즐겨찾기 (사용자가 별표 토글로 언제든 해제 가능)
+        if (!favorites.includes(newCustom.id) && !favorites.includes(newCustom.name)) {
+          const nextFav = [newCustom.id, ...favorites];
+          setFavorites(nextFav);
+          localStorage.setItem(FAV_KEY, JSON.stringify(nextFav));
+        }
       }
     }
 
