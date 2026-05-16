@@ -150,13 +150,13 @@ function AddFoodPage() {
 
         <div className="px-4 py-4 space-y-6">
           {favList.length > 0 && (
-            <Section title="⭐ 즐겨찾기">
+            <Section title={<><Star className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />즐겨찾기</>}>
               <FoodGrid foods={favList} favorites={favorites} onToggleFav={toggleFav} onPick={setActiveFood} />
             </Section>
           )}
 
           {recentList.length > 0 && (
-            <Section title="🕐 최근 사용">
+            <Section title={<><Clock className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />최근 사용</>}>
               <FoodGrid foods={recentList} favorites={favorites} onToggleFav={toggleFav} onPick={setActiveFood} />
             </Section>
           )}
