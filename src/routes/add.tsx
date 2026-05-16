@@ -329,7 +329,12 @@ function AddFoodPage() {
 
   /* ---------------- add to today ---------------- */
 
-  function handleAdd(food: Pickable, mode: "serving" | "gram", qty: number) {
+  function handleAdd(
+    food: Pickable,
+    mode: "serving" | "gram",
+    qty: number,
+    saveAsBase: boolean = false,
+  ) {
     // API food → customFoods로 자동 저장 (다음 빠른 추가 트레이·검색에 노출되도록)
     let effectiveId = food.id;
     if (food.source === "api") {
@@ -397,15 +402,47 @@ function AddFoodPage() {
     localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
     setRecents(nextRecent);
 
+    // saveAsBase: customFood의 기준 단위 자체를 이 양으로 갱신 (비례 환산)
+    let lastQtyToPersist: { qty: number; mode: "serving" | "gram" } = {
+      qty,
+      mode,
+    };
+    if (saveAsBase) {
+      const target = customFoods.find((c) => c.id === effectiveId);
+      if (target && target.serving_g > 0) {
+        const newServingG = mode === "gram" ? qty : qty * target.serving_g;
+        if (newServingG > 0) {
+          const ratio = newServingG / target.serving_g;
+          const updated: CustomFood = {
+            ...target,
+            serving_g: newServingG,
+            serving_amount: newServingG,
+            serving_unit: "g",
+            kcal: Math.round(target.kcal * ratio),
+            carb_g: Math.round(target.carb_g * ratio * 10) / 10,
+            protein_g: Math.round(target.protein_g * ratio * 10) / 10,
+            fat_g: Math.round(target.fat_g * ratio * 10) / 10,
+            updated_at: Date.now(),
+          };
+          const nextCustoms = customFoods.map((c) =>
+            c.id === updated.id ? updated : c,
+          );
+          persistCustom(nextCustoms);
+          // 새 기준에서 1인분 = newServingG
+          lastQtyToPersist = { qty: 1, mode: "serving" };
+        }
+      }
+    }
+
     // 마지막 사용 수량/모드 기억 (name 키, 트레이 칩이 그대로 사용)
     try {
       const raw = JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}");
-      const next = { ...raw, [food.name]: { qty, mode } };
+      const next = { ...raw, [food.name]: lastQtyToPersist };
       localStorage.setItem(LAST_QTY_KEY, JSON.stringify(next));
     } catch {
       localStorage.setItem(
         LAST_QTY_KEY,
-        JSON.stringify({ [food.name]: { qty, mode } }),
+        JSON.stringify({ [food.name]: lastQtyToPersist }),
       );
     }
 
@@ -672,7 +709,9 @@ function AddFoodPage() {
         <QuantitySheet
           food={activeFood}
           onClose={() => setActiveFood(null)}
-          onAdd={(mode, qty) => handleAdd(activeFood, mode, qty)}
+          onAdd={(mode, qty, saveAsBase) =>
+            handleAdd(activeFood, mode, qty, saveAsBase)
+          }
         />
       )}
 
@@ -923,10 +962,13 @@ function QuantitySheet({
 }: {
   food: Pickable;
   onClose: () => void;
-  onAdd: (mode: "serving" | "gram", qty: number) => void;
+  onAdd: (mode: "serving" | "gram", qty: number, saveAsBase: boolean) => void;
 }) {
   const [mode, setMode] = useState<"serving" | "gram">("serving");
   const [qtyStr, setQtyStr] = useState("1");
+  const [saveAsBase, setSaveAsBase] = useState(false);
+  // customFood 또는 API에서 온 음식만 기준 단위 저장 의미 있음 (preset은 정적이라 제외)
+  const canSaveAsBase = food.source === "custom" || food.source === "api";
   const qty = parseFloat(qtyStr) || 0;
   const mult = mode === "serving" ? qty : qty / food.serving_g;
   const carb = Math.round(food.carb * mult * 10) / 10;
@@ -994,10 +1036,22 @@ function QuantitySheet({
           <div className="mt-1 text-xs text-neutral-500">{kcal} kcal</div>
         </div>
 
+        {canSaveAsBase && (
+          <label className="mt-4 flex items-center gap-2 text-xs text-neutral-600 select-none cursor-pointer">
+            <input
+              type="checkbox"
+              checked={saveAsBase}
+              onChange={(e) => setSaveAsBase(e.target.checked)}
+              className="h-4 w-4 rounded border-neutral-300 accent-neutral-900"
+            />
+            이 양을 기준 단위로 저장
+          </label>
+        )}
+
         <button
           disabled={disabled}
-          onClick={() => onAdd(mode, qty)}
-          className="mt-5 w-full h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold disabled:opacity-40 active:scale-95 transition"
+          onClick={() => onAdd(mode, qty, saveAsBase)}
+          className="mt-3 w-full h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold disabled:opacity-40 active:scale-95 transition"
         >
           추가하기
         </button>
