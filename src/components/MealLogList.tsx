@@ -146,7 +146,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
     if (target === item.slot) return;
     onChangeSlot(item.foodLogId, target);
     const meta = MEAL_SLOT_META[target];
-    toast(`${meta.emoji} ${meta.label}으로 옮겼어요`);
+    toast(`${meta.label}으로 옮겼어요`);
   }
 
   function openActions(item: LogItem) {
