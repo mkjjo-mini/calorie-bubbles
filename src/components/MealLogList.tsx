@@ -188,8 +188,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
                         <DraggableLogRow
                           key={it.foodLogId}
                           item={it}
-                          isAnyDragging={isDragging}
-                          onArmedRelease={() => handleArmedRelease(it)}
+                          onOpenActions={() => openActions(it)}
                         />
                       ))}
                     </AnimatePresence>
