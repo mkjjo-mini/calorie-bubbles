@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   forceCollide,
@@ -8,31 +8,37 @@ import {
   type Simulation,
   type SimulationNodeDatum,
 } from "d3-force";
-import { MACRO_COLORS, type BubbleEntry } from "@/lib/foods";
+import { MACRO_COLORS, MACRO_KCAL, type BubbleEntry } from "@/lib/foods";
 
 interface Props {
   bubbles: BubbleEntry[];
   width: number;
   height: number;
   onRemove: (id: string) => void;
-  /** <1 shrinks the collision radius so bubbles visually overlap (cramped). */
+  /** Daily kcal goal. Bubble area is calibrated so that sum at goal ≈ bowl area. */
+  goalKcal: number;
+  /** <1 shrinks the collision radius so bubbles overlap (cramped, no whitespace). */
   compression?: number;
-  /** 0..1+: how full the bowl is. Drives where bubbles settle vertically. */
-  fillness?: number;
-  /** Multiplier applied to bubble visual radius (puff up to fill bowl). */
-  visualScale?: number;
 }
 
 interface Node extends SimulationNodeDatum {
   id: string;
-  r: number; // base radius
+  r: number; // base radius (visual + base collision)
   macro: BubbleEntry["macro"];
   grams: number;
   foodName: string;
 }
 
-function radiusFor(grams: number) {
-  return Math.max(18, Math.min(70, 10 + Math.sqrt(grams) * 6));
+/**
+ * Radius such that sum of bubble areas at total kcal = goal equals
+ * bowlArea * packingFactor (≈ circle packing efficiency in a rounded container).
+ */
+function radiusForKcal(kcal: number, bowlArea: number, goalKcal: number, maxR: number) {
+  const PACKING = 0.78;
+  const targetArea = bowlArea * PACKING;
+  const area = (kcal / goalKcal) * targetArea;
+  const r = Math.sqrt(Math.max(area, 0) / Math.PI);
+  return Math.max(12, Math.min(maxR, r));
 }
 
 export function BubbleField({
@@ -40,23 +46,20 @@ export function BubbleField({
   width,
   height,
   onRemove,
+  goalKcal,
   compression = 1,
-  fillness = 0,
-  visualScale = 1,
 }: Props) {
   const nodesRef = useRef<Map<string, Node>>(new Map());
   const simRef = useRef<Simulation<Node, undefined> | null>(null);
   const [, setTick] = useState(0);
 
   const cx = width / 2;
-  // Always pull bubbles to the bottom (the "water surface"). Stacking
-  // upward happens naturally via collisions — no mid-bowl anchor.
-  const f = Math.min(1, Math.max(0, fillness));
-  // Always sink to the bottom. Gravity stays strong; "no empty space" when
-  // full is achieved by puffing up the bubbles (visualScale below), not by
-  // floating them mid-bowl.
+  // Always sink to bottom — strong constant gravity.
   const anchorY = height - 4;
-  const yStrength = 0.14;
+  const yStrength = 0.18;
+
+  const bowlArea = width * height;
+  const maxR = height * 0.45;
 
   // Initialize simulation once
   useEffect(() => {
@@ -67,14 +70,13 @@ export function BubbleField({
       .force("y", forceY(anchorY).strength(yStrength))
       .force(
         "collide",
-        forceCollide<Node>((d) => (d.r * visualScale + 2) * compression)
+        forceCollide<Node>((d) => (d.r + 2) * compression)
           .strength(1)
           .iterations(4),
       )
       .on("tick", () => {
-        // clamp to rectangular bounds (container has overflow:hidden)
         for (const n of nodesRef.current.values()) {
-          const r = n.r * visualScale + 1;
+          const r = n.r + 1;
           if (n.x! < r) n.x = r;
           if (n.x! > width - r) n.x = width - r;
           if (n.y! < r) n.y = r;
@@ -89,7 +91,7 @@ export function BubbleField({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update forces when compression / fillness / size change
+  // Update forces when params change
   useEffect(() => {
     const sim = simRef.current;
     if (!sim) return;
@@ -98,19 +100,18 @@ export function BubbleField({
       .force("y", forceY(anchorY).strength(yStrength))
       .force(
         "collide",
-        forceCollide<Node>((d) => (d.r * visualScale + 2) * compression)
-          .strength(compression < 1 ? 0.85 : 1)
-          .iterations(4),
+        forceCollide<Node>((d) => (d.r + 2) * compression)
+          .strength(compression < 1 ? 0.95 : 1)
+          .iterations(5),
       );
     sim.alpha(0.6).restart();
-  }, [cx, anchorY, yStrength, compression, visualScale]);
+  }, [cx, anchorY, yStrength, compression]);
 
   // Sync nodes with bubbles prop
   useEffect(() => {
     const map = nodesRef.current;
     const incomingIds = new Set(bubbles.map((b) => b.id));
 
-    // remove gone
     let changed = false;
     for (const id of Array.from(map.keys())) {
       if (!incomingIds.has(id)) {
@@ -118,10 +119,10 @@ export function BubbleField({
         changed = true;
       }
     }
-    // add new — drop them in from above near center to "push" existing aside
     for (const b of bubbles) {
       if (!map.has(b.id)) {
-        const r = radiusFor(b.grams);
+        const kcal = b.grams * MACRO_KCAL[b.macro];
+        const r = radiusForKcal(kcal, bowlArea, goalKcal, maxR);
         map.set(b.id, {
           id: b.id,
           r,
@@ -141,7 +142,7 @@ export function BubbleField({
     if (!sim || !changed) return;
     sim.nodes(Array.from(map.values()));
     sim.alpha(0.9).restart();
-  }, [bubbles, cx]);
+  }, [bubbles, cx, bowlArea, goalKcal, maxR]);
 
   const nodes = Array.from(nodesRef.current.values());
 
@@ -150,11 +151,10 @@ export function BubbleField({
       <AnimatePresence>
         {nodes.map((n, i) => {
           const color = MACRO_COLORS[n.macro];
-          const r = n.r * visualScale;
-          // deterministic per-bubble phase so each sways differently
+          const r = n.r;
           const phase = (i * 0.37) % 1;
           const swayDur = 3.6 + (i % 5) * 0.4;
-          const swayAmp = 3 + (n.r % 4); // px
+          const swayAmp = 3 + (n.r % 4);
           return (
             <motion.div
               key={n.id}
