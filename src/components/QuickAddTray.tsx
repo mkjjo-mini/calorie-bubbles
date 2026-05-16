@@ -205,12 +205,61 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     fly(p, chipEl, entries);
   }
 
-  function handleSheetAdd(mode: "serving" | "gram", qty: number) {
+  function handleSheetAdd(mode: "serving" | "gram", qty: number, saveAsBase: boolean) {
     if (!sheet) return;
     const entries = buildEntries(sheet, mode, qty);
     if (entries.length > 0) {
       pushRecent(sheet.id);
-      persistLastQty(sheet.name, qty, mode);
+
+      if (saveAsBase) {
+        // customFood의 기준 단위 자체를 이 양으로 변경 (serving_g + kcal + 매크로 비례 환산)
+        try {
+          const fullList = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]");
+          const idx = fullList.findIndex((x: { id: string }) => x.id === sheet.id);
+          if (idx >= 0) {
+            const c = fullList[idx];
+            const oldServingG = c.serving_g;
+            const newServingG = mode === "gram" ? qty : qty * oldServingG;
+            if (oldServingG > 0 && newServingG > 0) {
+              const ratio = newServingG / oldServingG;
+              fullList[idx] = {
+                ...c,
+                serving_g: newServingG,
+                serving_amount: newServingG,
+                serving_unit: "g",
+                kcal: Math.round(c.kcal * ratio),
+                carb_g: Math.round(c.carb_g * ratio * 10) / 10,
+                protein_g: Math.round(c.protein_g * ratio * 10) / 10,
+                fat_g: Math.round(c.fat_g * ratio * 10) / 10,
+                updated_at: Date.now(),
+              };
+              localStorage.setItem(CUSTOM_KEY, JSON.stringify(fullList));
+              setCustoms(
+                fullList.map((x: CustomFoodLite) => ({
+                  id: x.id,
+                  name: x.name,
+                  kcal: x.kcal,
+                  carb_g: x.carb_g,
+                  protein_g: x.protein_g,
+                  fat_g: x.fat_g,
+                  serving_g: x.serving_g,
+                })),
+              );
+              // 기준 단위가 바뀌었으므로 lastQty는 1인분으로 reset
+              persistLastQty(sheet.name, 1, "serving");
+            } else {
+              persistLastQty(sheet.name, qty, mode);
+            }
+          } else {
+            persistLastQty(sheet.name, qty, mode);
+          }
+        } catch {
+          persistLastQty(sheet.name, qty, mode);
+        }
+      } else {
+        persistLastQty(sheet.name, qty, mode);
+      }
+
       onAdd(entries);
     }
     setSheet(null);
@@ -417,8 +466,9 @@ function QuantitySheet({
   food: FoodPreset;
   last?: LastQty;
   onClose: () => void;
-  onAdd: (mode: "serving" | "gram", qty: number) => void;
+  onAdd: (mode: "serving" | "gram", qty: number, saveAsBase: boolean) => void;
 }) {
+  const [saveAsBase, setSaveAsBase] = useState(false);
   const [mode, setMode] = useState<"serving" | "gram">(last?.mode ?? "serving");
   const [qty, setQty] = useState<number>(last?.qty ?? 1);
   const prevModeRef = useRef(mode);
@@ -501,7 +551,17 @@ function QuantitySheet({
           <div className="mt-1 text-xs text-neutral-500">{kcal} kcal</div>
         </div>
 
-        <div className="mt-5 flex gap-2">
+        <label className="mt-4 flex items-center gap-2 text-xs text-neutral-600 select-none cursor-pointer">
+          <input
+            type="checkbox"
+            checked={saveAsBase}
+            onChange={(e) => setSaveAsBase(e.target.checked)}
+            className="h-4 w-4 rounded border-neutral-300 accent-neutral-900"
+          />
+          이 양을 기준 단위로 저장
+        </label>
+
+        <div className="mt-3 flex gap-2">
           <button
             onClick={onClose}
             className="flex-1 h-12 rounded-xl border border-neutral-200 text-sm font-semibold text-neutral-700 active:scale-95"
@@ -510,7 +570,7 @@ function QuantitySheet({
           </button>
           <button
             disabled={qty <= 0}
-            onClick={() => onAdd(mode, qty)}
+            onClick={() => onAdd(mode, qty, saveAsBase)}
             className="flex-[2] h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold disabled:opacity-40 active:scale-95"
           >
             추가하기
