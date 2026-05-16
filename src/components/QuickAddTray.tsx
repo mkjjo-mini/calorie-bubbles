@@ -16,6 +16,19 @@ interface FoodPreset {
 
 const PRESETS = foodPresets as FoodPreset[];
 const FAV_KEY = "favorites";
+const LAST_QTY_KEY = "lastQtyByName";
+
+type LastQty = { qty: number; mode: "serving" | "gram" };
+type LastQtyMap = Record<string, LastQty>;
+
+function formatQty(food: FoodPreset, last: LastQty | undefined): string {
+  if (!last) return "1인분";
+  return last.mode === "gram"
+    ? `${last.qty}g`
+    : last.qty === 1
+      ? "1인분"
+      : `${last.qty}인분`;
+}
 const RECENT_KEY = "recentFoods";
 const CUSTOM_KEY = "customFoods";
 
@@ -105,6 +118,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [recents, setRecents] = useState<string[]>([]);
   const [customs, setCustoms] = useState<CustomFoodLite[]>([]);
+  const [lastQtyMap, setLastQtyMap] = useState<LastQtyMap>({});
   const [hydrated, setHydrated] = useState(false);
   const [sheet, setSheet] = useState<FoodPreset | null>(null);
   const [flying, setFlying] = useState<FlyState[]>([]);
@@ -117,6 +131,11 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
       setCustoms(JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]"));
     } catch {
       setCustoms([]);
+    }
+    try {
+      setLastQtyMap(JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}"));
+    } catch {
+      setLastQtyMap({});
     }
     setHydrated(true);
   }, []);
@@ -169,10 +188,20 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     setFlying((prev) => [...prev, { id, from, to, curveDir, curveAmt, color, entries }]);
   }
 
+  function persistLastQty(name: string, qty: number, mode: "serving" | "gram") {
+    const next = { ...lastQtyMap, [name]: { qty, mode } };
+    setLastQtyMap(next);
+    localStorage.setItem(LAST_QTY_KEY, JSON.stringify(next));
+  }
+
   function handleTap(p: FoodPreset, chipEl: HTMLElement) {
-    const entries = buildEntries(p, "serving", 1);
+    const last = lastQtyMap[p.name];
+    const mode = last?.mode ?? "serving";
+    const qty = last?.qty ?? 1;
+    const entries = buildEntries(p, mode, qty);
     if (entries.length === 0) return;
     pushRecent(p.id);
+    persistLastQty(p.name, qty, mode);
     fly(p, chipEl, entries);
   }
 
@@ -181,6 +210,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     const entries = buildEntries(sheet, mode, qty);
     if (entries.length > 0) {
       pushRecent(sheet.id);
+      persistLastQty(sheet.name, qty, mode);
       onAdd(entries);
     }
     setSheet(null);
@@ -216,10 +246,10 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     <>
       <div className="px-5 pt-3 pb-1 space-y-3">
         {favList.length > 0 && (
-          <ChipRow label={<><Star className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />즐겨찾기</>} foods={favList} onTap={handleTap} onLongPress={setSheet} />
+          <ChipRow label={<><Star className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />즐겨찾기</>} foods={favList} lastQtyMap={lastQtyMap} onTap={handleTap} onLongPress={setSheet} />
         )}
         {recentList.length > 0 && (
-          <ChipRow label={<><Clock className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />최근 사용</>} foods={recentList} onTap={handleTap} onLongPress={setSheet} />
+          <ChipRow label={<><Clock className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />최근 사용</>} foods={recentList} lastQtyMap={lastQtyMap} onTap={handleTap} onLongPress={setSheet} />
         )}
       </div>
 
@@ -279,11 +309,13 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
 function ChipRow({
   label,
   foods,
+  lastQtyMap,
   onTap,
   onLongPress,
 }: {
   label: React.ReactNode;
   foods: FoodPreset[];
+  lastQtyMap: LastQtyMap;
   onTap: (p: FoodPreset, el: HTMLElement) => void;
   onLongPress: (p: FoodPreset) => void;
 }) {
@@ -292,7 +324,13 @@ function ChipRow({
       <div className="text-[11px] font-medium text-neutral-500 mb-1.5 inline-flex items-center gap-1">{label}</div>
       <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-none">
         {foods.map((f) => (
-          <Chip key={f.id} food={f} onTap={onTap} onLongPress={onLongPress} />
+          <Chip
+            key={f.id}
+            food={f}
+            last={lastQtyMap[f.name]}
+            onTap={onTap}
+            onLongPress={onLongPress}
+          />
         ))}
       </div>
     </div>
@@ -301,10 +339,12 @@ function ChipRow({
 
 function Chip({
   food,
+  last,
   onTap,
   onLongPress,
 }: {
   food: FoodPreset;
+  last: LastQty | undefined;
   onTap: (p: FoodPreset, el: HTMLElement) => void;
   onLongPress: (p: FoodPreset) => void;
 }) {
@@ -357,7 +397,9 @@ function Chip({
       <div className="text-[13px] font-bold text-neutral-900 truncate leading-tight">
         {food.name}
       </div>
-      <div className="text-[11px] text-neutral-400 mt-0.5">{food.kcal} kcal</div>
+      <div className="text-[11px] text-neutral-400 mt-0.5">
+        {formatQty(food, last)} · {food.kcal} kcal
+      </div>
     </motion.button>
   );
 }

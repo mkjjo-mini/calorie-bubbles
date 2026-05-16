@@ -58,6 +58,7 @@ const RECENT_KEY = "recentFoods";
 const CUSTOM_KEY = "customFoods";
 const SEARCH_HISTORY_KEY = "searchHistory";
 const SEARCH_HISTORY_MAX = 8;
+const LAST_QTY_KEY = "lastQtyByName"; // name-keyed { qty, mode } map
 
 const CATEGORY_LABELS: { value: FoodCategory; label: string }[] = [
   { value: "rice_grain_noodle", label: "밥·곡류·면 (밥·면·떡·빵)" },
@@ -394,6 +395,19 @@ function AddFoodPage() {
     const nextRecent = [effectiveId, ...recents.filter((x) => x !== effectiveId)].slice(0, 10);
     localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
     setRecents(nextRecent);
+
+    // 마지막 사용 수량/모드 기억 (name 키, 트레이 칩이 그대로 사용)
+    try {
+      const raw = JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}");
+      const next = { ...raw, [food.name]: { qty, mode } };
+      localStorage.setItem(LAST_QTY_KEY, JSON.stringify(next));
+    } catch {
+      localStorage.setItem(
+        LAST_QTY_KEY,
+        JSON.stringify({ [food.name]: { qty, mode } }),
+      );
+    }
+
     toast(`${displayName(food.name)} 추가됨`);
     navigate({ to: "/" });
   }
