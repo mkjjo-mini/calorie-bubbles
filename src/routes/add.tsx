@@ -1142,7 +1142,7 @@ function CustomFoodFormSheet({
             {!isWeightUnit && (
               <div className="mt-2">
                 <label className="text-xs text-neutral-500 block mb-1">
-                  그램 환산 (g) <span className="text-red-500">*</span>
+                  그램 환산 (g) <span className="text-neutral-400 text-[11px] font-normal">선택</span>
                 </label>
                 <input
                   type="number"
@@ -1264,10 +1264,11 @@ function CustomFoodFormSheet({
                       handleManualMacroChange(row.key, e.target.value)
                     }
                     min={0}
+                    placeholder={mode === "manual" ? "자동" : ""}
                     className={`w-full h-11 px-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 ${
                       mode === "estimate"
                         ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                        : "border-neutral-200"
+                        : "border-neutral-200 placeholder:text-neutral-300"
                     }`}
                   />
                 </div>
