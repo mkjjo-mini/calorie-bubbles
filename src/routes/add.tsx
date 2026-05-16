@@ -1175,6 +1175,44 @@ function CustomFoodFormSheet({
           </button>
         </div>
       </SheetContent>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>수치가 맞지 않아요</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-1 text-sm text-neutral-600">
+                <div>탄단지 g 기준 열량: {pendingDiff?.atwater ?? 0} kcal</div>
+                <div>입력한 열량: {pendingDiff?.kcalUser ?? 0} kcal</div>
+                <div className="pt-1">어떤 값을 저장할까요?</div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            <button
+              onClick={() => commitSave(pendingDiff?.atwater)}
+              className="w-full h-11 rounded-xl bg-neutral-900 text-white text-sm font-semibold active:scale-95 transition"
+            >
+              탄단지 기준으로 저장
+            </button>
+            <button
+              onClick={() => commitSave(pendingDiff?.kcalUser)}
+              className="w-full h-11 rounded-xl bg-white border border-neutral-200 text-neutral-900 text-sm font-semibold active:scale-95 transition"
+            >
+              입력한 열량으로 저장
+            </button>
+            <button
+              onClick={() => {
+                setConfirmOpen(false);
+                setPendingDiff(null);
+              }}
+              className="w-full h-11 rounded-xl text-neutral-500 text-sm font-medium"
+            >
+              취소
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
