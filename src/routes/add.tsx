@@ -910,6 +910,23 @@ function CustomFoodFormSheet({
     return { atwater, diff };
   }, [mode, kcalFilled, allMacrosFilled, kcalN, carbN, proteinN, fatN]);
 
+  // Inline preview values surfaced as input placeholders
+  const previewEffectiveKcal = kcalFilled
+    ? kcalN
+    : allMacrosFilled
+      ? kcalFromMacros({ carbs: carbN, protein: proteinN, fat: fatN })
+      : 0;
+  const previewMacros =
+    macrosEmpty && kcalFilled
+      ? estimateMacrosFromKcal(kcalN, category)
+      : null;
+  const previewKcal =
+    !kcalFilled && allMacrosFilled ? previewEffectiveKcal : null;
+  const previewGrams =
+    !servingGValid && previewEffectiveKcal > 0
+      ? estimateGramsFromKcal(previewEffectiveKcal, category)
+      : null;
+
   const canSave = (() => {
     const base = name.trim().length > 0 && !Number.isNaN(amountN) && amountN > 0;
     if (!base) return false;
@@ -1107,9 +1124,13 @@ function CustomFoodFormSheet({
                   inputMode="decimal"
                   value={gramConv}
                   onChange={(e) => setGramConv(e.target.value)}
-                  placeholder="예: 40"
+                  placeholder={previewGrams != null ? `≈ ${previewGrams}` : "예: 40"}
                   min={0}
-                  className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+                  className={`w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 ${
+                    previewGrams != null
+                      ? "placeholder:text-neutral-500 placeholder:font-medium"
+                      : "placeholder:text-neutral-300"
+                  }`}
                 />
               </div>
             )}
@@ -1146,9 +1167,13 @@ function CustomFoodFormSheet({
               inputMode="decimal"
               value={kcal}
               onChange={(e) => setKcal(e.target.value)}
-              placeholder="비우면 자동"
+              placeholder={previewKcal != null ? `≈ ${previewKcal}` : "비우면 자동"}
               min={0}
-              className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 placeholder:text-neutral-300"
+              className={`w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 ${
+                previewKcal != null
+                  ? "placeholder:text-neutral-500 placeholder:font-medium"
+                  : "placeholder:text-neutral-300"
+              }`}
             />
             {atwaterNotice && (
               <p className="text-[12px] text-neutral-500 mt-1.5">
@@ -1162,9 +1187,9 @@ function CustomFoodFormSheet({
             <div className="grid grid-cols-3 gap-2">
               {(
                 [
-                  { key: "carb" as const, label: "탄수화물 (g)", val: carbShown },
-                  { key: "protein" as const, label: "단백질 (g)", val: proteinShown },
-                  { key: "fat" as const, label: "지방 (g)", val: fatShown },
+                  { key: "carb" as const, label: "탄수화물 (g)", val: carbShown, preview: previewMacros?.carbs },
+                  { key: "protein" as const, label: "단백질 (g)", val: proteinShown, preview: previewMacros?.protein },
+                  { key: "fat" as const, label: "지방 (g)", val: fatShown, preview: previewMacros?.fat },
                 ]
               ).map((row) => (
                 <div key={row.key}>
@@ -1184,63 +1209,19 @@ function CustomFoodFormSheet({
                       handleManualMacroChange(row.key, e.target.value)
                     }
                     min={0}
-                    placeholder="자동"
-                    className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 placeholder:text-neutral-300"
+                    placeholder={row.preview != null ? `≈ ${row.preview}` : "자동"}
+                    className={`w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 ${
+                      row.preview != null
+                        ? "placeholder:text-neutral-500 placeholder:font-medium"
+                        : "placeholder:text-neutral-300"
+                    }`}
                   />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Auto-fill preview — kcal OR macros side fills the other automatically */}
-          {(() => {
-            const willEstimateMacros = macrosEmpty && kcalFilled;
-            const willEstimateKcal = !kcalFilled && allMacrosFilled;
-            const effectiveKcal = kcalFilled
-              ? kcalN
-              : allMacrosFilled
-                ? kcalFromMacros({
-                    carbs: carbN,
-                    protein: proteinN,
-                    fat: fatN,
-                  })
-                : 0;
-            const willEstimateGrams =
-              !servingGValid && effectiveKcal > 0;
-            if (
-              !willEstimateMacros &&
-              !willEstimateKcal &&
-              !willEstimateGrams
-            )
-              return null;
-            return (
-              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 space-y-0.5">
-                <p className="text-xs font-medium text-neutral-700">
-                  💡 저장하면 이렇게 채워져요
-                </p>
-                {willEstimateMacros &&
-                  (() => {
-                    const m = estimateMacrosFromKcal(kcalN, category);
-                    return (
-                      <p className="text-xs text-neutral-600">
-                        탄 {m.carbs}g · 단 {m.protein}g · 지 {m.fat}g
-                      </p>
-                    );
-                  })()}
-                {willEstimateKcal && (
-                  <p className="text-xs text-neutral-600">
-                    열량: 약 {effectiveKcal} kcal
-                  </p>
-                )}
-                {willEstimateGrams && (
-                  <p className="text-xs text-neutral-600">
-                    1회 제공량: 약{" "}
-                    {estimateGramsFromKcal(effectiveKcal, category)}g
-                  </p>
-                )}
-              </div>
-            );
-          })()}
+          {/* Estimation previews are surfaced as input placeholders (see kcal/macro/gram inputs) */}
 
           <button
             disabled={!canSave}
