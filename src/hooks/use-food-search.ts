@@ -4,7 +4,8 @@ import {
   type FoodApiResult,
 } from "@/lib/food-search";
 
-const CACHE_PREFIX = "food_search_cache_";
+// 캐시 schema version — 매핑/응답 shape 변경 시 bump해서 stale 캐시 자동 무효화
+const CACHE_PREFIX = "food_search_cache_v2_";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const DEBOUNCE_MS = 500;
 
@@ -63,7 +64,7 @@ export function useFoodSearch(query: string): UseFoodSearchState {
 
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 2) {
+    if (q.length < 1) {
       setState({ results: [], loading: false, error: null });
       return;
     }
@@ -83,7 +84,8 @@ export function useFoodSearch(query: string): UseFoodSearchState {
         const data = await searchFood({ data: q });
         // stale guard
         if (myReqId !== reqIdRef.current) return;
-        writeCache(cacheKey, data);
+        // Cache only non-empty results — empty might be a transient miss
+        if (data.length > 0) writeCache(cacheKey, data);
         setState({ results: data, loading: false, error: null });
       } catch (e) {
         if (myReqId !== reqIdRef.current) return;

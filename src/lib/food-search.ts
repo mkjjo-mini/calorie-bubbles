@@ -17,8 +17,11 @@ export interface FoodApiResult {
   category?: string; // GROUP_NAME (식품군)
 }
 
+// 식약처 식품영양성분DB 신규 endpoint (FoodNtrCpntDbInfo02).
+// 2026년 기준 활용신청 시 발급되는 endpoint. 구버전 FoodNtrIrdntInfoService는
+// deprecated되어 "Unexpected errors" 응답.
 const ENDPOINT =
-  "https://apis.data.go.kr/1471000/FoodNtrIrdntInfoService/getFoodNtrItdntList";
+  "https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02/getFoodNtrCpntDbInq02";
 
 function getApiKey(): string | undefined {
   // Try process.env first (Vite dev SSR + Cloudflare Worker with polyfill),
@@ -47,7 +50,7 @@ export const searchFood = createServerFn({ method: "GET" })
     return q.trim();
   })
   .handler(async ({ data: q }): Promise<FoodApiResult[]> => {
-    if (q.length < 2) return [];
+    if (q.length < 1) return [];
 
     const key = getApiKey();
     if (!key) {
@@ -65,25 +68,69 @@ export const searchFood = createServerFn({ method: "GET" })
 
     const res = await fetch(url.toString());
     if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      // Mask serviceKey value in URL before logging (it's URL-encoded, can't
+      // simple replace the raw key)
+      const safeUrl = url
+        .toString()
+        .replace(/serviceKey=[^&]+/i, "serviceKey=***");
+      console.error(
+        "[food-search] HTTP",
+        res.status,
+        "url=",
+        safeUrl,
+        "body=",
+        body.slice(0, 500),
+      );
       throw new Error(`식약처 API HTTP ${res.status}`);
     }
-    const json: any = await res.json();
+    const text = await res.text();
+    let json: any;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      console.error("[food-search] non-JSON response", text.slice(0, 500));
+      return [];
+    }
+    // 신규 service envelope: { header, body: { items: [...] } } (no response wrapper)
+    const items: any[] = json?.body?.items ?? [];
+    // Temporary: log first item to identify the new field names
+    console.error(
+      "[food-search] 200 OK, items count=",
+      items.length,
+      "first item=",
+      JSON.stringify(items[0] ?? null),
+    );
 
-    // 식약처 응답 envelope: { response: { body: { items: [...] } } }
-    const items: any[] = json?.response?.body?.items ?? [];
-
+    // 신규 service field mapping (FoodNtrCpntDbInfo02):
+    //   AMT_NUM1 = 에너지(kcal), AMT_NUM3 = 단백질(g), AMT_NUM4 = 지방(g),
+    //   AMT_NUM6 = 탄수화물(g). 모두 SERVING_SIZE(보통 100g) 기준 값.
+    //   Z10500 = 실제 1봉/1인분 무게 (예: 칼로리바란스 "76.00g"). 우선 사용.
     return items
-      .map<FoodApiResult>((it) => ({
-        source: "api",
-        code: String(it.FOOD_CD ?? ""),
-        name: String(it.FOOD_NM_KR ?? "").trim(),
-        serving_g: Number.parseFloat(it.SERVING_WT) || 100,
-        kcal: Number.parseFloat(it.AMT_NUM1) || 0,
-        carb_g: Number.parseFloat(it.AMT_NUM7) || 0,
-        protein_g: Number.parseFloat(it.AMT_NUM8) || 0,
-        fat_g: Number.parseFloat(it.AMT_NUM9) || 0,
-        category: it.GROUP_NAME ? String(it.GROUP_NAME) : undefined,
-      }))
+      .map<FoodApiResult>((it) => {
+        const kcal100 = Number.parseFloat(it.AMT_NUM1) || 0;
+        const carb100 = Number.parseFloat(it.AMT_NUM6) || 0;
+        const protein100 = Number.parseFloat(it.AMT_NUM3) || 0;
+        const fat100 = Number.parseFloat(it.AMT_NUM4) || 0;
+
+        // 1인분 무게 결정 우선순위: Z10500(실제 1봉) → SERVING_SIZE 숫자(보통 100) → 100
+        const z = Number.parseFloat(it.Z10500);
+        const ss = Number.parseFloat(it.SERVING_SIZE);
+        const serving_g = z > 0 ? z : ss > 0 ? ss : 100;
+        const ratio = serving_g / 100;
+
+        return {
+          source: "api",
+          code: String(it.FOOD_CD ?? ""),
+          name: String(it.FOOD_NM_KR ?? "").trim(),
+          serving_g,
+          kcal: Math.round(kcal100 * ratio),
+          carb_g: Math.round(carb100 * ratio * 10) / 10,
+          protein_g: Math.round(protein100 * ratio * 10) / 10,
+          fat_g: Math.round(fat100 * ratio * 10) / 10,
+          category: it.FOOD_CAT1_NM ? String(it.FOOD_CAT1_NM) : undefined,
+        };
+      })
       // Filter junk rows (0 kcal usually means missing data)
       .filter((f) => f.kcal > 0 && f.name.length > 0);
   });

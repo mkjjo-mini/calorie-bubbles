@@ -195,8 +195,8 @@ function AddFoodPage() {
 
   const q = query.trim().toLowerCase();
 
-  // search-results mode = 2+ chars
-  const inSearch = q.length >= 2;
+  // search-results mode = 1+ chars (한글 1글자 음식: 김·밥·닭·면·떡 등)
+  const inSearch = q.length >= 1;
 
   const customMatches = useMemo(() => {
     if (!inSearch) return [];
@@ -268,6 +268,35 @@ function AddFoodPage() {
   /* ---------------- add to today ---------------- */
 
   function handleAdd(food: Pickable, mode: "serving" | "gram", qty: number) {
+    // API food → customFoods로 자동 저장 (다음 빠른 추가 트레이·검색에 노출되도록)
+    let effectiveId = food.id;
+    if (food.source === "api") {
+      const existingByName = customFoods.find(
+        (c) => c.name.toLowerCase() === food.name.toLowerCase(),
+      );
+      if (existingByName) {
+        effectiveId = existingByName.id;
+      } else {
+        const newCustom: CustomFood = {
+          id: safeRandomId(),
+          name: food.name,
+          serving_unit: "g",
+          serving_amount: food.serving_g,
+          serving_g: food.serving_g,
+          kcal: food.kcal,
+          carb_g: food.carb,
+          protein_g: food.protein,
+          fat_g: food.fat,
+          is_estimated: false,
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        };
+        const next = prependCustomFood(customFoods, newCustom);
+        persistCustom(next);
+        effectiveId = newCustom.id;
+      }
+    }
+
     const mult = mode === "serving" ? qty : qty / food.serving_g;
     const macros: Record<Macro, number> = {
       carbs: food.carb * mult,
@@ -299,7 +328,7 @@ function AddFoodPage() {
     }
     localStorage.setItem(key, JSON.stringify([...existing, ...additions]));
 
-    const nextRecent = [food.id, ...recents.filter((x) => x !== food.id)].slice(0, 10);
+    const nextRecent = [effectiveId, ...recents.filter((x) => x !== effectiveId)].slice(0, 10);
     localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
     setRecents(nextRecent);
     toast(`${displayName(food.name)} 추가됨`);
