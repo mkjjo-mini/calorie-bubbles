@@ -158,6 +158,7 @@ function AddFoodPage() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [recents, setRecents] = useState<string[]>([]);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [showAllFavs, setShowAllFavs] = useState(false);
   const [customFoods, setCustomFoods] = useState<CustomFood[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [activeFood, setActiveFood] = useState<Pickable | null>(null);
@@ -597,7 +598,7 @@ function AddFoodPage() {
                   }
                 >
                   <FoodGrid
-                    foods={favList}
+                    foods={showAllFavs ? favList : favList.slice(0, 10)}
                     favorites={favorites}
                     onToggleFav={toggleFav}
                     onPick={(p) => {
@@ -605,6 +606,15 @@ function AddFoodPage() {
                       setActiveFood(c ? customToPickable(c) : presetToPickable(p));
                     }}
                   />
+                  {favList.length > 10 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllFavs((v) => !v)}
+                      className="mt-2 w-full h-9 rounded-lg border border-neutral-200 bg-white text-xs font-medium text-neutral-600 active:scale-[0.98]"
+                    >
+                      {showAllFavs ? "접기" : `더 보기 (${favList.length - 10}개 더)`}
+                    </button>
+                  )}
                 </Section>
               )}
 
@@ -858,17 +868,19 @@ function CustomFoodGrid({
   onPick: (f: CustomFood) => void;
   onLongPress: (f: CustomFood) => void;
 }) {
+  // 가로 스크롤 — 내가 등록한 음식은 무제한이라 세로로 늘리지 않음
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-none">
       {foods.map((f) => (
-        <CustomFoodCard
-          key={f.id}
-          food={f}
-          isFav={favorites.includes(f.name)}
-          onToggleFav={() => onToggleFav(f.name)}
-          onPick={() => onPick(f)}
-          onLongPress={() => onLongPress(f)}
-        />
+        <div key={f.id} className="shrink-0 w-[180px]">
+          <CustomFoodCard
+            food={f}
+            isFav={favorites.includes(f.name)}
+            onToggleFav={() => onToggleFav(f.name)}
+            onPick={() => onPick(f)}
+            onLongPress={() => onLongPress(f)}
+          />
+        </div>
       ))}
     </div>
   );
