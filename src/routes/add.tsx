@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Star } from "lucide-react";
+import { ArrowLeft, Search, Star, Clock } from "lucide-react";
 import { toast } from "sonner";
 import foodPresets from "@/data/food-presets.json";
 import { displayName, type BubbleEntry, type Macro } from "@/lib/foods";
