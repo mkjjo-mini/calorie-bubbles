@@ -146,7 +146,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
     if (target === item.slot) return;
     onChangeSlot(item.foodLogId, target);
     const meta = MEAL_SLOT_META[target];
-    toast(`${meta.emoji} ${meta.label}으로 옮겼어요`);
+    toast(`${meta.label}으로 옮겼어요`);
   }
 
   function openActions(item: LogItem) {
@@ -171,9 +171,10 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
               const slotKcal = items.reduce((s, x) => s + x.kcal, 0);
               return (
                 <SlotDropZone key={slot} slot={slot} isDragging={isDragging}>
-                  <div className="px-4 py-1.5 text-[12px] font-semibold text-neutral-700 flex items-baseline justify-between">
-                    <span>
-                      {meta.emoji} {meta.label}
+                  <div className="px-4 py-1.5 text-[12px] font-semibold text-neutral-700 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5">
+                      <meta.Icon className="h-3.5 w-3.5 text-neutral-500" strokeWidth={2.2} />
+                      {meta.label}
                     </span>
                     <span className="text-neutral-400 tabular-nums">{slotKcal} kcal</span>
                   </div>
@@ -228,7 +229,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
             if (slot === target.slot) return;
             onChangeSlot(target.foodLogId, slot);
             const meta = MEAL_SLOT_META[slot];
-            toast(`${meta.emoji} ${meta.label}으로 옮겼어요`);
+            toast(`${meta.label}으로 옮겼어요`);
           }}
         />
       )}
@@ -424,11 +425,12 @@ function SlotSheet({
           <button
             key={slot}
             onClick={() => onPick(slot)}
-            className={`w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium active:scale-[0.98] transition ${
+            className={`w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium active:scale-[0.98] transition flex items-center gap-2.5 ${
               active ? "bg-neutral-100 text-neutral-900" : "text-neutral-800 hover:bg-neutral-50"
             }`}
           >
-            {meta.emoji} {meta.label}으로
+            <meta.Icon className="h-4 w-4 text-neutral-500" strokeWidth={2.2} />
+            {meta.label}으로
           </button>
         );
       })}
