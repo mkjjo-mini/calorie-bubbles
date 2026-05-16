@@ -140,6 +140,7 @@ function BottomTabBar() {
       <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-neutral-200/70 bg-white/90 p-1.5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         {TABS.map((tab) => {
           const active = pathname === tab.to;
+          const Icon = tab.icon;
           return (
             <Link
               key={tab.to}
@@ -150,7 +151,7 @@ function BottomTabBar() {
                   : "text-neutral-500 hover:text-neutral-800"
               }`}
             >
-              <span className="text-base leading-none">{tab.emoji}</span>
+              <Icon className="h-[18px] w-[18px]" strokeWidth={2.2} />
               <span
                 className={`overflow-hidden text-[12px] font-semibold leading-none transition-all duration-200 ${
                   active ? "max-w-[60px] opacity-100" : "max-w-0 opacity-0"
