@@ -17,6 +17,29 @@ interface FoodPreset {
 const PRESETS = foodPresets as FoodPreset[];
 const FAV_KEY = "favorites";
 const RECENT_KEY = "recentFoods";
+const CUSTOM_KEY = "customFoods";
+
+interface CustomFoodLite {
+  id: string;
+  name: string;
+  kcal: number;
+  carb_g: number;
+  protein_g: number;
+  fat_g: number;
+  serving_g: number;
+}
+
+function customToPreset(c: CustomFoodLite): FoodPreset {
+  return {
+    id: c.id,
+    name: c.name,
+    kcal: c.kcal,
+    carb: c.carb_g,
+    protein: c.protein_g,
+    fat: c.fat_g,
+    serving_g: c.serving_g,
+  };
+}
 
 function readArr(key: string): string[] {
   if (typeof window === "undefined") return [];
