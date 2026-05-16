@@ -12,6 +12,8 @@ import {
   estimateGramsFromKcal,
   prependCustomFood,
 } from "@/lib/customFoods";
+import { type FoodApiResult } from "@/lib/food-search";
+import { useFoodSearch } from "@/hooks/use-food-search";
 import {
   Sheet,
   SheetContent,
@@ -37,7 +39,7 @@ interface FoodPreset {
 
 /** Unified shape consumed by QuantitySheet. */
 interface Pickable {
-  source: "preset" | "custom";
+  source: "preset" | "custom" | "api";
   id: string;
   name: string;
   kcal: number;
@@ -109,6 +111,20 @@ function presetToPickable(p: FoodPreset): Pickable {
     fat: p.fat,
     serving_g: p.serving_g,
     serving_label: `${p.serving_g}g`,
+  };
+}
+
+function apiToPickable(a: FoodApiResult): Pickable {
+  return {
+    source: "api",
+    id: `api-${a.code}`,
+    name: a.name,
+    kcal: a.kcal,
+    carb: a.carb_g,
+    protein: a.protein_g,
+    fat: a.fat_g,
+    serving_g: a.serving_g,
+    serving_label: `${a.serving_g}g`,
   };
 }
 
@@ -194,6 +210,26 @@ function AddFoodPage() {
       (p) => p.name.toLowerCase().includes(q) && !customNames.has(p.name.toLowerCase()),
     );
   }, [q, inSearch, customMatches]);
+
+  // External API (식약처) — debounced + 24h cached
+  const { results: apiResults, loading: apiLoading, error: apiError } =
+    useFoodSearch(query);
+
+  const apiMatches = useMemo<FoodApiResult[]>(() => {
+    if (!inSearch) return [];
+    const seen = new Set<string>([
+      ...customMatches.map((c) => c.name.toLowerCase()),
+      ...presetMatches.map((p) => p.name.toLowerCase()),
+    ]);
+    const out: FoodApiResult[] = [];
+    for (const a of apiResults) {
+      const k = a.name.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(a);
+    }
+    return out;
+  }, [apiResults, customMatches, presetMatches, inSearch]);
 
   const favList = hydrated
     ? favorites
@@ -417,8 +453,15 @@ function AddFoodPage() {
 
           {inSearch && (
             <Section title="검색 결과">
-              {customMatches.length === 0 && presetMatches.length === 0 ? (
-                <p className="text-xs text-neutral-400 mb-3">결과가 없어요</p>
+              {customMatches.length === 0 &&
+              presetMatches.length === 0 &&
+              apiMatches.length === 0 &&
+              !apiLoading ? (
+                <p className="text-xs text-neutral-400 mb-3">
+                  {apiError
+                    ? "외부 검색에 실패했어요 — 직접 등록하실 수 있어요"
+                    : "결과가 없어요"}
+                </p>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {customMatches.map((c) => (
@@ -440,7 +483,36 @@ function AddFoodPage() {
                       onPick={() => setActiveFood(presetToPickable(p))}
                     />
                   ))}
+                  {apiMatches.map((a) => (
+                    <button
+                      key={`api-${a.code}`}
+                      onClick={() => setActiveFood(apiToPickable(a))}
+                      className="rounded-xl border border-neutral-200 bg-white p-3 text-left transition active:scale-[0.98] hover:border-neutral-300"
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="text-sm font-semibold text-neutral-900 line-clamp-2">
+                          {a.name}
+                        </span>
+                        <span className="text-[10px] text-neutral-400 px-1 py-0.5 rounded bg-neutral-100 shrink-0">
+                          식약처
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs text-neutral-500">
+                        {Math.round(a.kcal)} kcal · {a.serving_g}g
+                      </div>
+                    </button>
+                  ))}
                 </div>
+              )}
+              {apiLoading && (
+                <p className="text-[11px] text-neutral-400 mt-2 text-center">
+                  외부 검색 중…
+                </p>
+              )}
+              {apiError && !apiLoading && apiMatches.length === 0 && (
+                <p className="text-[11px] text-amber-600 mt-2 text-center">
+                  외부 검색 실패 ({apiError})
+                </p>
               )}
               <button
                 onClick={() => {
