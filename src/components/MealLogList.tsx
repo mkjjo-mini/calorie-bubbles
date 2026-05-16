@@ -349,7 +349,7 @@ function DraggableLogRow({
       setPrimed(false);
       startPos.current = null;
     },
-    onKeyDown: dndListeners.onKeyDown,
+    onKeyDown: dndListeners.onKeyDown as React.KeyboardEventHandler<HTMLDivElement> | undefined,
   };
 
   return (
