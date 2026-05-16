@@ -1244,7 +1244,7 @@ function CustomFoodFormSheet({
             onClick={handleSubmit}
             className="w-full h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold disabled:opacity-40 active:scale-95 transition mt-2"
           >
-            저장하고 추가하기
+            저장하기
           </button>
           {!canSave && (() => {
             const missing: string[] = [];
