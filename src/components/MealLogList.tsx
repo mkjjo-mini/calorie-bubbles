@@ -282,61 +282,15 @@ function SlotDropZone({
 
 function DraggableLogRow({
   item,
-  isAnyDragging,
-  onArmedRelease,
+  onOpenActions,
 }: {
   item: LogItem;
-  isAnyDragging: boolean;
-  onArmedRelease: () => void;
+  onOpenActions: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.foodLogId,
   });
-  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [armed, setArmed] = useState(false);
-  const armedRef = useRef(false);
-  const movedRef = useRef(false);
-  const startRef = useRef<{ x: number; y: number } | null>(null);
 
-  function clearTimer() {
-    if (longPressRef.current) clearTimeout(longPressRef.current);
-    longPressRef.current = null;
-  }
-  function reset() {
-    clearTimer();
-    armedRef.current = false;
-    setArmed(false);
-    movedRef.current = false;
-    startRef.current = null;
-  }
-
-  function onPointerDown(e: React.PointerEvent) {
-    startRef.current = { x: e.clientX, y: e.clientY };
-    movedRef.current = false;
-    armedRef.current = false;
-    setArmed(false);
-    longPressRef.current = setTimeout(() => {
-      if (!movedRef.current) {
-        armedRef.current = true;
-        setArmed(true);
-        if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(20);
-      }
-    }, 400);
-  }
-  function onPointerMove(e: React.PointerEvent) {
-    if (!startRef.current) return;
-    const dx = e.clientX - startRef.current.x;
-    const dy = e.clientY - startRef.current.y;
-    if (Math.hypot(dx, dy) >= 8) movedRef.current = true;
-  }
-  function onPointerUp() {
-    if (armedRef.current && !movedRef.current) {
-      onArmedRelease();
-    }
-    reset();
-  }
-
-  // Hide original while dragging via overlay
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0 : 1,
@@ -348,29 +302,15 @@ function DraggableLogRow({
       ref={setNodeRef}
       layout
       initial={{ opacity: 0, y: 4 }}
-      animate={{
-        opacity: isDragging ? 0 : 1,
-        y: armed && !isDragging ? -2 : 0,
-        boxShadow: armed && !isDragging ? "0 6px 14px rgba(0,0,0,0.10)" : "0 0 0 rgba(0,0,0,0)",
-      }}
+      animate={{ opacity: isDragging ? 0 : 1 }}
       exit={{ opacity: 0 }}
       style={style}
       {...attributes}
       {...listeners}
-      onPointerDown={(e) => {
-        listeners?.onPointerDown?.(e as never);
-        onPointerDown(e);
-      }}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={reset}
-      onPointerLeave={() => {
-        if (!isAnyDragging) reset();
-      }}
       onContextMenu={(e) => e.preventDefault()}
       className="select-none"
     >
-      <LogRowVisual item={item} />
+      <LogRowVisual item={item} onOpenActions={onOpenActions} />
     </motion.div>
   );
 }
