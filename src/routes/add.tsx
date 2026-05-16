@@ -10,7 +10,7 @@ import {
   kcalFromMacros,
   estimateMacrosFromKcal,
   prependCustomFood,
-  recomputeEstimatedFlag,
+  
 } from "@/lib/customFoods";
 import {
   Sheet,
@@ -18,14 +18,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/add")({
   component: AddFoodPage,
@@ -836,6 +828,8 @@ function ActionSheet({
 type Unit = CustomFood["serving_unit"];
 const UNITS: Unit[] = ["개", "봉", "잔", "조각", "g", "ml"];
 
+type FormMode = "estimate" | "manual";
+
 function CustomFoodFormSheet({
   open,
   initial,
@@ -847,6 +841,7 @@ function CustomFoodFormSheet({
   onOpenChange: (o: boolean) => void;
   onSave: (f: CustomFood) => void;
 }) {
+  const [mode, setMode] = useState<FormMode>("manual");
   const [name, setName] = useState("");
   const [unit, setUnit] = useState<Unit>("개");
   const [amount, setAmount] = useState("1");
@@ -856,25 +851,16 @@ function CustomFoodFormSheet({
   const [protein, setProtein] = useState("");
   const [fat, setFat] = useState("");
   const [category, setCategory] = useState<FoodCategory>("other");
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingDiff, setPendingDiff] = useState<{
-    atwater: number;
-    kcalUser: number;
-  } | null>(null);
-
-  // Track which macro fields were auto-estimated (so editing them flips flag)
-  const estimatedRef = useRef(false);
-  const userTypedRef = useRef({ carb: false, protein: false, fat: false, kcal: false });
-  // Snapshot of last auto-estimated macros (string form) — used to detect
-  // whether the user has since hand-edited any macro.
-  const autoEstimatedMacrosRef = useRef<{
-    carb: string;
-    protein: string;
-    fat: string;
-  } | null>(null);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  // is_estimated flag — true only when macros came from [매크로 추정] or
+  // were filled in 추정 mode AND not hand-edited since.
+  const [isEstimated, setIsEstimated] = useState(false);
+  // Mode-switch confirm (manual → estimate when macros have user values)
+  const [switchConfirm, setSwitchConfirm] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setMode("manual");
     setName(initial?.name ?? "");
     setUnit((initial?.serving_unit as Unit) ?? "개");
     setAmount(initial?.serving_amount ? String(initial.serving_amount) : "1");
@@ -884,15 +870,12 @@ function CustomFoodFormSheet({
     setProtein(initial?.protein_g ? String(initial.protein_g) : "");
     setFat(initial?.fat_g ? String(initial.fat_g) : "");
     setCategory(initial?.category ?? "other");
-    estimatedRef.current = initial?.is_estimated ?? false;
-    userTypedRef.current = { carb: false, protein: false, fat: false, kcal: false };
-    autoEstimatedMacrosRef.current = null;
-    setConfirmOpen(false);
-    setPendingDiff(null);
+    setCategoryOpen(!!initial?.category && initial?.category !== "other");
+    setIsEstimated(initial?.is_estimated ?? false);
+    setSwitchConfirm(false);
   }, [open, initial]);
 
   const isWeightUnit = unit === "g" || unit === "ml";
-
   const carbN = parseFloat(carb);
   const proteinN = parseFloat(protein);
   const fatN = parseFloat(fat);
@@ -900,59 +883,129 @@ function CustomFoodFormSheet({
   const amountN = parseFloat(amount);
   const gramConvN = parseFloat(gramConv);
 
+  const kcalFilled = !Number.isNaN(kcalN) && kcalN > 0;
   const allMacrosFilled =
     !Number.isNaN(carbN) && !Number.isNaN(proteinN) && !Number.isNaN(fatN);
-  const kcalFilled = !Number.isNaN(kcalN) && kcalN > 0;
   const macrosEmpty = !carb && !protein && !fat;
-
-  // Auto: kcal + category → macros (only first time, when macros empty)
-  useEffect(() => {
-    if (!open) return;
-    if (kcalFilled && macrosEmpty && category) {
-      const m = estimateMacrosFromKcal(kcalN, category);
-      const cs = String(m.carbs);
-      const ps = String(m.protein);
-      const fs = String(m.fat);
-      setCarb(cs);
-      setProtein(ps);
-      setFat(fs);
-      estimatedRef.current = true;
-      userTypedRef.current = { carb: false, protein: false, fat: false, kcal: true };
-      autoEstimatedMacrosRef.current = { carb: cs, protein: ps, fat: fs };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kcalN, category, open]);
-
-  // serving_g resolution
   const servingG = isWeightUnit ? amountN : gramConvN;
   const servingGValid = !Number.isNaN(servingG) && servingG > 0;
 
-  const showCategory = kcalFilled && macrosEmpty;
+  // In estimate mode, macros are derived live from kcal+category (read-only).
+  const estimateMacros = useMemo(() => {
+    if (mode !== "estimate" || !kcalFilled) return null;
+    return estimateMacrosFromKcal(kcalN, category);
+  }, [mode, kcalFilled, kcalN, category]);
 
-  const canSave =
-    name.trim().length > 0 &&
-    !Number.isNaN(amountN) &&
-    amountN > 0 &&
-    servingGValid &&
-    (kcalFilled || allMacrosFilled) &&
-    (allMacrosFilled || (kcalFilled && !!category));
+  // Atwater consistency check (manual mode, inline notice only)
+  const atwaterNotice = useMemo(() => {
+    if (mode !== "manual" || !kcalFilled || !allMacrosFilled) return null;
+    const atwater = kcalFromMacros({
+      carbs: carbN,
+      protein: proteinN,
+      fat: fatN,
+    });
+    const kcalUser = Math.round(kcalN);
+    const diff = Math.abs(kcalUser - atwater);
+    if (kcalUser === 0 || diff / kcalUser <= 0.05) return null;
+    return { atwater, diff };
+  }, [mode, kcalFilled, allMacrosFilled, kcalN, carbN, proteinN, fatN]);
 
-  function commitSave(overrideKcal?: number) {
-    const finalCarb = Number.isNaN(carbN) ? 0 : carbN;
-    const finalProtein = Number.isNaN(proteinN) ? 0 : proteinN;
-    const finalFat = Number.isNaN(fatN) ? 0 : fatN;
-    const finalKcal =
-      overrideKcal !== undefined
-        ? overrideKcal
-        : kcalFilled
-          ? Math.round(kcalN)
-          : kcalFromMacros({ carbs: finalCarb, protein: finalProtein, fat: finalFat });
+  const canSave = (() => {
+    const base = name.trim().length > 0 && !Number.isNaN(amountN) && amountN > 0 && servingGValid;
+    if (!base) return false;
+    if (mode === "estimate") return kcalFilled && !!category;
+    return kcalFilled || allMacrosFilled;
+  })();
 
-    const allUserTyped =
-      userTypedRef.current.carb &&
-      userTypedRef.current.protein &&
-      userTypedRef.current.fat;
-    const baseFood: CustomFood = {
+  function switchToManual() {
+    // 추정 → 직접: copy current (estimated) values so they remain editable
+    if (mode === "estimate" && estimateMacros) {
+      setCarb(String(estimateMacros.carbs));
+      setProtein(String(estimateMacros.protein));
+      setFat(String(estimateMacros.fat));
+    }
+    setMode("manual");
+  }
+
+  function requestSwitchToEstimate() {
+    // 직접 → 추정: if any macro has a value, ask before overwriting
+    if (!macrosEmpty) {
+      setSwitchConfirm(true);
+      return;
+    }
+    setMode("estimate");
+  }
+
+  function confirmSwitchToEstimate() {
+    setCarb("");
+    setProtein("");
+    setFat("");
+    setIsEstimated(false);
+    setSwitchConfirm(false);
+    setMode("estimate");
+  }
+
+  function handleAutoCalcKcal() {
+    if (!allMacrosFilled) {
+      toast("탄단지 g를 먼저 입력하세요");
+      return;
+    }
+    const k = kcalFromMacros({ carbs: carbN, protein: proteinN, fat: fatN });
+    setKcal(String(k));
+  }
+
+  function handleEstimateMacros() {
+    if (!kcalFilled) return;
+    const m = estimateMacrosFromKcal(kcalN, category);
+    setCarb(String(m.carbs));
+    setProtein(String(m.protein));
+    setFat(String(m.fat));
+    setIsEstimated(true);
+  }
+
+  function handleManualMacroChange(
+    key: "carb" | "protein" | "fat",
+    value: string,
+  ) {
+    const setters = { carb: setCarb, protein: setProtein, fat: setFat };
+    setters[key](value);
+    if (isEstimated) setIsEstimated(false);
+  }
+
+  function handleSubmit() {
+    if (!canSave) return;
+
+    let finalCarb: number;
+    let finalProtein: number;
+    let finalFat: number;
+    let finalKcal: number;
+    let finalIsEstimated: boolean;
+    let finalCategory: FoodCategory | undefined;
+
+    if (mode === "estimate") {
+      const m = estimateMacros ?? estimateMacrosFromKcal(kcalN, category);
+      finalCarb = m.carbs;
+      finalProtein = m.protein;
+      finalFat = m.fat;
+      finalKcal = Math.round(kcalN);
+      finalIsEstimated = true;
+      finalCategory = category;
+    } else {
+      finalCarb = Number.isNaN(carbN) ? 0 : carbN;
+      finalProtein = Number.isNaN(proteinN) ? 0 : proteinN;
+      finalFat = Number.isNaN(fatN) ? 0 : fatN;
+      finalKcal = kcalFilled
+        ? Math.round(kcalN)
+        : kcalFromMacros({
+            carbs: finalCarb,
+            protein: finalProtein,
+            fat: finalFat,
+          });
+      finalIsEstimated = isEstimated;
+      finalCategory = categoryOpen ? category : initial?.category;
+    }
+
+    const food: CustomFood = {
       id: initial?.id ?? crypto.randomUUID(),
       name: name.trim(),
       serving_unit: unit,
@@ -962,94 +1015,24 @@ function CustomFoodFormSheet({
       carb_g: finalCarb,
       protein_g: finalProtein,
       fat_g: finalFat,
-      is_estimated: estimatedRef.current,
-      category: showCategory || estimatedRef.current ? category : initial?.category,
+      is_estimated: finalIsEstimated,
+      category: finalCategory,
       created_at: initial?.created_at ?? Date.now(),
       updated_at: Date.now(),
     };
-    const finalFood = recomputeEstimatedFlag(baseFood, allUserTyped);
-    setConfirmOpen(false);
-    setPendingDiff(null);
-    onSave(finalFood);
+    onSave(food);
   }
 
-  function handleSubmit() {
-    if (!canSave) return;
-    const finalCarb = Number.isNaN(carbN) ? 0 : carbN;
-    const finalProtein = Number.isNaN(proteinN) ? 0 : proteinN;
-    const finalFat = Number.isNaN(fatN) ? 0 : fatN;
-    const macrosPresent =
-      allMacrosFilled && finalCarb + finalProtein + finalFat > 0;
+  // Values shown in macro inputs/badges
+  const carbShown =
+    mode === "estimate" ? (estimateMacros ? String(estimateMacros.carbs) : "") : carb;
+  const proteinShown =
+    mode === "estimate" ? (estimateMacros ? String(estimateMacros.protein) : "") : protein;
+  const fatShown =
+    mode === "estimate" ? (estimateMacros ? String(estimateMacros.fat) : "") : fat;
 
-    if (kcalFilled && macrosPresent) {
-      const atwater = kcalFromMacros({
-        carbs: finalCarb,
-        protein: finalProtein,
-        fat: finalFat,
-      });
-      const kcalUser = Math.round(kcalN);
-      const diff = Math.abs(kcalUser - atwater);
-      const tolerance = Math.max(20, kcalUser * 0.15);
-      if (diff > tolerance) {
-        setPendingDiff({ atwater, kcalUser });
-        setConfirmOpen(true);
-        return;
-      }
-    }
-    commitSave();
-  }
-
-  function handleMacroChange(
-    key: "carb" | "protein" | "fat",
-    value: string,
-  ) {
-    const setters = { carb: setCarb, protein: setProtein, fat: setFat };
-    setters[key](value);
-    userTypedRef.current[key] = true;
-    estimatedRef.current = false;
-    autoEstimatedMacrosRef.current = null;
-    const next = {
-      carb: key === "carb" ? value : carb,
-      protein: key === "protein" ? value : protein,
-      fat: key === "fat" ? value : fat,
-    };
-    if (next.carb === "" && next.protein === "" && next.fat === "") return;
-    const c = parseFloat(next.carb);
-    const p = parseFloat(next.protein);
-    const f = parseFloat(next.fat);
-    const k = kcalFromMacros({
-      carbs: Number.isNaN(c) ? 0 : c,
-      protein: Number.isNaN(p) ? 0 : p,
-      fat: Number.isNaN(f) ? 0 : f,
-    });
-    setKcal(String(k));
-    userTypedRef.current.kcal = false;
-  }
-
-  function handleKcalChange(value: string) {
-    setKcal(value);
-    userTypedRef.current.kcal = true;
-    const auto = autoEstimatedMacrosRef.current;
-    if (
-      estimatedRef.current &&
-      auto &&
-      carb === auto.carb &&
-      protein === auto.protein &&
-      fat === auto.fat
-    ) {
-      const newK = parseFloat(value);
-      if (!Number.isNaN(newK) && newK > 0) {
-        const m = estimateMacrosFromKcal(newK, category);
-        const cs = String(m.carbs);
-        const ps = String(m.protein);
-        const fs = String(m.fat);
-        setCarb(cs);
-        setProtein(ps);
-        setFat(fs);
-        autoEstimatedMacrosRef.current = { carb: cs, protein: ps, fat: fs };
-      }
-    }
-  }
+  const showEstimateMacrosBtn =
+    mode === "manual" && kcalFilled && !!category && categoryOpen && macrosEmpty;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1064,6 +1047,52 @@ function CustomFoodFormSheet({
         </SheetHeader>
 
         <div className="px-5 py-4 space-y-4">
+          {/* Mode toggle */}
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-neutral-100 p-1">
+            <button
+              type="button"
+              onClick={() => mode === "manual" && requestSwitchToEstimate()}
+              className={`h-9 rounded-md text-sm font-medium transition ${
+                mode === "estimate"
+                  ? "bg-white text-neutral-900 shadow-sm"
+                  : "text-neutral-500"
+              }`}
+            >
+              추정
+            </button>
+            <button
+              type="button"
+              onClick={() => mode === "estimate" && switchToManual()}
+              className={`h-9 rounded-md text-sm font-medium transition ${
+                mode === "manual"
+                  ? "bg-white text-neutral-900 shadow-sm"
+                  : "text-neutral-500"
+              }`}
+            >
+              직접 입력
+            </button>
+          </div>
+
+          {switchConfirm && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
+              <div>직접 입력한 매크로는 추정값으로 덮어써집니다. 계속할까요?</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSwitchConfirm(false)}
+                  className="flex-1 h-9 rounded-lg bg-white border border-neutral-200 text-sm font-medium text-neutral-700 active:scale-95"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={confirmSwitchToEstimate}
+                  className="flex-1 h-9 rounded-lg bg-neutral-900 text-white text-sm font-semibold active:scale-95"
+                >
+                  전환
+                </button>
+              </div>
+            </div>
+          )}
+
           <Field label="음식 이름" required>
             <input
               value={name}
@@ -1119,53 +1148,38 @@ function CustomFoodFormSheet({
             <div className="flex-1 h-px bg-neutral-200" />
           </div>
 
-          <Field label="열량 (kcal)">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={kcal}
-              onChange={(e) => handleKcalChange(e.target.value)}
-              placeholder="자동 계산"
-              min={0}
-              className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
-            />
+          {/* kcal field */}
+          <Field label={mode === "estimate" ? "열량 (kcal)" : "열량 (kcal)"} required={mode === "estimate"}>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                inputMode="decimal"
+                value={kcal}
+                onChange={(e) => setKcal(e.target.value)}
+                placeholder={mode === "estimate" ? "예: 320" : "직접 입력"}
+                min={0}
+                className="flex-1 h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+              />
+              {mode === "manual" && (
+                <button
+                  type="button"
+                  onClick={handleAutoCalcKcal}
+                  className="h-11 px-3 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-700 bg-white active:scale-95 whitespace-nowrap"
+                >
+                  kcal 자동 계산
+                </button>
+              )}
+            </div>
+            {atwaterNotice && (
+              <p className="text-[12px] text-neutral-500 mt-1.5">
+                💡 탄단지 g 기준 계산: {atwaterNotice.atwater} kcal ({atwaterNotice.diff} kcal 차이)
+              </p>
+            )}
           </Field>
 
-          <div className="grid grid-cols-3 gap-2">
-            <Field label="탄수화물 (g)">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={carb}
-                onChange={(e) => handleMacroChange("carb", e.target.value)}
-                min={0}
-                className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
-              />
-            </Field>
-            <Field label="단백질 (g)">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={protein}
-                onChange={(e) => handleMacroChange("protein", e.target.value)}
-                min={0}
-                className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
-              />
-            </Field>
-            <Field label="지방 (g)">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={fat}
-                onChange={(e) => handleMacroChange("fat", e.target.value)}
-                min={0}
-                className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
-              />
-            </Field>
-          </div>
-
-          {showCategory && (
-            <Field label="카테고리">
+          {/* Category — required in estimate mode, optional disclosure in manual */}
+          {mode === "estimate" ? (
+            <Field label="카테고리" required>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as FoodCategory)}
@@ -1178,9 +1192,92 @@ function CustomFoodFormSheet({
                 ))}
               </select>
               <p className="text-[11px] text-neutral-400 mt-1">
-                카테고리에서 탄·단·지를 추정해요 (추정 배지가 표시됩니다)
+                카테고리에서 탄·단·지를 추정해요
               </p>
             </Field>
+          ) : (
+            <div>
+              <button
+                type="button"
+                onClick={() => setCategoryOpen((v) => !v)}
+                className="text-xs text-neutral-500 hover:text-neutral-700"
+              >
+                {categoryOpen ? "▾" : "▸"} 카테고리 (선택)
+              </button>
+              {categoryOpen && (
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as FoodCategory)}
+                  className="w-full h-11 px-3 mt-1.5 rounded-xl border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300"
+                >
+                  {CATEGORY_LABELS.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {/* Macro row */}
+          <div>
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                [
+                  { key: "carb" as const, label: "탄수화물 (g)", val: carbShown },
+                  { key: "protein" as const, label: "단백질 (g)", val: proteinShown },
+                  { key: "fat" as const, label: "지방 (g)", val: fatShown },
+                ]
+              ).map((row) => (
+                <div key={row.key}>
+                  <label className="text-xs text-neutral-600 font-medium mb-1.5 flex items-center gap-1">
+                    {row.label}
+                    {mode === "estimate" || (mode === "manual" && isEstimated) ? (
+                      <span className="text-[10px] text-neutral-400 px-1 py-0.5 rounded bg-neutral-100">
+                        추정
+                      </span>
+                    ) : null}
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={row.val}
+                    readOnly={mode === "estimate"}
+                    onChange={(e) =>
+                      mode === "manual" &&
+                      handleManualMacroChange(row.key, e.target.value)
+                    }
+                    min={0}
+                    className={`w-full h-11 px-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 ${
+                      mode === "estimate"
+                        ? "border-neutral-200 bg-neutral-50 text-neutral-500"
+                        : "border-neutral-200"
+                    }`}
+                  />
+                </div>
+              ))}
+            </div>
+            {showEstimateMacrosBtn && (
+              <button
+                type="button"
+                onClick={handleEstimateMacros}
+                className="mt-2 h-9 px-3 rounded-lg border border-neutral-200 text-xs font-medium text-neutral-700 bg-white active:scale-95"
+              >
+                매크로 추정
+              </button>
+            )}
+          </div>
+
+          {/* Bottom helper link in estimate mode */}
+          {mode === "estimate" && (
+            <button
+              type="button"
+              onClick={switchToManual}
+              className="text-xs text-neutral-500 underline underline-offset-2 hover:text-neutral-700"
+            >
+              정확한 값을 알아요 → 직접 입력으로 전환
+            </button>
           )}
 
           <button
@@ -1192,44 +1289,6 @@ function CustomFoodFormSheet({
           </button>
         </div>
       </SheetContent>
-
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>수치가 맞지 않아요</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-1 text-sm text-neutral-600">
-                <div>탄단지 g 기준 열량: {pendingDiff?.atwater ?? 0} kcal</div>
-                <div>입력한 열량: {pendingDiff?.kcalUser ?? 0} kcal</div>
-                <div className="pt-1">어떤 값을 저장할까요?</div>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-            <button
-              onClick={() => commitSave(pendingDiff?.atwater)}
-              className="w-full h-11 rounded-xl bg-neutral-900 text-white text-sm font-semibold active:scale-95 transition"
-            >
-              탄단지 기준으로 저장
-            </button>
-            <button
-              onClick={() => commitSave(pendingDiff?.kcalUser)}
-              className="w-full h-11 rounded-xl bg-white border border-neutral-200 text-neutral-900 text-sm font-semibold active:scale-95 transition"
-            >
-              입력한 열량으로 저장
-            </button>
-            <button
-              onClick={() => {
-                setConfirmOpen(false);
-                setPendingDiff(null);
-              }}
-              className="w-full h-11 rounded-xl text-neutral-500 text-sm font-medium"
-            >
-              취소
-            </button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Sheet>
   );
 }
