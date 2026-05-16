@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  forceCenter,
   forceCollide,
   forceSimulation,
   forceX,
@@ -44,15 +43,17 @@ export function BubbleField({
 
   const cx = width / 2;
   const cy = height / 2;
+  // Anchor bubbles toward the bottom (the "water"), so they pile up from
+  // the surface upward instead of clustering in the middle of the bowl.
+  const anchorY = height - 12;
 
   // Initialize simulation once
   useEffect(() => {
     const sim = forceSimulation<Node>([])
       .alphaDecay(0.02)
       .velocityDecay(0.35)
-      .force("center", forceCenter(cx, cy).strength(0.05))
-      .force("x", forceX(cx).strength(0.04))
-      .force("y", forceY(cy).strength(0.04))
+      .force("x", forceX(cx).strength(0.05))
+      .force("y", forceY(anchorY).strength(0.12))
       .force(
         "collide",
         forceCollide<Node>((d) => (d.r + 2) * compression)
@@ -82,9 +83,8 @@ export function BubbleField({
     const sim = simRef.current;
     if (!sim) return;
     sim
-      .force("center", forceCenter(cx, cy).strength(0.05))
-      .force("x", forceX(cx).strength(0.04))
-      .force("y", forceY(cy).strength(0.04))
+      .force("x", forceX(cx).strength(0.05))
+      .force("y", forceY(anchorY).strength(0.12))
       .force(
         "collide",
         forceCollide<Node>((d) => (d.r + 2) * compression)
@@ -92,7 +92,7 @@ export function BubbleField({
           .iterations(4),
       );
     sim.alpha(0.6).restart();
-  }, [cx, cy, compression]);
+  }, [cx, cy, anchorY, compression]);
 
   // Sync nodes with bubbles prop
   useEffect(() => {
