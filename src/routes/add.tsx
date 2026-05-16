@@ -488,16 +488,9 @@ function AddFoodPage() {
 
           {inSearch && (
             <Section title="검색 결과">
-              {customMatches.length === 0 &&
-              presetMatches.length === 0 &&
-              apiMatches.length === 0 &&
-              !apiLoading ? (
-                <p className="text-xs text-neutral-400 mb-3">
-                  {apiError
-                    ? "외부 검색에 실패했어요 — 직접 등록하실 수 있어요"
-                    : "결과가 없어요"}
-                </p>
-              ) : (
+              {(customMatches.length > 0 ||
+                presetMatches.length > 0 ||
+                apiMatches.length > 0) && (
                 <div className="grid grid-cols-2 gap-2">
                   {customMatches.map((c) => (
                     <CustomFoodCard
