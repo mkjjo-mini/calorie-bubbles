@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Star, Clock, Plus, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, Star, Clock, Plus, Pencil, Trash2, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import foodPresets from "@/data/food-presets.json";
 import { displayName, type BubbleEntry, type Macro } from "@/lib/foods";
@@ -539,48 +539,6 @@ function AddFoodPage() {
                 }}
               />
 
-              {favList.length > 0 && (
-                <Section
-                  title={
-                    <>
-                      <Star className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />
-                      즐겨찾기
-                    </>
-                  }
-                >
-                  <FoodGrid
-                    foods={favList}
-                    favorites={favorites}
-                    onToggleFav={toggleFav}
-                    onPick={(p) => {
-                      const c = customFoods.find((x) => x.id === p.id);
-                      setActiveFood(c ? customToPickable(c) : presetToPickable(p));
-                    }}
-                  />
-                </Section>
-              )}
-
-              {recentList.length > 0 && (
-                <Section
-                  title={
-                    <>
-                      <Clock className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />
-                      최근 사용
-                    </>
-                  }
-                >
-                  <FoodGrid
-                    foods={recentList}
-                    favorites={favorites}
-                    onToggleFav={toggleFav}
-                    onPick={(p) => {
-                      const c = customFoods.find((x) => x.id === p.id);
-                      setActiveFood(c ? customToPickable(c) : presetToPickable(p));
-                    }}
-                  />
-                </Section>
-              )}
-
               {hydrated && searchHistory.length > 0 && (
                 <Section
                   title={
@@ -625,6 +583,48 @@ function AddFoodPage() {
                     onToggleFav={toggleFavByName}
                     onPick={(c) => setActiveFood(customToPickable(c))}
                     onLongPress={(c) => setActionTarget(c)}
+                  />
+                </Section>
+              )}
+
+              {favList.length > 0 && (
+                <Section
+                  title={
+                    <>
+                      <Star className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />
+                      즐겨찾기
+                    </>
+                  }
+                >
+                  <FoodGrid
+                    foods={favList}
+                    favorites={favorites}
+                    onToggleFav={toggleFav}
+                    onPick={(p) => {
+                      const c = customFoods.find((x) => x.id === p.id);
+                      setActiveFood(c ? customToPickable(c) : presetToPickable(p));
+                    }}
+                  />
+                </Section>
+              )}
+
+              {recentList.length > 0 && (
+                <Section
+                  title={
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />
+                      최근 사용
+                    </>
+                  }
+                >
+                  <FoodGrid
+                    foods={recentList}
+                    favorites={favorites}
+                    onToggleFav={toggleFav}
+                    onPick={(p) => {
+                      const c = customFoods.find((x) => x.id === p.id);
+                      setActiveFood(c ? customToPickable(c) : presetToPickable(p));
+                    }}
                   />
                 </Section>
               )}
@@ -885,56 +885,45 @@ function CustomFoodCard({
   isFav: boolean;
   onToggleFav: () => void;
   onPick: () => void;
+  /** 카드 우측 ⋯ 아이콘 탭 시 트리거 (편집/삭제 시트) */
   onLongPress: () => void;
 }) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const firedRef = useRef(false);
-
   const isWeight = food.serving_unit === "g" || food.serving_unit === "ml";
   const servingLabel = isWeight
     ? `${food.serving_g}${food.serving_unit}`
     : `${food.serving_amount}${food.serving_unit} (${food.serving_g}g)`;
 
-  function start() {
-    firedRef.current = false;
-    timerRef.current = setTimeout(() => {
-      firedRef.current = true;
-      onLongPress();
-    }, 500);
-  }
-  function cancel() {
-    if (timerRef.current) clearTimeout(timerRef.current);
-  }
-
   return (
     <div className="relative rounded-xl border border-neutral-200 bg-white p-3 transition active:scale-95 hover:border-neutral-300">
+      <div className="absolute top-2 right-2 flex items-center gap-0.5">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFav();
+          }}
+          className="p-1 rounded-full hover:bg-neutral-100"
+          aria-label="즐겨찾기"
+        >
+          <Star
+            className="w-4 h-4"
+            fill={isFav ? "#FFD700" : "none"}
+            stroke={isFav ? "#FFD700" : "#9ca3af"}
+          />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onLongPress();
+          }}
+          className="p-1 rounded-full hover:bg-neutral-100"
+          aria-label="편집 / 삭제"
+        >
+          <MoreVertical className="w-4 h-4 text-neutral-400" />
+        </button>
+      </div>
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleFav();
-        }}
-        className="absolute top-2 right-2 p-1 rounded-full hover:bg-neutral-100"
-        aria-label="즐겨찾기"
-      >
-        <Star
-          className="w-4 h-4"
-          fill={isFav ? "#FFD700" : "none"}
-          stroke={isFav ? "#FFD700" : "#9ca3af"}
-        />
-      </button>
-      <button
-        onClick={() => {
-          if (!firedRef.current) onPick();
-        }}
-        onPointerDown={start}
-        onPointerUp={cancel}
-        onPointerLeave={cancel}
-        onPointerCancel={cancel}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          onLongPress();
-        }}
-        className="text-left w-full pr-6"
+        onClick={onPick}
+        className="text-left w-full pr-14"
       >
         <div className="text-[14px] font-bold text-neutral-900 leading-tight">
           {food.name}
