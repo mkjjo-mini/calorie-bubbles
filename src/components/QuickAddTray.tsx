@@ -173,10 +173,10 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     <>
       <div className="px-5 pt-3 pb-1 space-y-3">
         {favList.length > 0 && (
-          <ChipRow label="⭐ 즐겨찾기" foods={favList} onTap={handleTap} onLongPress={setSheet} />
+          <ChipRow label={<><Star className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />즐겨찾기</>} foods={favList} onTap={handleTap} onLongPress={setSheet} />
         )}
         {recentList.length > 0 && (
-          <ChipRow label="🕐 최근 사용" foods={recentList} onTap={handleTap} onLongPress={setSheet} />
+          <ChipRow label={<><Clock className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />최근 사용</>} foods={recentList} onTap={handleTap} onLongPress={setSheet} />
         )}
       </div>
 
