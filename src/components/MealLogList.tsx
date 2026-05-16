@@ -602,7 +602,7 @@ function EditQuantitySheet({
           onClick={handleConfirm}
           className="mt-5 w-full h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold disabled:opacity-40 active:scale-95 transition"
         >
-          추가하기
+          수정하기
         </button>
       </motion.div>
     </div>
