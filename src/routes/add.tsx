@@ -1107,10 +1107,7 @@ function CustomFoodFormSheet({
               type="number"
               inputMode="decimal"
               value={kcal}
-              onChange={(e) => {
-                setKcal(e.target.value);
-                userTypedRef.current.kcal = true;
-              }}
+              onChange={(e) => handleKcalChange(e.target.value)}
               placeholder="자동 계산"
               min={0}
               className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
@@ -1123,7 +1120,7 @@ function CustomFoodFormSheet({
                 type="number"
                 inputMode="decimal"
                 value={carb}
-                onChange={macroHandler(setCarb, "carb")}
+                onChange={(e) => handleMacroChange("carb", e.target.value)}
                 min={0}
                 className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
               />
@@ -1133,7 +1130,7 @@ function CustomFoodFormSheet({
                 type="number"
                 inputMode="decimal"
                 value={protein}
-                onChange={macroHandler(setProtein, "protein")}
+                onChange={(e) => handleMacroChange("protein", e.target.value)}
                 min={0}
                 className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
               />
@@ -1143,7 +1140,7 @@ function CustomFoodFormSheet({
                 type="number"
                 inputMode="decimal"
                 value={fat}
-                onChange={macroHandler(setFat, "fat")}
+                onChange={(e) => handleMacroChange("fat", e.target.value)}
                 min={0}
                 className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
               />
