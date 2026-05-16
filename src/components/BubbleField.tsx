@@ -49,12 +49,11 @@ export function BubbleField({
   // Always pull bubbles to the bottom (the "water surface"). Stacking
   // upward happens naturally via collisions — no mid-bowl anchor.
   const f = Math.min(1, Math.max(0, fillness));
-  // Empty: bubbles sit on the bottom (water surface).
-  // Full: anchor moves up toward the bowl's center so bubbles fill the
-  // whole volume edge-to-edge with no empty space at the top.
-  const anchorY = (height - 4) * (1 - f) + height * 0.42 * f;
-  // Weaker gravity when full lets collisions spread bubbles across the bowl.
-  const yStrength = 0.08 - 0.06 * f;
+  // Always sink to the bottom. Gravity stays strong; "no empty space" when
+  // full is achieved by puffing up the bubbles (visualScale below), not by
+  // floating them mid-bowl.
+  const anchorY = height - 4;
+  const yStrength = 0.14;
 
   // Initialize simulation once
   useEffect(() => {
