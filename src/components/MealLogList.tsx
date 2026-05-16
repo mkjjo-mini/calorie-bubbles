@@ -36,8 +36,60 @@ interface FoodPreset {
 }
 const PRESETS = foodPresets as FoodPreset[];
 
-function findPresetByName(name: string): FoodPreset | undefined {
-  return PRESETS.find((p) => p.name.split(" ")[0] === name);
+interface Baseline {
+  name: string;
+  kcal: number;
+  carb: number;
+  protein: number;
+  fat: number;
+  serving_g: number;
+}
+
+interface CustomFoodLite {
+  name: string;
+  kcal: number;
+  carb_g: number;
+  protein_g: number;
+  fat_g: number;
+  serving_g: number;
+}
+
+function readCustomFoods(): CustomFoodLite[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem("customFoods") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function findBaselineByName(name: string): Baseline | undefined {
+  const lower = name.toLowerCase();
+  const preset =
+    PRESETS.find((p) => p.name.split(" ")[0] === name) ??
+    PRESETS.find((p) => p.name.toLowerCase() === lower);
+  if (preset) {
+    return {
+      name: preset.name,
+      kcal: preset.kcal,
+      carb: preset.carb,
+      protein: preset.protein,
+      fat: preset.fat,
+      serving_g: preset.serving_g,
+    };
+  }
+  const c = readCustomFoods().find((x) => x.name.toLowerCase() === lower);
+  if (c) {
+    return {
+      name: c.name,
+      kcal: c.kcal,
+      carb: c.carb_g,
+      protein: c.protein_g,
+      fat: c.fat_g,
+      serving_g: c.serving_g,
+    };
+  }
+  return undefined;
 }
 
 interface Props {
@@ -212,7 +264,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
       {actionFor && (
         <ActionSheet
           item={actionFor}
-          canEdit={!!findPresetByName(actionFor.foodName)}
+          canEdit={true}
           onClose={() => setActionFor(null)}
           onPick={(action) => {
             const target = actionFor;
@@ -549,38 +601,51 @@ function EditQuantitySheet({
   onClose: () => void;
   onConfirm: (newEntries: BubbleEntry[]) => void;
 }) {
-  const preset = findPresetByName(item.foodName);
+  const baseline: Baseline = useMemo(() => {
+    const found = findBaselineByName(item.foodName);
+    if (found) return found;
+    // Fallback: derive a 1-serving baseline from the log entry itself.
+    const itemKcal = Math.round(item.carbs * 4 + item.protein * 4 + item.fat * 9);
+    const approxG = Math.max(
+      1,
+      Math.round(item.carbs + item.protein + item.fat),
+    );
+    return {
+      name: item.foodName,
+      kcal: itemKcal,
+      carb: item.carbs,
+      protein: item.protein,
+      fat: item.fat,
+      serving_g: approxG,
+    };
+  }, [item]);
 
   // Compute current grams from any non-zero macro ratio.
   const initialGrams = useMemo(() => {
-    if (!preset) return 0;
     const candidates: [number, number][] = [
-      [item.carbs, preset.carb],
-      [item.protein, preset.protein],
-      [item.fat, preset.fat],
+      [item.carbs, baseline.carb],
+      [item.protein, baseline.protein],
+      [item.fat, baseline.fat],
     ];
     for (const [cur, base] of candidates) {
-      if (base > 0 && cur > 0) return Math.round(preset.serving_g * (cur / base));
+      if (base > 0 && cur > 0) return Math.round(baseline.serving_g * (cur / base));
     }
-    return preset.serving_g;
-  }, [item, preset]);
+    return baseline.serving_g;
+  }, [item, baseline]);
 
   const [mode, setMode] = useState<"serving" | "gram">("gram");
   const [qtyStr, setQtyStr] = useState(String(initialGrams || 100));
 
   useEffect(() => {
-    if (!preset) return;
-    setQtyStr(mode === "serving" ? "1" : String(initialGrams || preset.serving_g));
-  }, [mode, initialGrams, preset]);
-
-  if (!preset) return null;
+    setQtyStr(mode === "serving" ? "1" : String(initialGrams || baseline.serving_g));
+  }, [mode, initialGrams, baseline]);
 
   const qty = parseFloat(qtyStr) || 0;
-  const mult = mode === "serving" ? qty : qty / preset.serving_g;
-  const carb = Math.round(preset.carb * mult * 10) / 10;
-  const protein = Math.round(preset.protein * mult * 10) / 10;
-  const fat = Math.round(preset.fat * mult * 10) / 10;
-  const kcal = Math.round(preset.kcal * mult);
+  const mult = mode === "serving" ? qty : qty / baseline.serving_g;
+  const carb = Math.round(baseline.carb * mult * 10) / 10;
+  const protein = Math.round(baseline.protein * mult * 10) / 10;
+  const fat = Math.round(baseline.fat * mult * 10) / 10;
+  const kcal = Math.round(baseline.kcal * mult);
   const disabled = qty <= 0;
 
   function handleConfirm() {
@@ -613,9 +678,9 @@ function EditQuantitySheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-200" />
-        <h3 className="text-base font-bold text-neutral-900">{preset.name}</h3>
+        <h3 className="text-base font-bold text-neutral-900">{baseline.name}</h3>
         <p className="text-xs text-neutral-400 mt-0.5">
-          {preset.kcal} kcal / {preset.serving_g}g 기준
+          {baseline.kcal} kcal / {baseline.serving_g}g 기준
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-neutral-100 p-1">
