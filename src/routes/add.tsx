@@ -238,10 +238,9 @@ function AddFoodPage() {
     }
     localStorage.setItem(key, JSON.stringify([...existing, ...additions]));
 
-    if (food.source === "preset") {
-      const nextRecent = [food.id, ...recents.filter((x) => x !== food.id)].slice(0, 10);
-      localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
-    }
+    const nextRecent = [food.id, ...recents.filter((x) => x !== food.id)].slice(0, 10);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
+    setRecents(nextRecent);
     toast(`${displayName(food.name)} 추가됨`);
     navigate({ to: "/" });
   }
