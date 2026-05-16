@@ -370,9 +370,9 @@ function Index() {
         onClick={() => navigate({ to: "/add" })}
         aria-label="음식 추가"
         className="fixed z-40 flex items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg active:scale-95 transition hover:bg-neutral-800"
-        style={{ bottom: 24, right: 24, width: 56, height: 56 }}
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 88px)", right: 20, width: 44, height: 44 }}
       >
-        <Plus className="w-6 h-6" />
+        <Plus className="w-5 h-5" />
       </button>
     </div>
   );
