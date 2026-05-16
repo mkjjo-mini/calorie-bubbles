@@ -1,13 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Star, Clock } from "lucide-react";
+import { ArrowLeft, Search, Star, Clock, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import foodPresets from "@/data/food-presets.json";
 import { displayName, type BubbleEntry, type Macro } from "@/lib/foods";
+import {
+  type CustomFood,
+  type FoodCategory,
+  kcalFromMacros,
+  estimateMacrosFromKcal,
+  prependCustomFood,
+  recomputeEstimatedFlag,
+} from "@/lib/customFoods";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/add")({
   component: AddFoodPage,
 });
+
+/* ---------------- types ---------------- */
 
 interface FoodPreset {
   id: string;
@@ -19,17 +35,45 @@ interface FoodPreset {
   serving_g: number;
 }
 
+/** Unified shape consumed by QuantitySheet. */
+interface Pickable {
+  source: "preset" | "custom";
+  id: string;
+  name: string;
+  kcal: number;
+  carb: number;
+  protein: number;
+  fat: number;
+  serving_g: number;
+  serving_label: string; // e.g. "1봉 (40g)" or "100g"
+  is_estimated?: boolean;
+}
+
 const PRESETS = foodPresets as FoodPreset[];
 
 const FAV_KEY = "favorites";
 const RECENT_KEY = "recentFoods";
+const CUSTOM_KEY = "customFoods";
+
+const CATEGORY_LABELS: { value: FoodCategory; label: string }[] = [
+  { value: "rice_grain_noodle", label: "밥·곡류·면" },
+  { value: "meat_fish_egg", label: "고기·생선·계란" },
+  { value: "dairy", label: "유제품" },
+  { value: "vegetable_seaweed", label: "채소·해조류" },
+  { value: "fruit", label: "과일" },
+  { value: "snack_dessert", label: "간식·디저트" },
+  { value: "drink_alcohol", label: "음료·주류" },
+  { value: "other", label: "기타·일반식" },
+];
+
+/* ---------------- helpers ---------------- */
 
 function todayKey() {
   const d = new Date();
   return `cal-tracker-${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
-function readArr(key: string): string[] {
+function readArr<T = string>(key: string): T[] {
   if (typeof window === "undefined") return [];
   try {
     return JSON.parse(localStorage.getItem(key) || "[]");
@@ -38,49 +82,123 @@ function readArr(key: string): string[] {
   }
 }
 
+function presetToPickable(p: FoodPreset): Pickable {
+  return {
+    source: "preset",
+    id: p.id,
+    name: p.name,
+    kcal: p.kcal,
+    carb: p.carb,
+    protein: p.protein,
+    fat: p.fat,
+    serving_g: p.serving_g,
+    serving_label: `${p.serving_g}g`,
+  };
+}
+
+function customToPickable(c: CustomFood): Pickable {
+  const isWeight = c.serving_unit === "g" || c.serving_unit === "ml";
+  const label = isWeight
+    ? `${c.serving_g}${c.serving_unit}`
+    : `${c.serving_amount}${c.serving_unit} (${c.serving_g}g)`;
+  return {
+    source: "custom",
+    id: c.id,
+    name: c.name,
+    kcal: c.kcal,
+    carb: c.carb_g,
+    protein: c.protein_g,
+    fat: c.fat_g,
+    serving_g: c.serving_g,
+    serving_label: label,
+    is_estimated: c.is_estimated,
+  };
+}
+
+/* ---------------- page ---------------- */
+
 function AddFoodPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [recents, setRecents] = useState<string[]>([]);
+  const [customFoods, setCustomFoods] = useState<CustomFood[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [activeFood, setActiveFood] = useState<FoodPreset | null>(null);
+  const [activeFood, setActiveFood] = useState<Pickable | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formInitial, setFormInitial] = useState<Partial<CustomFood> | null>(null);
+  const [actionTarget, setActionTarget] = useState<CustomFood | null>(null);
+  const [openAfterSave, setOpenAfterSave] = useState(false);
 
   useEffect(() => {
-    setFavorites(readArr(FAV_KEY));
-    setRecents(readArr(RECENT_KEY));
+    setFavorites(readArr<string>(FAV_KEY));
+    setRecents(readArr<string>(RECENT_KEY));
+    setCustomFoods(readArr<CustomFood>(CUSTOM_KEY));
     setHydrated(true);
   }, []);
 
-  function toggleFav(id: string) {
-    setFavorites((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-      localStorage.setItem(FAV_KEY, JSON.stringify(next));
-      return next;
-    });
+  function persistCustom(next: CustomFood[]) {
+    setCustomFoods(next);
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(next));
   }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return PRESETS;
-    return PRESETS.filter((p) => p.name.toLowerCase().includes(q));
-  }, [query]);
+  function persistFavs(next: string[]) {
+    setFavorites(next);
+    localStorage.setItem(FAV_KEY, JSON.stringify(next));
+  }
+
+  function toggleFav(id: string) {
+    const next = favorites.includes(id)
+      ? favorites.filter((x) => x !== id)
+      : [...favorites, id];
+    persistFavs(next);
+  }
+
+  function toggleFavByName(name: string) {
+    const next = favorites.includes(name)
+      ? favorites.filter((x) => x !== name)
+      : [...favorites, name];
+    persistFavs(next);
+  }
+
+  const q = query.trim().toLowerCase();
+
+  // search-results mode = 2+ chars
+  const inSearch = q.length >= 2;
+
+  const customMatches = useMemo(() => {
+    if (!inSearch) return [];
+    return customFoods.filter((c) => c.name.toLowerCase().includes(q));
+  }, [customFoods, q, inSearch]);
+
+  const presetMatches = useMemo(() => {
+    if (!inSearch) return PRESETS;
+    const customNames = new Set(customMatches.map((c) => c.name.toLowerCase()));
+    return PRESETS.filter(
+      (p) => p.name.toLowerCase().includes(q) && !customNames.has(p.name.toLowerCase()),
+    );
+  }, [q, inSearch, customMatches]);
 
   const favList = hydrated
     ? favorites
         .map((id) => PRESETS.find((p) => p.id === id))
         .filter((x): x is FoodPreset => !!x)
-        .filter((p) => filtered.includes(p))
     : [];
   const recentList = hydrated
     ? recents
         .slice(0, 10)
         .map((id) => PRESETS.find((p) => p.id === id))
         .filter((x): x is FoodPreset => !!x)
-        .filter((p) => filtered.includes(p))
     : [];
 
-  function handleAdd(food: FoodPreset, mode: "serving" | "gram", qty: number) {
+  const sortedCustom = useMemo(
+    () => [...customFoods].sort((a, b) => b.created_at - a.created_at),
+    [customFoods],
+  );
+
+  /* ---------------- add to today ---------------- */
+
+  function handleAdd(food: Pickable, mode: "serving" | "gram", qty: number) {
     const mult = mode === "serving" ? qty : qty / food.serving_g;
     const macros: Record<Macro, number> = {
       carbs: food.carb * mult,
@@ -103,8 +221,6 @@ function AddFoodPage() {
         });
       }
     });
-
-    // Append to today's entries (same key as home)
     const key = todayKey();
     let existing: BubbleEntry[] = [];
     try {
@@ -114,18 +230,68 @@ function AddFoodPage() {
     }
     localStorage.setItem(key, JSON.stringify([...existing, ...additions]));
 
-    // Update recents
-    const nextRecent = [food.id, ...recents.filter((x) => x !== food.id)].slice(0, 10);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
-
+    if (food.source === "preset") {
+      const nextRecent = [food.id, ...recents.filter((x) => x !== food.id)].slice(0, 10);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
+    }
     toast(`${displayName(food.name)} 추가됨`);
     navigate({ to: "/" });
   }
 
+  /* ---------------- form save ---------------- */
+
+  function handleFormSave(food: CustomFood) {
+    const existingIdx = customFoods.findIndex((c) => c.id === food.id);
+    let next: CustomFood[];
+    if (existingIdx >= 0) {
+      next = customFoods.map((c) => (c.id === food.id ? food : c));
+    } else {
+      next = prependCustomFood(customFoods, food);
+    }
+    persistCustom(next);
+    if (!favorites.includes(food.name)) {
+      persistFavs([...favorites, food.name]);
+    }
+    setFormOpen(false);
+    setFormInitial(null);
+    // Continuous flow: open quantity sheet right after
+    setActiveFood(customToPickable(food));
+    setOpenAfterSave(false);
+  }
+
+  /* ---------------- delete with undo ---------------- */
+
+  function handleDelete(food: CustomFood) {
+    const idx = customFoods.findIndex((c) => c.id === food.id);
+    if (idx < 0) return;
+    const wasFav = favorites.includes(food.name);
+    const nextList = customFoods.filter((c) => c.id !== food.id);
+    persistCustom(nextList);
+    if (wasFav) persistFavs(favorites.filter((f) => f !== food.name));
+    setActionTarget(null);
+
+    toast("삭제했어요", {
+      duration: 5000,
+      action: {
+        label: "되돌리기",
+        onClick: () => {
+          const restored = [...nextList];
+          restored.splice(Math.min(idx, restored.length), 0, food);
+          persistCustom(restored);
+          if (wasFav) {
+            const favs = readArr<string>(FAV_KEY);
+            if (!favs.includes(food.name)) persistFavs([...favs, food.name]);
+          }
+        },
+      },
+    });
+  }
+
+  /* ---------------- render ---------------- */
+
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[375px] flex flex-col pb-10">
-        {/* Header */}
         <header className="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 pt-4 pb-3 border-b border-neutral-100">
           <div className="flex items-center gap-2">
             <button
@@ -149,21 +315,116 @@ function AddFoodPage() {
         </header>
 
         <div className="px-4 py-4 space-y-6">
-          {favList.length > 0 && (
-            <Section title={<><Star className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />즐겨찾기</>}>
-              <FoodGrid foods={favList} favorites={favorites} onToggleFav={toggleFav} onPick={setActiveFood} />
-            </Section>
+          {!inSearch && (
+            <>
+              <DirectRegisterCard
+                onClick={() => {
+                  setFormInitial({});
+                  setFormOpen(true);
+                }}
+              />
+
+              {sortedCustom.length > 0 && (
+                <Section title="내가 등록한 음식">
+                  <CustomFoodGrid
+                    foods={sortedCustom}
+                    favorites={favorites}
+                    onToggleFav={toggleFavByName}
+                    onPick={(c) => setActiveFood(customToPickable(c))}
+                    onLongPress={(c) => setActionTarget(c)}
+                  />
+                </Section>
+              )}
+
+              {favList.length > 0 && (
+                <Section
+                  title={
+                    <>
+                      <Star className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />
+                      즐겨찾기
+                    </>
+                  }
+                >
+                  <FoodGrid
+                    foods={favList}
+                    favorites={favorites}
+                    onToggleFav={toggleFav}
+                    onPick={(p) => setActiveFood(presetToPickable(p))}
+                  />
+                </Section>
+              )}
+
+              {recentList.length > 0 && (
+                <Section
+                  title={
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />
+                      최근 사용
+                    </>
+                  }
+                >
+                  <FoodGrid
+                    foods={recentList}
+                    favorites={favorites}
+                    onToggleFav={toggleFav}
+                    onPick={(p) => setActiveFood(presetToPickable(p))}
+                  />
+                </Section>
+              )}
+
+              <Section title="전체 음식">
+                <FoodGrid
+                  foods={PRESETS}
+                  favorites={favorites}
+                  onToggleFav={toggleFav}
+                  onPick={(p) => setActiveFood(presetToPickable(p))}
+                />
+              </Section>
+            </>
           )}
 
-          {recentList.length > 0 && (
-            <Section title={<><Clock className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />최근 사용</>}>
-              <FoodGrid foods={recentList} favorites={favorites} onToggleFav={toggleFav} onPick={setActiveFood} />
+          {inSearch && (
+            <Section title="검색 결과">
+              {customMatches.length === 0 && presetMatches.length === 0 ? (
+                <p className="text-xs text-neutral-400 mb-3">결과가 없어요</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {customMatches.map((c) => (
+                    <CustomFoodCard
+                      key={c.id}
+                      food={c}
+                      isFav={favorites.includes(c.name)}
+                      onToggleFav={() => toggleFavByName(c.name)}
+                      onPick={() => setActiveFood(customToPickable(c))}
+                      onLongPress={() => setActionTarget(c)}
+                    />
+                  ))}
+                  {presetMatches.map((p) => (
+                    <PresetCard
+                      key={p.id}
+                      food={p}
+                      isFav={favorites.includes(p.id)}
+                      onToggleFav={() => toggleFav(p.id)}
+                      onPick={() => setActiveFood(presetToPickable(p))}
+                    />
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  setFormInitial({ name: query.trim() });
+                  setFormOpen(true);
+                }}
+                className="mt-3 w-full rounded-xl border border-dashed border-neutral-300 bg-white p-4 text-left transition active:scale-[0.98] hover:border-neutral-400"
+              >
+                <div className="text-sm text-neutral-500">찾는 음식이 없나요?</div>
+                <div className="mt-0.5 inline-flex items-center gap-1 text-sm font-semibold text-neutral-900">
+                  <Plus className="w-4 h-4" />
+                  직접 등록
+                </div>
+              </button>
             </Section>
           )}
-
-          <Section title="전체 음식">
-            <FoodGrid foods={filtered} favorites={favorites} onToggleFav={toggleFav} onPick={setActiveFood} />
-          </Section>
         </div>
       </main>
 
@@ -174,16 +435,68 @@ function AddFoodPage() {
           onAdd={(mode, qty) => handleAdd(activeFood, mode, qty)}
         />
       )}
+
+      <CustomFoodFormSheet
+        open={formOpen}
+        initial={formInitial}
+        onOpenChange={(o) => {
+          setFormOpen(o);
+          if (!o) setFormInitial(null);
+        }}
+        onSave={handleFormSave}
+      />
+
+      {actionTarget && (
+        <ActionSheet
+          food={actionTarget}
+          onClose={() => setActionTarget(null)}
+          onEdit={() => {
+            setFormInitial(actionTarget);
+            setActionTarget(null);
+            setFormOpen(true);
+          }}
+          onDelete={() => handleDelete(actionTarget)}
+        />
+      )}
     </div>
   );
 }
 
-function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
+/* ---------------- small UI pieces ---------------- */
+
+function Section({
+  title,
+  children,
+}: {
+  title: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <section>
-      <h2 className="text-sm font-semibold text-neutral-800 mb-2 inline-flex items-center gap-1.5">{title}</h2>
+      <h2 className="text-sm font-semibold text-neutral-800 mb-2 inline-flex items-center gap-1.5">
+        {title}
+      </h2>
       {children}
     </section>
+  );
+}
+
+function DirectRegisterCard({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full rounded-xl border border-dashed border-neutral-300 bg-white p-4 text-left transition active:scale-[0.98] hover:border-neutral-400 flex items-center gap-3"
+    >
+      <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center">
+        <Plus className="w-5 h-5 text-neutral-700" />
+      </div>
+      <div>
+        <div className="text-sm font-semibold text-neutral-900">직접 등록</div>
+        <div className="text-xs text-neutral-500 mt-0.5">
+          목록에 없는 음식을 직접 추가해요
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -203,44 +516,172 @@ function FoodGrid({
   }
   return (
     <div className="grid grid-cols-2 gap-2">
-      {foods.map((f) => {
-        const isFav = favorites.includes(f.id);
-        return (
-          <div
-            key={f.id}
-            className="relative rounded-xl border border-neutral-200 bg-white p-3 transition active:scale-95 hover:border-neutral-300"
-          >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleFav(f.id);
-              }}
-              className="absolute top-2 right-2 p-1 rounded-full hover:bg-neutral-100"
-              aria-label="즐겨찾기"
-            >
-              <Star
-                className="w-4 h-4"
-                fill={isFav ? "#FFD700" : "none"}
-                stroke={isFav ? "#FFD700" : "#9ca3af"}
-              />
-            </button>
-            <button onClick={() => onPick(f)} className="text-left w-full pr-6">
-              <div className="text-sm font-bold text-neutral-900 leading-tight">{f.name}</div>
-              <div className="text-xs text-neutral-400 mt-1">{f.kcal} kcal</div>
-            </button>
-          </div>
-        );
-      })}
+      {foods.map((f) => (
+        <PresetCard
+          key={f.id}
+          food={f}
+          isFav={favorites.includes(f.id)}
+          onToggleFav={() => onToggleFav(f.id)}
+          onPick={() => onPick(f)}
+        />
+      ))}
     </div>
   );
 }
+
+function PresetCard({
+  food,
+  isFav,
+  onToggleFav,
+  onPick,
+}: {
+  food: FoodPreset;
+  isFav: boolean;
+  onToggleFav: () => void;
+  onPick: () => void;
+}) {
+  return (
+    <div className="relative rounded-xl border border-neutral-200 bg-white p-3 transition active:scale-95 hover:border-neutral-300">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFav();
+        }}
+        className="absolute top-2 right-2 p-1 rounded-full hover:bg-neutral-100"
+        aria-label="즐겨찾기"
+      >
+        <Star
+          className="w-4 h-4"
+          fill={isFav ? "#FFD700" : "none"}
+          stroke={isFav ? "#FFD700" : "#9ca3af"}
+        />
+      </button>
+      <button onClick={onPick} className="text-left w-full pr-6">
+        <div className="text-sm font-bold text-neutral-900 leading-tight">
+          {food.name}
+        </div>
+        <div className="text-xs text-neutral-400 mt-1">{food.kcal} kcal</div>
+      </button>
+    </div>
+  );
+}
+
+function CustomFoodGrid({
+  foods,
+  favorites,
+  onToggleFav,
+  onPick,
+  onLongPress,
+}: {
+  foods: CustomFood[];
+  favorites: string[];
+  onToggleFav: (name: string) => void;
+  onPick: (f: CustomFood) => void;
+  onLongPress: (f: CustomFood) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {foods.map((f) => (
+        <CustomFoodCard
+          key={f.id}
+          food={f}
+          isFav={favorites.includes(f.name)}
+          onToggleFav={() => onToggleFav(f.name)}
+          onPick={() => onPick(f)}
+          onLongPress={() => onLongPress(f)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CustomFoodCard({
+  food,
+  isFav,
+  onToggleFav,
+  onPick,
+  onLongPress,
+}: {
+  food: CustomFood;
+  isFav: boolean;
+  onToggleFav: () => void;
+  onPick: () => void;
+  onLongPress: () => void;
+}) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firedRef = useRef(false);
+
+  const isWeight = food.serving_unit === "g" || food.serving_unit === "ml";
+  const servingLabel = isWeight
+    ? `${food.serving_g}${food.serving_unit}`
+    : `${food.serving_amount}${food.serving_unit} (${food.serving_g}g)`;
+
+  function start() {
+    firedRef.current = false;
+    timerRef.current = setTimeout(() => {
+      firedRef.current = true;
+      onLongPress();
+    }, 500);
+  }
+  function cancel() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }
+
+  return (
+    <div className="relative rounded-xl border border-neutral-200 bg-white p-3 transition active:scale-95 hover:border-neutral-300">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFav();
+        }}
+        className="absolute top-2 right-2 p-1 rounded-full hover:bg-neutral-100"
+        aria-label="즐겨찾기"
+      >
+        <Star
+          className="w-4 h-4"
+          fill={isFav ? "#FFD700" : "none"}
+          stroke={isFav ? "#FFD700" : "#9ca3af"}
+        />
+      </button>
+      <button
+        onClick={() => {
+          if (!firedRef.current) onPick();
+        }}
+        onPointerDown={start}
+        onPointerUp={cancel}
+        onPointerLeave={cancel}
+        onPointerCancel={cancel}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onLongPress();
+        }}
+        className="text-left w-full pr-6"
+      >
+        <div className="text-[14px] font-bold text-neutral-900 leading-tight">
+          {food.name}
+        </div>
+        <div className="mt-1 flex items-center gap-1.5">
+          <span className="text-[12px] text-neutral-500">{food.kcal} kcal</span>
+          {food.is_estimated && (
+            <span className="text-[10px] px-1.5 py-px rounded-full bg-neutral-100 text-neutral-500">
+              추정
+            </span>
+          )}
+        </div>
+        <div className="text-[11px] text-neutral-400 mt-0.5">{servingLabel}</div>
+      </button>
+    </div>
+  );
+}
+
+/* ---------------- Quantity sheet (works for both preset + custom) ---------------- */
 
 function QuantitySheet({
   food,
   onClose,
   onAdd,
 }: {
-  food: FoodPreset;
+  food: Pickable;
   onClose: () => void;
   onAdd: (mode: "serving" | "gram", qty: number) => void;
 }) {
@@ -254,7 +695,6 @@ function QuantitySheet({
   const kcal = Math.round(food.kcal * mult);
   const disabled = qty <= 0;
 
-  // Reset qty when switching modes
   useEffect(() => {
     setQtyStr(mode === "serving" ? "1" : String(food.serving_g));
   }, [mode, food.serving_g]);
@@ -268,7 +708,10 @@ function QuantitySheet({
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-200" />
         <h3 className="text-base font-bold text-neutral-900">{food.name}</h3>
-        <p className="text-xs text-neutral-400 mt-0.5">1{mode === "serving" ? "인분" : "00g"} 기준 · {food.kcal} kcal / {food.serving_g}g</p>
+        <p className="text-xs text-neutral-400 mt-0.5">
+          {food.serving_label} · {food.kcal} kcal
+          {food.is_estimated ? " · 추정" : ""}
+        </p>
 
         <div className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-neutral-100 p-1">
           {(["serving", "gram"] as const).map((m) => (
@@ -319,6 +762,353 @@ function QuantitySheet({
           추가하기
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Action sheet (long-press) ---------------- */
+
+function ActionSheet({
+  food,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  food: CustomFood;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div
+        className="relative w-full max-w-[375px] rounded-t-2xl bg-white p-3 pb-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-200" />
+        <div className="px-3 py-2 text-xs text-neutral-500">{food.name}</div>
+        <button
+          onClick={onEdit}
+          className="w-full px-3 py-3 flex items-center gap-3 rounded-lg hover:bg-neutral-50 text-left"
+        >
+          <Pencil className="w-4 h-4 text-neutral-600" />
+          <span className="text-sm text-neutral-900">편집</span>
+        </button>
+        <button
+          onClick={onDelete}
+          className="w-full px-3 py-3 flex items-center gap-3 rounded-lg hover:bg-neutral-50 text-left"
+        >
+          <Trash2 className="w-4 h-4 text-red-500" />
+          <span className="text-sm text-red-600">삭제</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Form sheet ---------------- */
+
+type Unit = CustomFood["serving_unit"];
+const UNITS: Unit[] = ["개", "봉", "잔", "조각", "g", "ml"];
+
+function CustomFoodFormSheet({
+  open,
+  initial,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  initial: Partial<CustomFood> | null;
+  onOpenChange: (o: boolean) => void;
+  onSave: (f: CustomFood) => void;
+}) {
+  const [name, setName] = useState("");
+  const [unit, setUnit] = useState<Unit>("개");
+  const [amount, setAmount] = useState("1");
+  const [gramConv, setGramConv] = useState("");
+  const [kcal, setKcal] = useState("");
+  const [carb, setCarb] = useState("");
+  const [protein, setProtein] = useState("");
+  const [fat, setFat] = useState("");
+  const [category, setCategory] = useState<FoodCategory>("other");
+
+  // Track which macro fields were auto-estimated (so editing them flips flag)
+  const estimatedRef = useRef(false);
+  const userTypedRef = useRef({ carb: false, protein: false, fat: false, kcal: false });
+
+  useEffect(() => {
+    if (!open) return;
+    setName(initial?.name ?? "");
+    setUnit((initial?.serving_unit as Unit) ?? "개");
+    setAmount(initial?.serving_amount ? String(initial.serving_amount) : "1");
+    setGramConv(initial?.serving_g ? String(initial.serving_g) : "");
+    setKcal(initial?.kcal ? String(initial.kcal) : "");
+    setCarb(initial?.carb_g ? String(initial.carb_g) : "");
+    setProtein(initial?.protein_g ? String(initial.protein_g) : "");
+    setFat(initial?.fat_g ? String(initial.fat_g) : "");
+    setCategory(initial?.category ?? "other");
+    estimatedRef.current = initial?.is_estimated ?? false;
+    userTypedRef.current = { carb: false, protein: false, fat: false, kcal: false };
+  }, [open, initial]);
+
+  const isWeightUnit = unit === "g" || unit === "ml";
+
+  const carbN = parseFloat(carb);
+  const proteinN = parseFloat(protein);
+  const fatN = parseFloat(fat);
+  const kcalN = parseFloat(kcal);
+  const amountN = parseFloat(amount);
+  const gramConvN = parseFloat(gramConv);
+
+  const allMacrosFilled =
+    !Number.isNaN(carbN) && !Number.isNaN(proteinN) && !Number.isNaN(fatN);
+  const kcalFilled = !Number.isNaN(kcalN) && kcalN > 0;
+  const macrosEmpty = !carb && !protein && !fat;
+
+  // Auto: macros → kcal
+  useEffect(() => {
+    if (!open) return;
+    if (allMacrosFilled) {
+      const k = kcalFromMacros({ carbs: carbN, protein: proteinN, fat: fatN });
+      setKcal(String(k));
+      userTypedRef.current.kcal = false;
+      estimatedRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carbN, proteinN, fatN, allMacrosFilled, open]);
+
+  // Auto: kcal + category → macros (only if macros empty)
+  useEffect(() => {
+    if (!open) return;
+    if (kcalFilled && macrosEmpty && category) {
+      const m = estimateMacrosFromKcal(kcalN, category);
+      setCarb(String(m.carbs));
+      setProtein(String(m.protein));
+      setFat(String(m.fat));
+      estimatedRef.current = true;
+      userTypedRef.current = { carb: false, protein: false, fat: false, kcal: true };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kcalN, category, open]);
+
+  // serving_g resolution
+  const servingG = isWeightUnit ? amountN : gramConvN;
+  const servingGValid = !Number.isNaN(servingG) && servingG > 0;
+
+  const showCategory = kcalFilled && macrosEmpty;
+
+  const canSave =
+    name.trim().length > 0 &&
+    !Number.isNaN(amountN) &&
+    amountN > 0 &&
+    servingGValid &&
+    (kcalFilled || allMacrosFilled) &&
+    (allMacrosFilled || (kcalFilled && !!category));
+
+  function handleSubmit() {
+    if (!canSave) return;
+    // Final macros: if user only entered kcal+category, macros auto-filled above
+    const finalCarb = Number.isNaN(carbN) ? 0 : carbN;
+    const finalProtein = Number.isNaN(proteinN) ? 0 : proteinN;
+    const finalFat = Number.isNaN(fatN) ? 0 : fatN;
+    const finalKcal = kcalFilled
+      ? Math.round(kcalN)
+      : kcalFromMacros({ carbs: finalCarb, protein: finalProtein, fat: finalFat });
+
+    const allUserTyped =
+      userTypedRef.current.carb &&
+      userTypedRef.current.protein &&
+      userTypedRef.current.fat;
+    const baseFood: CustomFood = {
+      id: initial?.id ?? crypto.randomUUID(),
+      name: name.trim(),
+      serving_unit: unit,
+      serving_amount: amountN,
+      serving_g: servingG,
+      kcal: finalKcal,
+      carb_g: finalCarb,
+      protein_g: finalProtein,
+      fat_g: finalFat,
+      is_estimated: estimatedRef.current,
+      category: showCategory || estimatedRef.current ? category : initial?.category,
+      created_at: initial?.created_at ?? Date.now(),
+      updated_at: Date.now(),
+    };
+    const finalFood = recomputeEstimatedFlag(baseFood, allUserTyped);
+    onSave(finalFood);
+  }
+
+  function macroHandler(setter: (v: string) => void, key: "carb" | "protein" | "fat") {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      setter(e.target.value);
+      userTypedRef.current[key] = true;
+    };
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="h-[92vh] overflow-y-auto rounded-t-2xl p-0"
+      >
+        <SheetHeader className="px-5 pt-5 pb-3 border-b">
+          <SheetTitle className="text-base">
+            {initial?.id ? "음식 편집" : "직접 등록"}
+          </SheetTitle>
+        </SheetHeader>
+
+        <div className="px-5 py-4 space-y-4">
+          <Field label="음식 이름" required>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="예: 닭가슴살 샐러드"
+              className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+            />
+          </Field>
+
+          <Field label="1회 제공량" required>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                min={0}
+                className="flex-1 h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+              />
+              <select
+                value={unit}
+                onChange={(e) => setUnit(e.target.value as Unit)}
+                className="w-24 h-11 px-2 rounded-xl border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300"
+              >
+                {UNITS.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {!isWeightUnit && (
+              <div className="mt-2">
+                <label className="text-xs text-neutral-500 block mb-1">
+                  그램 환산 (g) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={gramConv}
+                  onChange={(e) => setGramConv(e.target.value)}
+                  placeholder="예: 40"
+                  min={0}
+                  className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+                />
+              </div>
+            )}
+          </Field>
+
+          <div className="flex items-center gap-3 py-2">
+            <div className="flex-1 h-px bg-neutral-200" />
+            <span className="text-xs text-neutral-400">영양 정보</span>
+            <div className="flex-1 h-px bg-neutral-200" />
+          </div>
+
+          <Field label="열량 (kcal)">
+            <input
+              type="number"
+              inputMode="decimal"
+              value={kcal}
+              onChange={(e) => {
+                setKcal(e.target.value);
+                userTypedRef.current.kcal = true;
+              }}
+              placeholder="자동 계산"
+              min={0}
+              className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+            />
+          </Field>
+
+          <div className="grid grid-cols-3 gap-2">
+            <Field label="탄수화물 (g)">
+              <input
+                type="number"
+                inputMode="decimal"
+                value={carb}
+                onChange={macroHandler(setCarb, "carb")}
+                min={0}
+                className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+              />
+            </Field>
+            <Field label="단백질 (g)">
+              <input
+                type="number"
+                inputMode="decimal"
+                value={protein}
+                onChange={macroHandler(setProtein, "protein")}
+                min={0}
+                className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+              />
+            </Field>
+            <Field label="지방 (g)">
+              <input
+                type="number"
+                inputMode="decimal"
+                value={fat}
+                onChange={macroHandler(setFat, "fat")}
+                min={0}
+                className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+              />
+            </Field>
+          </div>
+
+          {showCategory && (
+            <Field label="카테고리">
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as FoodCategory)}
+                className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300"
+              >
+                {CATEGORY_LABELS.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-neutral-400 mt-1">
+                카테고리에서 탄·단·지를 추정해요 (추정 배지가 표시됩니다)
+              </p>
+            </Field>
+          )}
+
+          <button
+            disabled={!canSave}
+            onClick={handleSubmit}
+            className="w-full h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold disabled:opacity-40 active:scale-95 transition mt-2"
+          >
+            저장하고 추가하기
+          </button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="text-xs text-neutral-600 font-medium block mb-1.5">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {children}
     </div>
   );
 }
