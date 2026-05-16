@@ -3,13 +3,15 @@
  *
  * 가이드: https://developers-apps-in-toss.toss.im/login/develop.md
  *
- * 미니앱 컨텍스트에서는 토스가 별도의 Client ID/Secret을 발급하지 않는다.
- * 발급된 authorizationCode (10분 일회성)만으로 generate-token 호출이 인증됨.
+ * 미니앱은 client_id/secret 미발급 — mTLS client certificate로 인증.
  * 응답은 { resultType, success | error } envelope으로 래핑됨.
  *
- * 받은 "복호화 키"는 PII(name/phone/birthday/ci/gender/nationality/email) AES-256-GCM
- * 복호화 전용. v1엔 userKey만 활용하므로 사용 안 함 (TOSS_DECRYPT_KEY는 필요해질 때 추가).
+ * 환경별 mTLS 처리:
+ *   - prod (CF Workers): env.TOSS_MTLS binding의 fetch 사용 (binding이 핸드셰이크 자동 처리)
+ *   - dev (Vite/Node):   undici Agent + .env.local의 PEM 파일 path
  */
+
+import type { Env } from "./env";
 
 const TOSS_API_BASE = "https://apps-in-toss-api.toss.im";
 const GENERATE_TOKEN_PATH =
@@ -20,13 +22,12 @@ const LOGIN_ME_PATH = "/api-partner/v1/apps-in-toss/user/oauth2/login-me";
 const REVOKE_BY_ACCESS_TOKEN_PATH =
   "/api-partner/v1/apps-in-toss/user/oauth2/access/remove-by-access-token";
 
-// 가이드 기준: refreshToken 14일. accessToken은 응답의 expiresIn(초) 사용.
 const REFRESH_TOKEN_TTL_SEC = 14 * 24 * 60 * 60;
 
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
-  accessTokenExp: number; // unix seconds
+  accessTokenExp: number;
   refreshTokenExp: number;
 }
 
@@ -41,18 +42,63 @@ export class TossOAuthError extends Error {
   }
 }
 
+/* ---------------- mTLS dispatcher (dev/Node only) ---------------- */
+
+let cachedDispatcher: unknown = null;
+
+async function getNodeDispatcher(
+  certPath: string,
+  keyPath: string,
+): Promise<unknown> {
+  if (cachedDispatcher) return cachedDispatcher;
+  // 동적 import — 이 모듈은 Node 전용 (CF Worker 빌드에는 포함 X)
+  const { readFileSync } = await import("node:fs");
+  const { Agent } = await import("undici");
+  cachedDispatcher = new Agent({
+    connect: {
+      cert: readFileSync(certPath),
+      key: readFileSync(keyPath),
+    },
+  });
+  return cachedDispatcher;
+}
+
 /**
- * 두 가지 실패 응답 envelope 모두 처리:
- *   (a) { "error": "invalid_grant" }                          — 인가코드 만료/재사용
- *   (b) { "resultType": "FAIL", "error": { errorCode, reason } } — 일반 에러
+ * 토스 API 호출 entry point. 환경에 따라 mTLS 처리 분기.
  */
+async function tossFetch(
+  env: Env,
+  url: string,
+  init?: RequestInit,
+): Promise<Response> {
+  // (a) CF Worker binding (prod). binding이 mTLS 핸드셰이크 자동 처리.
+  if (env.TOSS_MTLS && typeof env.TOSS_MTLS.fetch === "function") {
+    return env.TOSS_MTLS.fetch(url, init);
+  }
+  // (b) Node dev: undici Agent
+  if (env.TOSS_MTLS_CERT_PATH && env.TOSS_MTLS_KEY_PATH) {
+    const dispatcher = await getNodeDispatcher(
+      env.TOSS_MTLS_CERT_PATH,
+      env.TOSS_MTLS_KEY_PATH,
+    );
+    return fetch(url, { ...init, dispatcher } as RequestInit & {
+      dispatcher: unknown;
+    });
+  }
+  // (c) mTLS 미구성
+  throw new TossOAuthError(
+    "MTLS_NOT_CONFIGURED",
+    "mTLS 인증서가 구성되지 않았습니다. dev: .env.local의 TOSS_MTLS_CERT_PATH/KEY_PATH. prod: wrangler.jsonc의 mtls_certificates binding",
+  );
+}
+
+/* ---------------- 응답 envelope 파싱 ---------------- */
+
 function parseTossError(data: Record<string, unknown>, status: number): TossOAuthError {
-  // (a) 단순 error 문자열
   if (typeof data.error === "string") {
     const code = data.error.toUpperCase().replace(/[^A-Z0-9]/g, "_");
     return new TossOAuthError(code, `토스 오류: ${data.error}`, status);
   }
-  // (b) resultType=FAIL + error 객체
   if (data.resultType === "FAIL" && typeof data.error === "object" && data.error) {
     const err = data.error as { errorCode?: string; reason?: string };
     return new TossOAuthError(
@@ -76,25 +122,22 @@ interface GenerateTokenSuccess {
   scope: string;
 }
 
-/**
- * 인가코드 → accessToken + refreshToken 교환.
- * 미니앱은 별도 client 인증 헤더 없이 authorizationCode + referrer 만 전송.
- */
+/* ---------------- public API ---------------- */
+
 export async function generateToken(
+  env: Env,
   authorizationCode: string,
   referrer: "DEFAULT" | "SANDBOX",
 ): Promise<TokenPair> {
-  const res = await fetch(`${TOSS_API_BASE}${GENERATE_TOKEN_PATH}`, {
+  const res = await tossFetch(env, `${TOSS_API_BASE}${GENERATE_TOKEN_PATH}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ authorizationCode, referrer }),
   });
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-
   if (!res.ok || data.resultType !== "SUCCESS" || data.error) {
     throw parseTossError(data, res.status);
   }
-
   const success = data.success as GenerateTokenSuccess | undefined;
   if (!success?.accessToken || !success?.refreshToken) {
     throw new TossOAuthError(
@@ -103,7 +146,7 @@ export async function generateToken(
     );
   }
   const now = Math.floor(Date.now() / 1000);
-  const expiresIn = Number(success.expiresIn) || 3600; // 기본 1h
+  const expiresIn = Number(success.expiresIn) || 3600;
   return {
     accessToken: success.accessToken,
     refreshToken: success.refreshToken,
@@ -112,21 +155,19 @@ export async function generateToken(
   };
 }
 
-/**
- * refreshToken으로 accessToken 갱신.
- */
-export async function refreshAccessToken(refreshToken: string): Promise<TokenPair> {
-  const res = await fetch(`${TOSS_API_BASE}${REFRESH_TOKEN_PATH}`, {
+export async function refreshAccessToken(
+  env: Env,
+  refreshToken: string,
+): Promise<TokenPair> {
+  const res = await tossFetch(env, `${TOSS_API_BASE}${REFRESH_TOKEN_PATH}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ refreshToken }),
   });
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-
   if (!res.ok || data.resultType !== "SUCCESS" || data.error) {
     throw parseTossError(data, res.status);
   }
-
   const success = data.success as GenerateTokenSuccess | undefined;
   if (!success?.accessToken || !success?.refreshToken) {
     throw new TossOAuthError(
@@ -148,30 +189,19 @@ interface LoginMeSuccess {
   userKey: number;
   scope: string;
   agreedTerms?: string[];
-  // PII 필드들 (암호화된 base64 문자열). v1엔 사용 안 함.
-  name?: string | null;
-  phone?: string | null;
-  birthday?: string | null;
-  ci?: string | null;
-  gender?: string | null;
-  nationality?: string | null;
-  email?: string | null;
 }
 
-/**
- * accessToken으로 userKey 조회. userKey는 number 타입.
- * PII 필드는 모두 암호화된 base64. v1엔 무시.
- */
-export async function fetchUserKey(accessToken: string): Promise<number> {
-  const res = await fetch(`${TOSS_API_BASE}${LOGIN_ME_PATH}`, {
+export async function fetchUserKey(
+  env: Env,
+  accessToken: string,
+): Promise<number> {
+  const res = await tossFetch(env, `${TOSS_API_BASE}${LOGIN_ME_PATH}`, {
     headers: { authorization: `Bearer ${accessToken}` },
   });
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-
   if (!res.ok || data.resultType !== "SUCCESS" || data.error) {
     throw parseTossError(data, res.status);
   }
-
   const success = data.success as LoginMeSuccess | undefined;
   const userKey = Number(success?.userKey);
   if (!Number.isFinite(userKey)) {
@@ -183,17 +213,18 @@ export async function fetchUserKey(accessToken: string): Promise<number> {
   return userKey;
 }
 
-/**
- * accessToken으로 토스 로그인 연결 끊기. logout 시 best-effort.
- * 실패해도 우리 세션 무효화는 별도로 진행.
- */
-export async function revokeByAccessToken(accessToken: string): Promise<void> {
-  await fetch(`${TOSS_API_BASE}${REVOKE_BY_ACCESS_TOKEN_PATH}`, {
+export async function revokeByAccessToken(
+  env: Env,
+  accessToken: string,
+): Promise<void> {
+  // best-effort — 실패해도 우리 KV 세션 삭제가 권위 있는 로그아웃
+  await tossFetch(env, `${TOSS_API_BASE}${REVOKE_BY_ACCESS_TOKEN_PATH}`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${accessToken}`,
     },
+  }).catch((e) => {
+    console.warn("[auth/revoke] failed (ignored)", e);
   });
-  // 응답 무시 — 우리 측 KV 세션 삭제가 권위 있는 로그아웃.
 }

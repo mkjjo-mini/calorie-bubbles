@@ -49,10 +49,11 @@ export async function handleLogin(req: Request, env: Env): Promise<Response> {
 
   try {
     const tokens = await generateToken(
+      env,
       body.authorizationCode,
       body.referrer,
     );
-    const userKey = await fetchUserKey(tokens.accessToken);
+    const userKey = await fetchUserKey(env, tokens.accessToken);
 
     const sessionId = generateSessionId();
     const payload: SessionPayload = {
