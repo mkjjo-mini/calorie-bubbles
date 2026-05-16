@@ -67,14 +67,14 @@ export function BubbleField({
       .force("y", forceY(anchorY).strength(yStrength))
       .force(
         "collide",
-        forceCollide<Node>((d) => (d.r + 2) * compression)
+        forceCollide<Node>((d) => (d.r * visualScale + 2) * compression)
           .strength(1)
           .iterations(4),
       )
       .on("tick", () => {
         // clamp to rectangular bounds (container has overflow:hidden)
         for (const n of nodesRef.current.values()) {
-          const r = n.r + 1; // visual radius for clamping
+          const r = n.r * visualScale + 1;
           if (n.x! < r) n.x = r;
           if (n.x! > width - r) n.x = width - r;
           if (n.y! < r) n.y = r;
