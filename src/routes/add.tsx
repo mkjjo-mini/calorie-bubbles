@@ -128,7 +128,7 @@ function AddFoodPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formInitial, setFormInitial] = useState<Partial<CustomFood> | null>(null);
   const [actionTarget, setActionTarget] = useState<CustomFood | null>(null);
-  const [openAfterSave, setOpenAfterSave] = useState(false);
+  
 
   useEffect(() => {
     setFavorites(readArr<string>(FAV_KEY));
@@ -256,7 +256,6 @@ function AddFoodPage() {
     setFormInitial(null);
     // Continuous flow: open quantity sheet right after
     setActiveFood(customToPickable(food));
-    setOpenAfterSave(false);
   }
 
   /* ---------------- delete with undo ---------------- */
