@@ -294,6 +294,7 @@ function Index() {
                 onRemove={removeBubble}
                 compression={compression}
                 fillness={fillness}
+                visualScale={visualScale}
               />
             </AnimatePresence>
 
