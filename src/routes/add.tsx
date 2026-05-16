@@ -1230,6 +1230,19 @@ function CustomFoodFormSheet({
           >
             저장하고 추가하기
           </button>
+          {!canSave && (() => {
+            const missing: string[] = [];
+            if (name.trim().length === 0) missing.push("음식 이름");
+            if (Number.isNaN(amountN) || amountN <= 0) missing.push("1회 제공량");
+            if (!kcalFilled && !allMacrosFilled)
+              missing.push("열량 또는 탄·단·지 g");
+            if (missing.length === 0) return null;
+            return (
+              <p className="text-[11px] text-neutral-500 text-center mt-1.5">
+                {missing.join(" · ")} 입력 후 저장할 수 있어요
+              </p>
+            );
+          })()}
         </div>
       </SheetContent>
     </Sheet>
