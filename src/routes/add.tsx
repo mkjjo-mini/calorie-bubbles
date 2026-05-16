@@ -183,6 +183,20 @@ function AddFoodPage() {
     localStorage.setItem(FAV_KEY, JSON.stringify(next));
   }
 
+  // favorites 정규화: customFood id로 들어온 항목 → name으로 변환 (호환·중복 제거)
+  useEffect(() => {
+    if (!hydrated) return;
+    const cleaned = favorites.map((key) => {
+      const c = customFoods.find((x) => x.id === key);
+      return c ? c.name : key;
+    });
+    const unique = Array.from(new Set(cleaned));
+    if (JSON.stringify(unique) !== JSON.stringify(favorites)) {
+      setFavorites(unique);
+      localStorage.setItem(FAV_KEY, JSON.stringify(unique));
+    }
+  }, [hydrated, customFoods, favorites]);
+
   // 검색어 1초 이상 유지되면 최근 검색에 push (디바운스, dedupe, 최대 8개)
   useEffect(() => {
     if (!hydrated) return;
@@ -337,9 +351,9 @@ function AddFoodPage() {
         const next = prependCustomFood(customFoods, newCustom);
         persistCustom(next);
         effectiveId = newCustom.id;
-        // API 음식 첫 추가 시 자동 즐겨찾기 (사용자가 별표 토글로 언제든 해제 가능)
-        if (!favorites.includes(newCustom.id) && !favorites.includes(newCustom.name)) {
-          const nextFav = [newCustom.id, ...favorites];
+        // API 음식 첫 추가 시 자동 즐겨찾기 (name 기반으로 통일 — 사용자 토글과 일치)
+        if (!favorites.includes(newCustom.name)) {
+          const nextFav = [newCustom.name, ...favorites];
           setFavorites(nextFav);
           localStorage.setItem(FAV_KEY, JSON.stringify(nextFav));
         }
@@ -725,7 +739,7 @@ function FoodGrid({
         <PresetCard
           key={f.id}
           food={f}
-          isFav={favorites.includes(f.id)}
+          isFav={favorites.includes(f.id) || favorites.includes(f.name)}
           onToggleFav={() => onToggleFav(f.id)}
           onPick={() => onPick(f)}
         />
