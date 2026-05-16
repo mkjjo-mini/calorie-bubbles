@@ -365,22 +365,15 @@ function Index() {
         </AlertDialog>
       </main>
 
-      {/* FAB — anchored inside the 375px container, above the 64px tab bar */}
-      <div
-        className="pointer-events-none fixed inset-x-0 z-40 flex justify-center"
-        style={{ bottom: 80 }}
+      {/* FAB */}
+      <button
+        onClick={() => navigate({ to: "/add" })}
+        aria-label="음식 추가"
+        className="fixed z-40 flex items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg active:scale-95 transition hover:bg-neutral-800"
+        style={{ bottom: 24, right: 24, width: 56, height: 56 }}
       >
-        <div className="relative w-full max-w-[375px]">
-          <button
-            onClick={() => navigate({ to: "/add" })}
-            aria-label="음식 추가"
-            className="pointer-events-auto absolute right-5 bottom-0 flex items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg active:scale-95 transition hover:bg-neutral-800"
-            style={{ width: 56, height: 56 }}
-          >
-            <Plus className="w-6 h-6" />
-          </button>
-        </div>
-      </div>
+        <Plus className="w-6 h-6" />
+      </button>
     </div>
   );
 }
