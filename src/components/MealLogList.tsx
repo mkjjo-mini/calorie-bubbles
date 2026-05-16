@@ -149,8 +149,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
     toast(`${meta.emoji} ${meta.label}으로 옮겼어요`);
   }
 
-  function handleArmedRelease(item: LogItem) {
-    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(20);
+  function openActions(item: LogItem) {
     setActionFor(item);
   }
 
