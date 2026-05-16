@@ -171,9 +171,10 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
               const slotKcal = items.reduce((s, x) => s + x.kcal, 0);
               return (
                 <SlotDropZone key={slot} slot={slot} isDragging={isDragging}>
-                  <div className="px-4 py-1.5 text-[12px] font-semibold text-neutral-700 flex items-baseline justify-between">
-                    <span>
-                      {meta.emoji} {meta.label}
+                  <div className="px-4 py-1.5 text-[12px] font-semibold text-neutral-700 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5">
+                      <meta.Icon className="h-3.5 w-3.5 text-neutral-500" strokeWidth={2.2} />
+                      {meta.label}
                     </span>
                     <span className="text-neutral-400 tabular-nums">{slotKcal} kcal</span>
                   </div>
