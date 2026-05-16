@@ -20,6 +20,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  QuantitySheet,
+  type Pickable,
+  type LastQty,
+} from "@/components/QuantitySheet";
 
 export const Route = createFileRoute("/add")({
   component: AddFoodPage,
@@ -35,22 +40,6 @@ interface FoodPreset {
   protein: number;
   fat: number;
   serving_g: number;
-}
-
-/** Unified shape consumed by QuantitySheet. */
-interface Pickable {
-  source: "preset" | "custom" | "api";
-  id: string;
-  name: string;
-  kcal: number;
-  carb: number;
-  protein: number;
-  fat: number;
-  serving_g: number;
-  serving_label: string; // e.g. "1봉 (40g)" or "100g"
-  is_estimated?: boolean;
-  /** 식약처 FOOD_CD (source="api" 일 때만). v2 D1 lookup용. */
-  food_code?: string;
 }
 
 const PRESETS = foodPresets as FoodPreset[];
@@ -168,13 +157,23 @@ function AddFoodPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formInitial, setFormInitial] = useState<Partial<CustomFood> | null>(null);
   const [actionTarget, setActionTarget] = useState<CustomFood | null>(null);
-  
+  const [lastQtyMap, setLastQtyMap] = useState<Record<string, LastQty>>({});
 
   useEffect(() => {
     setFavorites(readArr<string>(FAV_KEY));
     setRecents(readArr<string>(RECENT_KEY));
     setCustomFoods(readArr<CustomFood>(CUSTOM_KEY));
     setSearchHistory(readArr<string>(SEARCH_HISTORY_KEY));
+    try {
+      setLastQtyMap(
+        JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}") as Record<
+          string,
+          LastQty
+        >,
+      );
+    } catch {
+      /* ignore */
+    }
     setHydrated(true);
   }, []);
 
@@ -746,6 +745,7 @@ function AddFoodPage() {
       {activeFood && (
         <QuantitySheet
           food={activeFood}
+          last={lastQtyMap[activeFood.name]}
           onClose={() => setActiveFood(null)}
           onAdd={(mode, qty, saveAsBase) =>
             handleAdd(activeFood, mode, qty, saveAsBase)
@@ -978,113 +978,6 @@ function CustomFoodCard({
         </div>
         <div className="text-[11px] text-neutral-400 mt-0.5">{servingLabel}</div>
       </button>
-    </div>
-  );
-}
-
-/* ---------------- Quantity sheet (works for both preset + custom) ---------------- */
-
-function QuantitySheet({
-  food,
-  onClose,
-  onAdd,
-}: {
-  food: Pickable;
-  onClose: () => void;
-  onAdd: (mode: "serving" | "gram", qty: number, saveAsBase: boolean) => void;
-}) {
-  const [mode, setMode] = useState<"serving" | "gram">("serving");
-  const [qtyStr, setQtyStr] = useState("1");
-  const [saveAsBase, setSaveAsBase] = useState(true);
-  // customFood 또는 API에서 온 음식만 기준 단위 저장 의미 있음 (preset은 정적이라 제외)
-  const canSaveAsBase = food.source === "custom" || food.source === "api";
-  const qty = parseFloat(qtyStr) || 0;
-  const mult = mode === "serving" ? qty : qty / food.serving_g;
-  const carb = Math.round(food.carb * mult * 10) / 10;
-  const protein = Math.round(food.protein * mult * 10) / 10;
-  const fat = Math.round(food.fat * mult * 10) / 10;
-  const kcal = Math.round(food.kcal * mult);
-  const disabled = qty <= 0;
-
-  useEffect(() => {
-    setQtyStr(mode === "serving" ? "1" : String(food.serving_g));
-  }, [mode, food.serving_g]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40" />
-      <div
-        className="relative w-full max-w-[375px] rounded-t-2xl bg-white p-5 pb-8 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-200" />
-        <h3 className="text-base font-bold text-neutral-900">{food.name}</h3>
-        <p className="text-xs text-neutral-400 mt-0.5">
-          {food.serving_label} · {food.kcal} kcal
-          {food.is_estimated ? " · 추정" : ""}
-        </p>
-
-        <div className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-neutral-100 p-1">
-          {(["serving", "gram"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`h-8 rounded-md text-sm font-medium transition ${
-                mode === m ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500"
-              }`}
-            >
-              {m === "serving" ? "인분" : "그램(g)"}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-4 flex items-center gap-2">
-          <input
-            type="number"
-            inputMode="decimal"
-            value={qtyStr}
-            onChange={(e) => setQtyStr(e.target.value)}
-            min={0}
-            step={mode === "serving" ? 0.5 : 10}
-            className="flex-1 h-12 px-3 rounded-xl border border-neutral-200 text-base font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-300"
-          />
-          <span className="text-sm text-neutral-500 w-10 text-center">
-            {mode === "serving" ? "인분" : "g"}
-          </span>
-        </div>
-
-        <div className="mt-4 rounded-xl bg-neutral-50 px-4 py-3">
-          <div className="text-xs text-neutral-500">예상 영양</div>
-          <div className="mt-1 text-sm font-medium text-neutral-800">
-            <span style={{ color: "#b58a00" }}>탄 {carb}g</span>
-            <span className="mx-2 text-neutral-300">·</span>
-            <span style={{ color: "#d63838" }}>단 {protein}g</span>
-            <span className="mx-2 text-neutral-300">·</span>
-            <span style={{ color: "#3478d6" }}>지 {fat}g</span>
-          </div>
-          <div className="mt-1 text-xs text-neutral-500">{kcal} kcal</div>
-        </div>
-
-        {canSaveAsBase && (
-          <label className="mt-4 flex items-center gap-2 text-xs text-neutral-600 select-none cursor-pointer">
-            <input
-              type="checkbox"
-              checked={saveAsBase}
-              onChange={(e) => setSaveAsBase(e.target.checked)}
-              className="h-4 w-4 rounded border-neutral-300 accent-neutral-900"
-            />
-            이 양을 1인분으로 저장
-          </label>
-        )}
-
-        <button
-          disabled={disabled}
-          onClick={() => onAdd(mode, qty, saveAsBase)}
-          className="mt-3 w-full h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold disabled:opacity-40 active:scale-95 transition"
-        >
-          추가하기
-        </button>
-      </div>
     </div>
   );
 }

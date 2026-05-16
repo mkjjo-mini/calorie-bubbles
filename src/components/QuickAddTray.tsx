@@ -3,6 +3,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Star, Clock } from "lucide-react";
 import foodPresets from "@/data/food-presets.json";
 import { displayName, MACRO_COLORS, type BubbleEntry, type Macro } from "@/lib/foods";
+import {
+  QuantitySheet,
+  type Pickable,
+  type LastQty,
+} from "@/components/QuantitySheet";
 
 interface FoodPreset {
   id: string;
@@ -12,13 +17,14 @@ interface FoodPreset {
   protein: number;
   fat: number;
   serving_g: number;
+  /** undefined → 정적 preset, "custom"/"api" → customFood로부터 변환됨 */
+  source?: "preset" | "custom" | "api";
 }
 
 const PRESETS = foodPresets as FoodPreset[];
 const FAV_KEY = "favorites";
 const LAST_QTY_KEY = "lastQtyByName";
 
-type LastQty = { qty: number; mode: "serving" | "gram" };
 type LastQtyMap = Record<string, LastQty>;
 
 function formatQty(food: FoodPreset, last: LastQty | undefined): string {
@@ -40,6 +46,8 @@ interface CustomFoodLite {
   protein_g: number;
   fat_g: number;
   serving_g: number;
+  /** customFood의 source — Pickable 변환 시 saveAsBase UI 분기에 사용 */
+  source?: "user" | "api";
 }
 
 function customToPreset(c: CustomFoodLite): FoodPreset {
@@ -51,6 +59,20 @@ function customToPreset(c: CustomFoodLite): FoodPreset {
     protein: c.protein_g,
     fat: c.fat_g,
     serving_g: c.serving_g,
+    source: c.source === "api" ? "api" : "custom",
+  };
+}
+
+function toPickable(p: FoodPreset): Pickable {
+  return {
+    source: p.source ?? "preset",
+    id: p.id,
+    name: p.name,
+    kcal: p.kcal,
+    carb: p.carb,
+    protein: p.protein,
+    fat: p.fat,
+    serving_g: p.serving_g,
   };
 }
 
@@ -73,7 +95,19 @@ function dominantMacro(p: FoodPreset): Macro {
   return m[0][0];
 }
 
-function buildEntries(p: FoodPreset, mode: "serving" | "gram", qty: number): BubbleEntry[] {
+/**
+ * Build BubbleEntry triple from any source shape (FoodPreset or Pickable).
+ * Both expose carb/protein/fat/serving_g/name with identical semantics.
+ */
+type EntrySource = {
+  name: string;
+  carb: number;
+  protein: number;
+  fat: number;
+  serving_g: number;
+};
+
+function buildEntries(p: EntrySource, mode: "serving" | "gram", qty: number): BubbleEntry[] {
   const mult = mode === "serving" ? qty : qty / p.serving_g;
   const macros: Record<Macro, number> = {
     carbs: p.carb * mult,
@@ -120,7 +154,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
   const [customs, setCustoms] = useState<CustomFoodLite[]>([]);
   const [lastQtyMap, setLastQtyMap] = useState<LastQtyMap>({});
   const [hydrated, setHydrated] = useState(false);
-  const [sheet, setSheet] = useState<FoodPreset | null>(null);
+  const [sheet, setSheet] = useState<Pickable | null>(null);
   const [flying, setFlying] = useState<FlyState[]>([]);
   const flyIdRef = useRef(0);
 
@@ -243,6 +277,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
                   protein_g: x.protein_g,
                   fat_g: x.fat_g,
                   serving_g: x.serving_g,
+                  source: x.source,
                 })),
               );
               // 기준 단위가 바뀌었으므로 lastQty는 1인분으로 reset
@@ -295,10 +330,10 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     <>
       <div className="px-5 pt-3 pb-1 space-y-3">
         {favList.length > 0 && (
-          <ChipRow label={<><Star className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />즐겨찾기</>} foods={favList} lastQtyMap={lastQtyMap} onTap={handleTap} onLongPress={setSheet} />
+          <ChipRow label={<><Star className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />즐겨찾기</>} foods={favList} lastQtyMap={lastQtyMap} onTap={handleTap} onLongPress={(p) => setSheet(toPickable(p))} />
         )}
         {recentList.length > 0 && (
-          <ChipRow label={<><Clock className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />최근 사용</>} foods={recentList} lastQtyMap={lastQtyMap} onTap={handleTap} onLongPress={setSheet} />
+          <ChipRow label={<><Clock className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />최근 사용</>} foods={recentList} lastQtyMap={lastQtyMap} onTap={handleTap} onLongPress={(p) => setSheet(toPickable(p))} />
         )}
       </div>
 
@@ -457,126 +492,3 @@ function Chip({
   );
 }
 
-function QuantitySheet({
-  food,
-  last,
-  onClose,
-  onAdd,
-}: {
-  food: FoodPreset;
-  last?: LastQty;
-  onClose: () => void;
-  onAdd: (mode: "serving" | "gram", qty: number, saveAsBase: boolean) => void;
-}) {
-  const [saveAsBase, setSaveAsBase] = useState(true);
-  const [mode, setMode] = useState<"serving" | "gram">(last?.mode ?? "serving");
-  const [qty, setQty] = useState<number>(last?.qty ?? 1);
-  const prevModeRef = useRef(mode);
-
-  // mode가 사용자 토글로 바뀔 때만 default 값으로 reset (초기 last 값 보존)
-  useEffect(() => {
-    if (prevModeRef.current === mode) return;
-    prevModeRef.current = mode;
-    setQty(mode === "serving" ? 1 : food.serving_g);
-  }, [mode, food.serving_g]);
-
-  const mult = mode === "serving" ? qty : qty / food.serving_g;
-  const carb = Math.round(food.carb * mult * 10) / 10;
-  const protein = Math.round(food.protein * mult * 10) / 10;
-  const fat = Math.round(food.fat * mult * 10) / 10;
-  const kcal = Math.round(food.kcal * mult);
-  const step = mode === "serving" ? 0.5 : 10;
-
-  function bump(delta: number) {
-    setQty((q) => Math.max(0, Math.round((q + delta) * 10) / 10));
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40" />
-      <div
-        className="relative w-full max-w-[375px] rounded-t-2xl bg-white p-5 pb-8 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-200" />
-        <h3 className="text-base font-bold text-neutral-900">{food.name}</h3>
-
-        <div className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-neutral-100 p-1">
-          {(["serving", "gram"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`h-8 rounded-md text-sm font-medium transition ${
-                mode === m ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500"
-              }`}
-            >
-              {m === "serving" ? "인분" : "그램(g)"}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-4 flex items-center gap-2">
-          <button
-            onClick={() => bump(-step)}
-            className="h-12 w-12 rounded-xl border border-neutral-200 text-lg font-semibold active:scale-95"
-          >
-            −
-          </button>
-          <input
-            type="number"
-            inputMode="decimal"
-            value={qty}
-            onChange={(e) => setQty(parseFloat(e.target.value) || 0)}
-            className="flex-1 h-12 px-3 rounded-xl border border-neutral-200 text-base font-semibold text-neutral-900 text-center focus:outline-none focus:ring-2 focus:ring-neutral-300"
-          />
-          <button
-            onClick={() => bump(step)}
-            className="h-12 w-12 rounded-xl border border-neutral-200 text-lg font-semibold active:scale-95"
-          >
-            +
-          </button>
-          <span className="text-sm text-neutral-500 w-8 text-center">
-            {mode === "serving" ? "인분" : "g"}
-          </span>
-        </div>
-
-        <div className="mt-4 rounded-xl bg-neutral-50 px-4 py-3">
-          <div className="text-sm font-medium text-neutral-800">
-            <span style={{ color: "#b58a00" }}>탄 {carb}g</span>
-            <span className="mx-2 text-neutral-300">·</span>
-            <span style={{ color: "#d63838" }}>단 {protein}g</span>
-            <span className="mx-2 text-neutral-300">·</span>
-            <span style={{ color: "#3478d6" }}>지 {fat}g</span>
-          </div>
-          <div className="mt-1 text-xs text-neutral-500">{kcal} kcal</div>
-        </div>
-
-        <label className="mt-4 flex items-center gap-2 text-xs text-neutral-600 select-none cursor-pointer">
-          <input
-            type="checkbox"
-            checked={saveAsBase}
-            onChange={(e) => setSaveAsBase(e.target.checked)}
-            className="h-4 w-4 rounded border-neutral-300 accent-neutral-900"
-          />
-          이 양을 1인분으로 저장
-        </label>
-
-        <div className="mt-3 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 h-12 rounded-xl border border-neutral-200 text-sm font-semibold text-neutral-700 active:scale-95"
-          >
-            취소
-          </button>
-          <button
-            disabled={qty <= 0}
-            onClick={() => onAdd(mode, qty, saveAsBase)}
-            className="flex-[2] h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold disabled:opacity-40 active:scale-95"
-          >
-            추가하기
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
