@@ -50,9 +50,9 @@ export function BubbleField({
   // upward happens naturally via collisions — no mid-bowl anchor.
   const f = Math.min(1, Math.max(0, fillness));
   const anchorY = height - 4;
-  // Keep gravity strong even when full so bubbles rest on the bottom and
-  // collisions push the pile upward to fill the bowl.
-  const yStrength = 0.16 - 0.02 * f;
+  // Lighter gravity so bubbles stack tall and fill the bowl rather than
+  // clumping near the bottom. Eases off further as the bowl fills.
+  const yStrength = 0.07 - 0.04 * f;
 
   // Initialize simulation once
   useEffect(() => {
