@@ -178,10 +178,10 @@ function AddFoodPage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="text-sm font-semibold text-neutral-800 mb-2">{title}</h2>
+      <h2 className="text-sm font-semibold text-neutral-800 mb-2 inline-flex items-center gap-1.5">{title}</h2>
       {children}
     </section>
   );
