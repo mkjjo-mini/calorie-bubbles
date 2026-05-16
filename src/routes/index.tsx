@@ -97,8 +97,7 @@ function Index() {
   // Once over goal, shrink the collision radius so bubbles overlap and
   // feel cramped (a slight visual shrink is OK; never grow).
   const compression = stage === 4 ? 0.65 : stage === 3 ? 0.82 : 1;
-  const visualScale = stage === 4 ? 0.92 : stage === 3 ? 0.97 : 1;
-  const fillness = Math.min(1, rawPct / 100);
+  const fillness = Math.min(1.35, rawPct / 100);
 
   const bowlControls = useAnimationControls();
   const prevLenRef = useRef(0);
@@ -293,7 +292,6 @@ function Index() {
                 onRemove={removeBubble}
                 compression={compression}
                 fillness={fillness}
-                visualScale={visualScale}
               />
             </AnimatePresence>
 
