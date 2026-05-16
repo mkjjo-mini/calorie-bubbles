@@ -839,10 +839,22 @@ function CustomFoodFormSheet({
   const [protein, setProtein] = useState("");
   const [fat, setFat] = useState("");
   const [category, setCategory] = useState<FoodCategory>("other");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDiff, setPendingDiff] = useState<{
+    atwater: number;
+    kcalUser: number;
+  } | null>(null);
 
   // Track which macro fields were auto-estimated (so editing them flips flag)
   const estimatedRef = useRef(false);
   const userTypedRef = useRef({ carb: false, protein: false, fat: false, kcal: false });
+  // Snapshot of last auto-estimated macros (string form) — used to detect
+  // whether the user has since hand-edited any macro.
+  const autoEstimatedMacrosRef = useRef<{
+    carb: string;
+    protein: string;
+    fat: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -857,6 +869,9 @@ function CustomFoodFormSheet({
     setCategory(initial?.category ?? "other");
     estimatedRef.current = initial?.is_estimated ?? false;
     userTypedRef.current = { carb: false, protein: false, fat: false, kcal: false };
+    autoEstimatedMacrosRef.current = null;
+    setConfirmOpen(false);
+    setPendingDiff(null);
   }, [open, initial]);
 
   const isWeightUnit = unit === "g" || unit === "ml";
@@ -873,28 +888,20 @@ function CustomFoodFormSheet({
   const kcalFilled = !Number.isNaN(kcalN) && kcalN > 0;
   const macrosEmpty = !carb && !protein && !fat;
 
-  // Auto: macros → kcal
-  useEffect(() => {
-    if (!open) return;
-    if (allMacrosFilled) {
-      const k = kcalFromMacros({ carbs: carbN, protein: proteinN, fat: fatN });
-      setKcal(String(k));
-      userTypedRef.current.kcal = false;
-      estimatedRef.current = false;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carbN, proteinN, fatN, allMacrosFilled, open]);
-
-  // Auto: kcal + category → macros (only if macros empty)
+  // Auto: kcal + category → macros (only first time, when macros empty)
   useEffect(() => {
     if (!open) return;
     if (kcalFilled && macrosEmpty && category) {
       const m = estimateMacrosFromKcal(kcalN, category);
-      setCarb(String(m.carbs));
-      setProtein(String(m.protein));
-      setFat(String(m.fat));
+      const cs = String(m.carbs);
+      const ps = String(m.protein);
+      const fs = String(m.fat);
+      setCarb(cs);
+      setProtein(ps);
+      setFat(fs);
       estimatedRef.current = true;
       userTypedRef.current = { carb: false, protein: false, fat: false, kcal: true };
+      autoEstimatedMacrosRef.current = { carb: cs, protein: ps, fat: fs };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kcalN, category, open]);
@@ -913,15 +920,16 @@ function CustomFoodFormSheet({
     (kcalFilled || allMacrosFilled) &&
     (allMacrosFilled || (kcalFilled && !!category));
 
-  function handleSubmit() {
-    if (!canSave) return;
-    // Final macros: if user only entered kcal+category, macros auto-filled above
+  function commitSave(overrideKcal?: number) {
     const finalCarb = Number.isNaN(carbN) ? 0 : carbN;
     const finalProtein = Number.isNaN(proteinN) ? 0 : proteinN;
     const finalFat = Number.isNaN(fatN) ? 0 : fatN;
-    const finalKcal = kcalFilled
-      ? Math.round(kcalN)
-      : kcalFromMacros({ carbs: finalCarb, protein: finalProtein, fat: finalFat });
+    const finalKcal =
+      overrideKcal !== undefined
+        ? overrideKcal
+        : kcalFilled
+          ? Math.round(kcalN)
+          : kcalFromMacros({ carbs: finalCarb, protein: finalProtein, fat: finalFat });
 
     const allUserTyped =
       userTypedRef.current.carb &&
@@ -943,14 +951,87 @@ function CustomFoodFormSheet({
       updated_at: Date.now(),
     };
     const finalFood = recomputeEstimatedFlag(baseFood, allUserTyped);
+    setConfirmOpen(false);
+    setPendingDiff(null);
     onSave(finalFood);
   }
 
-  function macroHandler(setter: (v: string) => void, key: "carb" | "protein" | "fat") {
-    return (e: React.ChangeEvent<HTMLInputElement>) => {
-      setter(e.target.value);
-      userTypedRef.current[key] = true;
+  function handleSubmit() {
+    if (!canSave) return;
+    const finalCarb = Number.isNaN(carbN) ? 0 : carbN;
+    const finalProtein = Number.isNaN(proteinN) ? 0 : proteinN;
+    const finalFat = Number.isNaN(fatN) ? 0 : fatN;
+    const macrosPresent =
+      allMacrosFilled && finalCarb + finalProtein + finalFat > 0;
+
+    if (kcalFilled && macrosPresent) {
+      const atwater = kcalFromMacros({
+        carbs: finalCarb,
+        protein: finalProtein,
+        fat: finalFat,
+      });
+      const kcalUser = Math.round(kcalN);
+      const diff = Math.abs(kcalUser - atwater);
+      const tolerance = Math.max(20, kcalUser * 0.15);
+      if (diff > tolerance) {
+        setPendingDiff({ atwater, kcalUser });
+        setConfirmOpen(true);
+        return;
+      }
+    }
+    commitSave();
+  }
+
+  function handleMacroChange(
+    key: "carb" | "protein" | "fat",
+    value: string,
+  ) {
+    const setters = { carb: setCarb, protein: setProtein, fat: setFat };
+    setters[key](value);
+    userTypedRef.current[key] = true;
+    estimatedRef.current = false;
+    autoEstimatedMacrosRef.current = null;
+    const next = {
+      carb: key === "carb" ? value : carb,
+      protein: key === "protein" ? value : protein,
+      fat: key === "fat" ? value : fat,
     };
+    if (next.carb === "" && next.protein === "" && next.fat === "") return;
+    const c = parseFloat(next.carb);
+    const p = parseFloat(next.protein);
+    const f = parseFloat(next.fat);
+    const k = kcalFromMacros({
+      carbs: Number.isNaN(c) ? 0 : c,
+      protein: Number.isNaN(p) ? 0 : p,
+      fat: Number.isNaN(f) ? 0 : f,
+    });
+    setKcal(String(k));
+    userTypedRef.current.kcal = false;
+  }
+
+  function handleKcalChange(value: string) {
+    setKcal(value);
+    userTypedRef.current.kcal = true;
+    const auto = autoEstimatedMacrosRef.current;
+    if (
+      estimatedRef.current &&
+      auto &&
+      carb === auto.carb &&
+      protein === auto.protein &&
+      fat === auto.fat
+    ) {
+      const newK = parseFloat(value);
+      if (!Number.isNaN(newK) && newK > 0) {
+        const m = estimateMacrosFromKcal(newK, category);
+        const cs = String(m.carbs);
+        const ps = String(m.protein);
+        const fs = String(m.fat);
+        setCarb(cs);
+        setProtein(ps);
+        setFat(fs);
+        autoEstimatedMacrosRef.current = { carb: cs, protein: ps, fat: fs };
+      }
+    }
   }
 
   return (
