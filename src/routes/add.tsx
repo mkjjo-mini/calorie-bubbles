@@ -68,6 +68,22 @@ const CATEGORY_LABELS: { value: FoodCategory; label: string }[] = [
 
 /* ---------------- helpers ---------------- */
 
+/**
+ * crypto.randomUUID() requires a secure context (HTTPS or localhost).
+ * On LAN IP dev (e.g. 192.168.45.x:8080) it throws — fall back to a
+ * timestamp + random suffix.
+ */
+function safeRandomId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      /* fall through */
+    }
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
 function todayKey() {
   const d = new Date();
   return `cal-tracker-${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -1042,7 +1058,7 @@ function CustomFoodFormSheet({
         : finalCarb + finalProtein + finalFat;
 
     const food: CustomFood = {
-      id: initial?.id ?? crypto.randomUUID(),
+      id: initial?.id ?? safeRandomId(),
       name: name.trim(),
       serving_unit: unit,
       serving_amount: amountN,
