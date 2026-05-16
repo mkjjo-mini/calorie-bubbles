@@ -193,7 +193,12 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     .filter((x): x is FoodPreset => !!x);
   const recentList = recents
     .slice(0, 10)
-    .map((id) => PRESETS.find((p) => p.id === id))
+    .map((id) => {
+      const p = PRESETS.find((x) => x.id === id);
+      if (p) return p;
+      const c = customs.find((x) => x.id === id);
+      return c ? customToPreset(c) : undefined;
+    })
     .filter((x): x is FoodPreset => !!x);
 
   if (favList.length === 0 && recentList.length === 0) return null;
