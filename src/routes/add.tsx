@@ -1062,52 +1062,6 @@ function CustomFoodFormSheet({
         </SheetHeader>
 
         <div className="px-5 py-4 space-y-4">
-          {/* Mode toggle */}
-          <div className="grid grid-cols-2 gap-1 rounded-lg bg-neutral-100 p-1">
-            <button
-              type="button"
-              onClick={() => mode === "manual" && requestSwitchToEstimate()}
-              className={`h-9 rounded-md text-sm font-medium transition ${
-                mode === "estimate"
-                  ? "bg-white text-neutral-900 shadow-sm"
-                  : "text-neutral-500"
-              }`}
-            >
-              추정
-            </button>
-            <button
-              type="button"
-              onClick={() => mode === "estimate" && switchToManual()}
-              className={`h-9 rounded-md text-sm font-medium transition ${
-                mode === "manual"
-                  ? "bg-white text-neutral-900 shadow-sm"
-                  : "text-neutral-500"
-              }`}
-            >
-              직접 입력
-            </button>
-          </div>
-
-          {switchConfirm && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
-              <div>직접 입력한 매크로는 추정값으로 덮어써집니다. 계속할까요?</div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setSwitchConfirm(false)}
-                  className="flex-1 h-9 rounded-lg bg-white border border-neutral-200 text-sm font-medium text-neutral-700 active:scale-95"
-                >
-                  취소
-                </button>
-                <button
-                  onClick={confirmSwitchToEstimate}
-                  className="flex-1 h-9 rounded-lg bg-neutral-900 text-white text-sm font-semibold active:scale-95"
-                >
-                  전환
-                </button>
-              </div>
-            </div>
-          )}
-
           <Field label="음식 이름" required>
             <input
               value={name}
@@ -1163,77 +1117,41 @@ function CustomFoodFormSheet({
             <div className="flex-1 h-px bg-neutral-200" />
           </div>
 
+          {/* Category — always visible, helps macro estimation when only kcal is given */}
+          <Field label="카테고리">
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as FoodCategory)}
+              className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300"
+            >
+              {CATEGORY_LABELS.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-neutral-400 mt-1">
+              탄·단·지를 비우고 저장하면 카테고리 기준으로 자동 추정해요
+            </p>
+          </Field>
+
           {/* kcal field */}
-          <Field label={mode === "estimate" ? "열량 (kcal)" : "열량 (kcal)"} required={mode === "estimate"}>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={kcal}
-                onChange={(e) => setKcal(e.target.value)}
-                placeholder={mode === "estimate" ? "예: 320" : "직접 입력"}
-                min={0}
-                className="flex-1 h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
-              />
-              {mode === "manual" && (
-                <button
-                  type="button"
-                  onClick={handleAutoCalcKcal}
-                  className="h-11 px-3 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-700 bg-white active:scale-95 whitespace-nowrap"
-                >
-                  kcal 자동 계산
-                </button>
-              )}
-            </div>
+          <Field label="열량 (kcal)">
+            <input
+              type="number"
+              inputMode="decimal"
+              value={kcal}
+              onChange={(e) => setKcal(e.target.value)}
+              placeholder="비우면 자동"
+              min={0}
+              className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 placeholder:text-neutral-300"
+            />
             {atwaterNotice && (
               <p className="text-[12px] text-neutral-500 mt-1.5">
                 💡 탄단지 g 기준 계산: {atwaterNotice.atwater} kcal ({atwaterNotice.diff} kcal 차이)
               </p>
             )}
           </Field>
-
-          {/* Category — required in estimate mode, optional disclosure in manual */}
-          {mode === "estimate" ? (
-            <Field label="카테고리" required>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as FoodCategory)}
-                className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300"
-              >
-                {CATEGORY_LABELS.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-neutral-400 mt-1">
-                카테고리에서 탄·단·지를 추정해요
-              </p>
-            </Field>
-          ) : (
-            <div>
-              <button
-                type="button"
-                onClick={() => setCategoryOpen((v) => !v)}
-                className="text-xs text-neutral-500 hover:text-neutral-700"
-              >
-                {categoryOpen ? "▾" : "▸"} 카테고리 (선택)
-              </button>
-              {categoryOpen && (
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as FoodCategory)}
-                  className="w-full h-11 px-3 mt-1.5 rounded-xl border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300"
-                >
-                  {CATEGORY_LABELS.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
 
           {/* Macro row */}
           <div>
@@ -1248,7 +1166,7 @@ function CustomFoodFormSheet({
                 <div key={row.key}>
                   <label className="text-xs text-neutral-600 font-medium mb-1.5 flex items-center gap-1">
                     {row.label}
-                    {mode === "estimate" || (mode === "manual" && isEstimated) ? (
+                    {isEstimated ? (
                       <span className="text-[10px] text-neutral-400 px-1 py-0.5 rounded bg-neutral-100">
                         추정
                       </span>
@@ -1258,43 +1176,17 @@ function CustomFoodFormSheet({
                     type="number"
                     inputMode="decimal"
                     value={row.val}
-                    readOnly={mode === "estimate"}
                     onChange={(e) =>
-                      mode === "manual" &&
                       handleManualMacroChange(row.key, e.target.value)
                     }
                     min={0}
-                    placeholder={mode === "manual" ? "자동" : ""}
-                    className={`w-full h-11 px-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 ${
-                      mode === "estimate"
-                        ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                        : "border-neutral-200 placeholder:text-neutral-300"
-                    }`}
+                    placeholder="자동"
+                    className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 placeholder:text-neutral-300"
                   />
                 </div>
               ))}
             </div>
-            {showEstimateMacrosBtn && (
-              <button
-                type="button"
-                onClick={handleEstimateMacros}
-                className="mt-2 h-9 px-3 rounded-lg border border-neutral-200 text-xs font-medium text-neutral-700 bg-white active:scale-95"
-              >
-                매크로 추정
-              </button>
-            )}
           </div>
-
-          {/* Bottom helper link in estimate mode */}
-          {mode === "estimate" && (
-            <button
-              type="button"
-              onClick={switchToManual}
-              className="text-xs text-neutral-500 underline underline-offset-2 hover:text-neutral-700"
-            >
-              정확한 값을 알아요 → 직접 입력으로 전환
-            </button>
-          )}
 
           <button
             disabled={!canSave}
