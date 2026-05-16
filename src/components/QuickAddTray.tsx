@@ -468,7 +468,7 @@ function QuantitySheet({
   onClose: () => void;
   onAdd: (mode: "serving" | "gram", qty: number, saveAsBase: boolean) => void;
 }) {
-  const [saveAsBase, setSaveAsBase] = useState(false);
+  const [saveAsBase, setSaveAsBase] = useState(true);
   const [mode, setMode] = useState<"serving" | "gram">(last?.mode ?? "serving");
   const [qty, setQty] = useState<number>(last?.qty ?? 1);
   const prevModeRef = useRef(mode);
@@ -558,7 +558,7 @@ function QuantitySheet({
             onChange={(e) => setSaveAsBase(e.target.checked)}
             className="h-4 w-4 rounded border-neutral-300 accent-neutral-900"
           />
-          이 양을 기준 단위로 저장
+          이 양을 1인분으로 저장
         </label>
 
         <div className="mt-3 flex gap-2">

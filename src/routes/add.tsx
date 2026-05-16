@@ -967,7 +967,7 @@ function QuantitySheet({
 }) {
   const [mode, setMode] = useState<"serving" | "gram">("serving");
   const [qtyStr, setQtyStr] = useState("1");
-  const [saveAsBase, setSaveAsBase] = useState(false);
+  const [saveAsBase, setSaveAsBase] = useState(true);
   // customFood 또는 API에서 온 음식만 기준 단위 저장 의미 있음 (preset은 정적이라 제외)
   const canSaveAsBase = food.source === "custom" || food.source === "api";
   const qty = parseFloat(qtyStr) || 0;
@@ -1045,7 +1045,7 @@ function QuantitySheet({
               onChange={(e) => setSaveAsBase(e.target.checked)}
               className="h-4 w-4 rounded border-neutral-300 accent-neutral-900"
             />
-            이 양을 기준 단위로 저장
+            이 양을 1인분으로 저장
           </label>
         )}
 
