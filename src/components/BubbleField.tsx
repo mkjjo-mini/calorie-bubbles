@@ -42,6 +42,7 @@ export function BubbleField({
   onRemove,
   compression = 1,
   fillness = 0,
+  visualScale = 1,
 }: Props) {
   const nodesRef = useRef<Map<string, Node>>(new Map());
   const simRef = useRef<Simulation<Node, undefined> | null>(null);
