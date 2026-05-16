@@ -195,7 +195,24 @@ function AddFoodPage() {
   const recentList = hydrated
     ? recents
         .slice(0, 10)
-        .map((id) => PRESETS.find((p) => p.id === id))
+        .map((id) => {
+          const p = PRESETS.find((x) => x.id === id);
+          if (p) return p;
+          const c = customFoods.find((x) => x.id === id);
+          if (c) {
+            // Adapt CustomFood to FoodPreset shape so it renders in FoodGrid
+            return {
+              id: c.id,
+              name: c.name,
+              kcal: c.kcal,
+              carb: c.carb_g,
+              protein: c.protein_g,
+              fat: c.fat_g,
+              serving_g: c.serving_g,
+            } as FoodPreset;
+          }
+          return undefined;
+        })
         .filter((x): x is FoodPreset => !!x)
     : [];
 
