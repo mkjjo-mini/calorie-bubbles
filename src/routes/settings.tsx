@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Settings as SettingsIcon } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -8,7 +9,9 @@ function SettingsPage() {
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[375px] flex flex-col items-center justify-center px-6 pt-24 pb-32 text-center">
-        <div className="text-5xl">⚙️</div>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-700">
+          <SettingsIcon className="h-7 w-7" strokeWidth={2} />
+        </div>
         <h1 className="mt-4 text-lg font-semibold text-neutral-900">설정</h1>
         <p className="mt-2 text-sm text-neutral-500">
           목표 칼로리와 알림을 설정할 수 있어요
