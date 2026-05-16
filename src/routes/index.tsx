@@ -292,6 +292,7 @@ function Index() {
                 height={fieldHeight}
                 onRemove={removeBubble}
                 compression={compression}
+                fillness={fillness}
               />
             </AnimatePresence>
 
