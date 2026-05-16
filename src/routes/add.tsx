@@ -273,9 +273,7 @@ function AddFoodPage() {
       next = prependCustomFood(customFoods, food);
     }
     persistCustom(next);
-    if (!favorites.includes(food.name)) {
-      persistFavs([...favorites, food.name]);
-    }
+    // Do not auto-favorite — the star is a user-controlled favorite toggle only.
     setFormOpen(false);
     setFormInitial(null);
     // Continuous flow: open quantity sheet right after
