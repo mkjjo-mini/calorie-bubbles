@@ -300,7 +300,12 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
       </AnimatePresence>
 
       {sheet && (
-        <QuantitySheet food={sheet} onClose={() => setSheet(null)} onAdd={handleSheetAdd} />
+        <QuantitySheet
+          food={sheet}
+          last={lastQtyMap[sheet.name]}
+          onClose={() => setSheet(null)}
+          onAdd={handleSheetAdd}
+        />
       )}
     </>
   );
@@ -384,7 +389,6 @@ function Chip({
       transition={{ duration: 0.4 }}
       onPointerDown={start}
       onPointerUp={release}
-      onPointerLeave={cancel}
       onPointerCancel={cancel}
       onContextMenu={(e) => e.preventDefault()}
       className="shrink-0 rounded-[20px] border border-neutral-200 bg-white text-left active:scale-95 transition"
@@ -406,17 +410,23 @@ function Chip({
 
 function QuantitySheet({
   food,
+  last,
   onClose,
   onAdd,
 }: {
   food: FoodPreset;
+  last?: LastQty;
   onClose: () => void;
   onAdd: (mode: "serving" | "gram", qty: number) => void;
 }) {
-  const [mode, setMode] = useState<"serving" | "gram">("serving");
-  const [qty, setQty] = useState(1);
+  const [mode, setMode] = useState<"serving" | "gram">(last?.mode ?? "serving");
+  const [qty, setQty] = useState<number>(last?.qty ?? 1);
+  const prevModeRef = useRef(mode);
 
+  // mode가 사용자 토글로 바뀔 때만 default 값으로 reset (초기 last 값 보존)
   useEffect(() => {
+    if (prevModeRef.current === mode) return;
+    prevModeRef.current = mode;
     setQty(mode === "serving" ? 1 : food.serving_g);
   }, [mode, food.serving_g]);
 
