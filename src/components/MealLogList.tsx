@@ -163,8 +163,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
       >
         <section className="px-5 mt-2">
           <div
-            className="overflow-y-auto rounded-2xl border border-neutral-100 bg-white"
-            style={{ maxHeight: 280 }}
+            className="rounded-2xl border border-neutral-100 bg-white"
           >
             {MEAL_SLOT_ORDER.map((slot) => {
               const items = grouped[slot];
