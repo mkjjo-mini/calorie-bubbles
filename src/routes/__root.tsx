@@ -134,28 +134,31 @@ function BottomTabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-center bg-transparent">
-      <div className="w-full max-w-[375px] border-t border-neutral-200 bg-white">
-        <ul className="flex h-16 items-stretch">
-          {TABS.map((tab) => {
-            const active = pathname === tab.to;
-            return (
-              <li key={tab.to} className="flex-1">
-                <Link
-                  to={tab.to}
-                  className={`flex h-full w-full flex-col items-center justify-center gap-0.5 transition-colors ${
-                    active ? "text-neutral-900" : "text-neutral-400"
-                  }`}
-                >
-                  <span className="text-lg leading-none">{tab.emoji}</span>
-                  <span className="text-[11px] font-medium leading-none">
-                    {tab.label}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(env(safe-area-inset-bottom),16px)] pointer-events-none">
+      <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-neutral-200/70 bg-white/90 p-1.5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        {TABS.map((tab) => {
+          const active = pathname === tab.to;
+          return (
+            <Link
+              key={tab.to}
+              to={tab.to}
+              className={`flex items-center gap-1.5 rounded-full px-4 py-2 transition-all duration-200 ${
+                active
+                  ? "bg-neutral-900 text-white shadow-sm"
+                  : "text-neutral-500 hover:text-neutral-800"
+              }`}
+            >
+              <span className="text-base leading-none">{tab.emoji}</span>
+              <span
+                className={`overflow-hidden text-[12px] font-semibold leading-none transition-all duration-200 ${
+                  active ? "max-w-[60px] opacity-100" : "max-w-0 opacity-0"
+                }`}
+              >
+                {tab.label}
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );
