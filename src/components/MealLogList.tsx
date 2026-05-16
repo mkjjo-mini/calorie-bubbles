@@ -297,6 +297,7 @@ function DraggableLogRow({
   });
   const [primed, setPrimed] = useState(false);
   const timerRef = useRef<number | null>(null);
+  const startPos = useRef<{ x: number; y: number } | null>(null);
 
   const clearTimer = () => {
     if (timerRef.current !== null) {
@@ -306,8 +307,7 @@ function DraggableLogRow({
   };
 
   useEffect(() => {
-    if (!isDragging) return;
-    setPrimed(false);
+    if (isDragging) setPrimed(false);
   }, [isDragging]);
 
   useEffect(() => () => clearTimer(), []);
@@ -316,6 +316,40 @@ function DraggableLogRow({
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0 : 1,
     touchAction: "none",
+  };
+
+  // Compose with dnd-kit's listeners so drag activation still works.
+  const dndListeners = listeners ?? {};
+  const composed = {
+    onPointerDown: (e: React.PointerEvent) => {
+      dndListeners.onPointerDown?.(e);
+      clearTimer();
+      startPos.current = { x: e.clientX, y: e.clientY };
+      timerRef.current = window.setTimeout(() => {
+        setPrimed(true);
+        if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(15);
+      }, 300);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      dndListeners.onPointerMove?.(e);
+      if (primed || !startPos.current) return;
+      const dx = e.clientX - startPos.current.x;
+      const dy = e.clientY - startPos.current.y;
+      if (dx * dx + dy * dy > 64) clearTimer(); // ~8px tolerance
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      dndListeners.onPointerUp?.(e);
+      clearTimer();
+      setPrimed(false);
+      startPos.current = null;
+    },
+    onPointerCancel: (e: React.PointerEvent) => {
+      dndListeners.onPointerCancel?.(e);
+      clearTimer();
+      setPrimed(false);
+      startPos.current = null;
+    },
+    onKeyDown: dndListeners.onKeyDown,
   };
 
   return (
@@ -331,25 +365,7 @@ function DraggableLogRow({
       exit={{ opacity: 0 }}
       style={style}
       {...attributes}
-      {...listeners}
-      onPointerDown={() => {
-        clearTimer();
-        timerRef.current = window.setTimeout(() => {
-          setPrimed(true);
-          if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(15);
-        }, 350);
-      }}
-      onPointerUp={() => {
-        clearTimer();
-        setPrimed(false);
-      }}
-      onPointerCancel={() => {
-        clearTimer();
-        setPrimed(false);
-      }}
-      onPointerMove={() => {
-        if (!primed) clearTimer();
-      }}
+      {...composed}
       onContextMenu={(e) => e.preventDefault()}
       className={`select-none rounded-xl transition-shadow ${
         primed ? "bg-white shadow-lg ring-1 ring-neutral-200" : ""
