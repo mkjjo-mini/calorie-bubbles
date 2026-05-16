@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -114,8 +115,48 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <div className="min-h-screen w-full bg-white pb-20">
+        <Outlet />
+      </div>
+      <BottomTabBar />
       <Toaster />
     </QueryClientProvider>
+  );
+}
+
+const TABS = [
+  { to: "/", emoji: "🫧", label: "홈" },
+  { to: "/history", emoji: "📅", label: "기록" },
+  { to: "/settings", emoji: "⚙️", label: "설정" },
+] as const;
+
+function BottomTabBar() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-center bg-transparent">
+      <div className="w-full max-w-[375px] border-t border-neutral-200 bg-white">
+        <ul className="flex h-16 items-stretch">
+          {TABS.map((tab) => {
+            const active = pathname === tab.to;
+            return (
+              <li key={tab.to} className="flex-1">
+                <Link
+                  to={tab.to}
+                  className={`flex h-full w-full flex-col items-center justify-center gap-0.5 transition-colors ${
+                    active ? "text-neutral-900" : "text-neutral-400"
+                  }`}
+                >
+                  <span className="text-lg leading-none">{tab.emoji}</span>
+                  <span className="text-[11px] font-medium leading-none">
+                    {tab.label}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </nav>
   );
 }
