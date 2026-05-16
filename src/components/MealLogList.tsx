@@ -425,11 +425,12 @@ function SlotSheet({
           <button
             key={slot}
             onClick={() => onPick(slot)}
-            className={`w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium active:scale-[0.98] transition ${
+            className={`w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium active:scale-[0.98] transition flex items-center gap-2.5 ${
               active ? "bg-neutral-100 text-neutral-900" : "text-neutral-800 hover:bg-neutral-50"
             }`}
           >
-            {meta.emoji} {meta.label}으로
+            <meta.Icon className="h-4 w-4 text-neutral-500" strokeWidth={2.2} />
+            {meta.label}으로
           </button>
         );
       })}
