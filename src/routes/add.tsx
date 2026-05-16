@@ -56,6 +56,8 @@ const PRESETS = foodPresets as FoodPreset[];
 const FAV_KEY = "favorites";
 const RECENT_KEY = "recentFoods";
 const CUSTOM_KEY = "customFoods";
+const SEARCH_HISTORY_KEY = "searchHistory";
+const SEARCH_HISTORY_MAX = 8;
 
 const CATEGORY_LABELS: { value: FoodCategory; label: string }[] = [
   { value: "rice_grain_noodle", label: "밥·곡류·면 (밥·면·떡·빵)" },
@@ -154,6 +156,7 @@ function AddFoodPage() {
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [recents, setRecents] = useState<string[]>([]);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [customFoods, setCustomFoods] = useState<CustomFood[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [activeFood, setActiveFood] = useState<Pickable | null>(null);
@@ -166,6 +169,7 @@ function AddFoodPage() {
     setFavorites(readArr<string>(FAV_KEY));
     setRecents(readArr<string>(RECENT_KEY));
     setCustomFoods(readArr<CustomFood>(CUSTOM_KEY));
+    setSearchHistory(readArr<string>(SEARCH_HISTORY_KEY));
     setHydrated(true);
   }, []);
 
@@ -177,6 +181,27 @@ function AddFoodPage() {
   function persistFavs(next: string[]) {
     setFavorites(next);
     localStorage.setItem(FAV_KEY, JSON.stringify(next));
+  }
+
+  // 검색어 1초 이상 유지되면 최근 검색에 push (디바운스, dedupe, 최대 8개)
+  useEffect(() => {
+    if (!hydrated) return;
+    const q = query.trim();
+    if (q.length < 1) return;
+    const t = setTimeout(() => {
+      setSearchHistory((prev) => {
+        const next = [q, ...prev.filter((x) => x !== q)].slice(0, SEARCH_HISTORY_MAX);
+        localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
+        return next;
+      });
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [query, hydrated]);
+
+  function removeSearchHistory(q: string) {
+    const next = searchHistory.filter((x) => x !== q);
+    setSearchHistory(next);
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
   }
 
   function toggleFav(id: string) {
@@ -231,9 +256,27 @@ function AddFoodPage() {
     return out;
   }, [apiResults, customMatches, presetMatches, inSearch]);
 
+  // favorites array는 preset id 또는 customFood id/name 혼재 가능
+  function lookupForFavOrRecent(key: string): FoodPreset | undefined {
+    const p = PRESETS.find((x) => x.id === key);
+    if (p) return p;
+    const byId = customFoods.find((c) => c.id === key);
+    const c = byId ?? customFoods.find((c) => c.name.toLowerCase() === key.toLowerCase());
+    if (!c) return undefined;
+    return {
+      id: c.id,
+      name: c.name,
+      kcal: c.kcal,
+      carb: c.carb_g,
+      protein: c.protein_g,
+      fat: c.fat_g,
+      serving_g: c.serving_g,
+    } as FoodPreset;
+  }
+
   const favList = hydrated
     ? favorites
-        .map((id) => PRESETS.find((p) => p.id === id))
+        .map((key) => lookupForFavOrRecent(key))
         .filter((x): x is FoodPreset => !!x)
     : [];
   const recentList = hydrated
@@ -424,18 +467,6 @@ function AddFoodPage() {
                 }}
               />
 
-              {sortedCustom.length > 0 && (
-                <Section title="내가 등록한 음식">
-                  <CustomFoodGrid
-                    foods={sortedCustom}
-                    favorites={favorites}
-                    onToggleFav={toggleFavByName}
-                    onPick={(c) => setActiveFood(customToPickable(c))}
-                    onLongPress={(c) => setActionTarget(c)}
-                  />
-                </Section>
-              )}
-
               {favList.length > 0 && (
                 <Section
                   title={
@@ -449,7 +480,10 @@ function AddFoodPage() {
                     foods={favList}
                     favorites={favorites}
                     onToggleFav={toggleFav}
-                    onPick={(p) => setActiveFood(presetToPickable(p))}
+                    onPick={(p) => {
+                      const c = customFoods.find((x) => x.id === p.id);
+                      setActiveFood(c ? customToPickable(c) : presetToPickable(p));
+                    }}
                   />
                 </Section>
               )}
@@ -475,14 +509,53 @@ function AddFoodPage() {
                 </Section>
               )}
 
-              <Section title="전체 음식">
-                <FoodGrid
-                  foods={PRESETS}
-                  favorites={favorites}
-                  onToggleFav={toggleFav}
-                  onPick={(p) => setActiveFood(presetToPickable(p))}
-                />
-              </Section>
+              {hydrated && searchHistory.length > 0 && (
+                <Section
+                  title={
+                    <>
+                      <Search className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />
+                      최근 검색
+                    </>
+                  }
+                >
+                  <div className="flex flex-wrap gap-2">
+                    {searchHistory.map((q) => (
+                      <span
+                        key={q}
+                        className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white pl-3 pr-1 py-1 text-xs text-neutral-700"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setQuery(q)}
+                          className="active:scale-95"
+                        >
+                          {q}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeSearchHistory(q)}
+                          aria-label="검색 기록 삭제"
+                          className="ml-0.5 flex h-5 w-5 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </Section>
+              )}
+
+              {sortedCustom.length > 0 && (
+                <Section title="내가 등록한 음식">
+                  <CustomFoodGrid
+                    foods={sortedCustom}
+                    favorites={favorites}
+                    onToggleFav={toggleFavByName}
+                    onPick={(c) => setActiveFood(customToPickable(c))}
+                    onLongPress={(c) => setActionTarget(c)}
+                  />
+                </Section>
+              )}
             </>
           )}
 
