@@ -19,6 +19,8 @@ interface Props {
   compression?: number;
   /** 0..1+: how full the bowl is. Drives where bubbles settle vertically. */
   fillness?: number;
+  /** Multiplier applied to bubble visual radius (puff up to fill bowl). */
+  visualScale?: number;
 }
 
 interface Node extends SimulationNodeDatum {
