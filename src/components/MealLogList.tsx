@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { MoreVertical } from "lucide-react";
@@ -290,6 +290,22 @@ function DraggableLogRow({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.foodLogId,
   });
+  const [primed, setPrimed] = useState(false);
+  const timerRef = useRef<number | null>(null);
+
+  const clearTimer = () => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+    setPrimed(false);
+  }, [isDragging]);
+
+  useEffect(() => () => clearTimer(), []);
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -302,13 +318,37 @@ function DraggableLogRow({
       ref={setNodeRef}
       layout
       initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: isDragging ? 0 : 1 }}
+      animate={{
+        opacity: isDragging ? 0 : 1,
+        scale: primed ? 1.02 : 1,
+      }}
+      transition={{ scale: { type: "spring", stiffness: 400, damping: 28 } }}
       exit={{ opacity: 0 }}
       style={style}
       {...attributes}
       {...listeners}
+      onPointerDown={() => {
+        clearTimer();
+        timerRef.current = window.setTimeout(() => {
+          setPrimed(true);
+          if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(15);
+        }, 350);
+      }}
+      onPointerUp={() => {
+        clearTimer();
+        setPrimed(false);
+      }}
+      onPointerCancel={() => {
+        clearTimer();
+        setPrimed(false);
+      }}
+      onPointerMove={() => {
+        if (!primed) clearTimer();
+      }}
       onContextMenu={(e) => e.preventDefault()}
-      className="select-none"
+      className={`select-none rounded-xl transition-shadow ${
+        primed ? "bg-white shadow-lg ring-1 ring-neutral-200" : ""
+      }`}
     >
       <LogRowVisual item={item} onOpenActions={onOpenActions} />
     </motion.div>
