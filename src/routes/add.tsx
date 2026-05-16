@@ -1156,7 +1156,7 @@ function CustomFoodFormSheet({
               ))}
             </select>
             <p className="text-[11px] text-neutral-400 mt-1">
-              탄·단·지를 비우고 저장하면 카테고리 기준으로 자동 추정해요
+              비어 있는 영양 정보와 1회 제공량 g을 카테고리 기준으로 자동 추정해요
             </p>
           </Field>
 
