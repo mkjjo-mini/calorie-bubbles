@@ -19,6 +19,8 @@ interface Props {
   compression?: number;
   /** 0..1+: how full the bowl is. Drives where bubbles settle vertically. */
   fillness?: number;
+  /** Multiplier applied to bubble visual radius (puff up to fill bowl). */
+  visualScale?: number;
 }
 
 interface Node extends SimulationNodeDatum {
@@ -40,6 +42,7 @@ export function BubbleField({
   onRemove,
   compression = 1,
   fillness = 0,
+  visualScale = 1,
 }: Props) {
   const nodesRef = useRef<Map<string, Node>>(new Map());
   const simRef = useRef<Simulation<Node, undefined> | null>(null);
@@ -49,12 +52,11 @@ export function BubbleField({
   // Always pull bubbles to the bottom (the "water surface"). Stacking
   // upward happens naturally via collisions — no mid-bowl anchor.
   const f = Math.min(1, Math.max(0, fillness));
-  // Empty: bubbles sit on the bottom (water surface).
-  // Full: anchor moves up toward the bowl's center so bubbles fill the
-  // whole volume edge-to-edge with no empty space at the top.
-  const anchorY = (height - 4) * (1 - f) + height * 0.42 * f;
-  // Weaker gravity when full lets collisions spread bubbles across the bowl.
-  const yStrength = 0.08 - 0.06 * f;
+  // Always sink to the bottom. Gravity stays strong; "no empty space" when
+  // full is achieved by puffing up the bubbles (visualScale below), not by
+  // floating them mid-bowl.
+  const anchorY = height - 4;
+  const yStrength = 0.14;
 
   // Initialize simulation once
   useEffect(() => {
@@ -65,14 +67,14 @@ export function BubbleField({
       .force("y", forceY(anchorY).strength(yStrength))
       .force(
         "collide",
-        forceCollide<Node>((d) => (d.r + 2) * compression)
+        forceCollide<Node>((d) => (d.r * visualScale + 2) * compression)
           .strength(1)
           .iterations(4),
       )
       .on("tick", () => {
         // clamp to rectangular bounds (container has overflow:hidden)
         for (const n of nodesRef.current.values()) {
-          const r = n.r + 1; // visual radius for clamping
+          const r = n.r * visualScale + 1;
           if (n.x! < r) n.x = r;
           if (n.x! > width - r) n.x = width - r;
           if (n.y! < r) n.y = r;
@@ -96,12 +98,12 @@ export function BubbleField({
       .force("y", forceY(anchorY).strength(yStrength))
       .force(
         "collide",
-        forceCollide<Node>((d) => (d.r + 2) * compression)
+        forceCollide<Node>((d) => (d.r * visualScale + 2) * compression)
           .strength(compression < 1 ? 0.85 : 1)
           .iterations(4),
       );
     sim.alpha(0.6).restart();
-  }, [cx, anchorY, yStrength, compression]);
+  }, [cx, anchorY, yStrength, compression, visualScale]);
 
   // Sync nodes with bubbles prop
   useEffect(() => {
@@ -148,7 +150,7 @@ export function BubbleField({
       <AnimatePresence>
         {nodes.map((n, i) => {
           const color = MACRO_COLORS[n.macro];
-          const r = n.r;
+          const r = n.r * visualScale;
           // deterministic per-bubble phase so each sways differently
           const phase = (i * 0.37) % 1;
           const swayDur = 3.6 + (i % 5) * 0.4;

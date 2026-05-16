@@ -94,10 +94,11 @@ function Index() {
 
   // Stage by progress: 1 (<50%), 2 (50-100%), 3 (100-120%), 4 (120%+)
   const stage = rawPct >= 120 ? 4 : rawPct >= 100 ? 3 : rawPct >= 50 ? 2 : 1;
-  // Bubbles keep their visual size; compression only shrinks the collision
-  // radius so they overlap and feel cramped once the goal is exceeded.
+  // Once over goal, shrink the collision radius so bubbles overlap and
+  // feel cramped.
   const compression = stage === 4 ? 0.65 : stage === 3 ? 0.82 : 1;
-  // 0..1: how full the bowl is (clamped at 1 so overflow squeezes vs grows).
+  // Once over goal, puff bubbles up so the bowl fills with no empty space.
+  const visualScale = stage === 4 ? 1.55 : stage === 3 ? 1.25 : 1;
   const fillness = Math.min(1, rawPct / 100);
 
   const bowlControls = useAnimationControls();
@@ -293,6 +294,7 @@ function Index() {
                 onRemove={removeBubble}
                 compression={compression}
                 fillness={fillness}
+                visualScale={visualScale}
               />
             </AnimatePresence>
 
