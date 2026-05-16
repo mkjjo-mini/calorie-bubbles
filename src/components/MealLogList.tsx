@@ -264,7 +264,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
       {actionFor && (
         <ActionSheet
           item={actionFor}
-          canEdit={!!findPresetByName(actionFor.foodName)}
+          canEdit={true}
           onClose={() => setActionFor(null)}
           onPick={(action) => {
             const target = actionFor;
