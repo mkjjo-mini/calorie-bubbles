@@ -195,7 +195,24 @@ function AddFoodPage() {
   const recentList = hydrated
     ? recents
         .slice(0, 10)
-        .map((id) => PRESETS.find((p) => p.id === id))
+        .map((id) => {
+          const p = PRESETS.find((x) => x.id === id);
+          if (p) return p;
+          const c = customFoods.find((x) => x.id === id);
+          if (c) {
+            // Adapt CustomFood to FoodPreset shape so it renders in FoodGrid
+            return {
+              id: c.id,
+              name: c.name,
+              kcal: c.kcal,
+              carb: c.carb_g,
+              protein: c.protein_g,
+              fat: c.fat_g,
+              serving_g: c.serving_g,
+            } as FoodPreset;
+          }
+          return undefined;
+        })
         .filter((x): x is FoodPreset => !!x)
     : [];
 
@@ -238,10 +255,9 @@ function AddFoodPage() {
     }
     localStorage.setItem(key, JSON.stringify([...existing, ...additions]));
 
-    if (food.source === "preset") {
-      const nextRecent = [food.id, ...recents.filter((x) => x !== food.id)].slice(0, 10);
-      localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
-    }
+    const nextRecent = [food.id, ...recents.filter((x) => x !== food.id)].slice(0, 10);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
+    setRecents(nextRecent);
     toast(`${displayName(food.name)} 추가됨`);
     navigate({ to: "/" });
   }
@@ -374,7 +390,10 @@ function AddFoodPage() {
                     foods={recentList}
                     favorites={favorites}
                     onToggleFav={toggleFav}
-                    onPick={(p) => setActiveFood(presetToPickable(p))}
+                    onPick={(p) => {
+                      const c = customFoods.find((x) => x.id === p.id);
+                      setActiveFood(c ? customToPickable(c) : presetToPickable(p));
+                    }}
                   />
                 </Section>
               )}

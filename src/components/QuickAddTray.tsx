@@ -17,6 +17,29 @@ interface FoodPreset {
 const PRESETS = foodPresets as FoodPreset[];
 const FAV_KEY = "favorites";
 const RECENT_KEY = "recentFoods";
+const CUSTOM_KEY = "customFoods";
+
+interface CustomFoodLite {
+  id: string;
+  name: string;
+  kcal: number;
+  carb_g: number;
+  protein_g: number;
+  fat_g: number;
+  serving_g: number;
+}
+
+function customToPreset(c: CustomFoodLite): FoodPreset {
+  return {
+    id: c.id,
+    name: c.name,
+    kcal: c.kcal,
+    carb: c.carb_g,
+    protein: c.protein_g,
+    fat: c.fat_g,
+    serving_g: c.serving_g,
+  };
+}
 
 function readArr(key: string): string[] {
   if (typeof window === "undefined") return [];
@@ -81,6 +104,7 @@ interface Props {
 export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [recents, setRecents] = useState<string[]>([]);
+  const [customs, setCustoms] = useState<CustomFoodLite[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [sheet, setSheet] = useState<FoodPreset | null>(null);
   const [flying, setFlying] = useState<FlyState[]>([]);
@@ -89,6 +113,11 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
   useEffect(() => {
     setFavorites(readArr(FAV_KEY));
     setRecents(readArr(RECENT_KEY));
+    try {
+      setCustoms(JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]"));
+    } catch {
+      setCustoms([]);
+    }
     setHydrated(true);
   }, []);
 
@@ -164,7 +193,12 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     .filter((x): x is FoodPreset => !!x);
   const recentList = recents
     .slice(0, 10)
-    .map((id) => PRESETS.find((p) => p.id === id))
+    .map((id) => {
+      const p = PRESETS.find((x) => x.id === id);
+      if (p) return p;
+      const c = customs.find((x) => x.id === id);
+      return c ? customToPreset(c) : undefined;
+    })
     .filter((x): x is FoodPreset => !!x);
 
   if (favList.length === 0 && recentList.length === 0) return null;
