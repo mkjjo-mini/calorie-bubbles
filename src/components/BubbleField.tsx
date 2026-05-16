@@ -15,7 +15,10 @@ interface Props {
   width: number;
   height: number;
   onRemove: (id: string) => void;
+  /** <1 shrinks the collision radius so bubbles visually overlap (cramped). */
   compression?: number;
+  /** 0..1+: how full the bowl is. Drives where bubbles settle vertically. */
+  fillness?: number;
 }
 
 interface Node extends SimulationNodeDatum {
@@ -36,16 +39,19 @@ export function BubbleField({
   height,
   onRemove,
   compression = 1,
+  fillness = 0,
 }: Props) {
   const nodesRef = useRef<Map<string, Node>>(new Map());
   const simRef = useRef<Simulation<Node, undefined> | null>(null);
   const [, setTick] = useState(0);
 
   const cx = width / 2;
-  const cy = height / 2;
-  // Anchor bubbles toward the bottom (the "water"), so they pile up from
-  // the surface upward instead of clustering in the middle of the bowl.
-  const anchorY = height - 12;
+  // Anchor lerps from near the bottom (empty bowl: bubbles sink to the
+  // surface) up toward the middle (full bowl: bubbles fill the volume).
+  const f = Math.min(1, Math.max(0, fillness));
+  const anchorY = (height - 12) * (1 - f) + height * 0.45 * f;
+  // Less downward pull when full so bubbles spread to fill the bowl.
+  const yStrength = 0.12 - 0.08 * f;
 
   // Initialize simulation once
   useEffect(() => {
@@ -53,7 +59,7 @@ export function BubbleField({
       .alphaDecay(0.02)
       .velocityDecay(0.35)
       .force("x", forceX(cx).strength(0.05))
-      .force("y", forceY(anchorY).strength(0.12))
+      .force("y", forceY(anchorY).strength(yStrength))
       .force(
         "collide",
         forceCollide<Node>((d) => (d.r + 2) * compression)
@@ -63,7 +69,7 @@ export function BubbleField({
       .on("tick", () => {
         // clamp to rectangular bounds (container has overflow:hidden)
         for (const n of nodesRef.current.values()) {
-          const r = (n.r + 1) * compression;
+          const r = n.r + 1; // visual radius for clamping
           if (n.x! < r) n.x = r;
           if (n.x! > width - r) n.x = width - r;
           if (n.y! < r) n.y = r;
@@ -78,21 +84,21 @@ export function BubbleField({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update collision force when compression or container size changes
+  // Update forces when compression / fillness / size change
   useEffect(() => {
     const sim = simRef.current;
     if (!sim) return;
     sim
       .force("x", forceX(cx).strength(0.05))
-      .force("y", forceY(anchorY).strength(0.12))
+      .force("y", forceY(anchorY).strength(yStrength))
       .force(
         "collide",
         forceCollide<Node>((d) => (d.r + 2) * compression)
-          .strength(1)
+          .strength(compression < 1 ? 0.85 : 1)
           .iterations(4),
       );
     sim.alpha(0.6).restart();
-  }, [cx, cy, anchorY, compression]);
+  }, [cx, anchorY, yStrength, compression]);
 
   // Sync nodes with bubbles prop
   useEffect(() => {
@@ -139,7 +145,7 @@ export function BubbleField({
       <AnimatePresence>
         {nodes.map((n, i) => {
           const color = MACRO_COLORS[n.macro];
-          const r = n.r * compression;
+          const r = n.r;
           // deterministic per-bubble phase so each sways differently
           const phase = (i * 0.37) % 1;
           const swayDur = 3.6 + (i % 5) * 0.4;
