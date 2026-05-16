@@ -120,7 +120,8 @@ export function BubbleField({
       }
     }
     for (const b of bubbles) {
-      if (!map.has(b.id)) {
+      const existing = map.get(b.id);
+      if (!existing) {
         const kcal = b.grams * MACRO_KCAL[b.macro];
         const r = radiusForKcal(kcal, bowlArea, goalKcal, maxR);
         map.set(b.id, {
@@ -134,6 +135,12 @@ export function BubbleField({
           vx: 0,
           vy: 2,
         });
+        changed = true;
+      } else if (existing.grams !== b.grams) {
+        const kcal = b.grams * MACRO_KCAL[b.macro];
+        existing.grams = b.grams;
+        existing.r = radiusForKcal(kcal, bowlArea, goalKcal, maxR);
+        if (existing.foodName !== b.foodName) existing.foodName = b.foodName;
         changed = true;
       }
     }
