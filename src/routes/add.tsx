@@ -911,9 +911,10 @@ function CustomFoodFormSheet({
   }, [mode, kcalFilled, allMacrosFilled, kcalN, carbN, proteinN, fatN]);
 
   const canSave = (() => {
-    const base = name.trim().length > 0 && !Number.isNaN(amountN) && amountN > 0 && servingGValid;
+    const base = name.trim().length > 0 && !Number.isNaN(amountN) && amountN > 0;
     if (!base) return false;
-    if (mode === "estimate") return kcalFilled && !!category;
+    if (mode === "estimate") return kcalFilled && !!category && servingGValid;
+    // manual: serving_g resolves at save time (g/ml unit OR user grams OR macro-sum fallback)
     return kcalFilled || allMacrosFilled;
   })();
 
@@ -991,9 +992,21 @@ function CustomFoodFormSheet({
       finalIsEstimated = true;
       finalCategory = category;
     } else {
-      finalCarb = Number.isNaN(carbN) ? 0 : carbN;
-      finalProtein = Number.isNaN(proteinN) ? 0 : proteinN;
-      finalFat = Number.isNaN(fatN) ? 0 : fatN;
+      // Auto-fill macros from kcal + default category when only kcal is given
+      if (macrosEmpty && kcalFilled) {
+        const m = estimateMacrosFromKcal(kcalN, category || "other");
+        finalCarb = m.carbs;
+        finalProtein = m.protein;
+        finalFat = m.fat;
+        finalIsEstimated = true;
+        finalCategory = category || "other";
+      } else {
+        finalCarb = Number.isNaN(carbN) ? 0 : carbN;
+        finalProtein = Number.isNaN(proteinN) ? 0 : proteinN;
+        finalFat = Number.isNaN(fatN) ? 0 : fatN;
+        finalIsEstimated = isEstimated;
+        finalCategory = categoryOpen ? category : initial?.category;
+      }
       finalKcal = kcalFilled
         ? Math.round(kcalN)
         : kcalFromMacros({
@@ -1001,16 +1014,18 @@ function CustomFoodFormSheet({
             protein: finalProtein,
             fat: finalFat,
           });
-      finalIsEstimated = isEstimated;
-      finalCategory = categoryOpen ? category : initial?.category;
     }
+
+    // serving_g fallback: macro sum when user didn't enter grams (non-weight unit)
+    const resolvedServingG =
+      servingGValid ? servingG : finalCarb + finalProtein + finalFat;
 
     const food: CustomFood = {
       id: initial?.id ?? crypto.randomUUID(),
       name: name.trim(),
       serving_unit: unit,
       serving_amount: amountN,
-      serving_g: servingG,
+      serving_g: resolvedServingG,
       kcal: finalKcal,
       carb_g: finalCarb,
       protein_g: finalProtein,
