@@ -98,12 +98,12 @@ export function BubbleField({
       .force("y", forceY(anchorY).strength(yStrength))
       .force(
         "collide",
-        forceCollide<Node>((d) => (d.r + 2) * compression)
+        forceCollide<Node>((d) => (d.r * visualScale + 2) * compression)
           .strength(compression < 1 ? 0.85 : 1)
           .iterations(4),
       );
     sim.alpha(0.6).restart();
-  }, [cx, anchorY, yStrength, compression]);
+  }, [cx, anchorY, yStrength, compression, visualScale]);
 
   // Sync nodes with bubbles prop
   useEffect(() => {
