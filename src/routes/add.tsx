@@ -56,14 +56,14 @@ const RECENT_KEY = "recentFoods";
 const CUSTOM_KEY = "customFoods";
 
 const CATEGORY_LABELS: { value: FoodCategory; label: string }[] = [
-  { value: "rice_grain_noodle", label: "밥·곡류·면" },
-  { value: "meat_fish_egg", label: "고기·생선·계란" },
-  { value: "dairy", label: "유제품" },
-  { value: "vegetable_seaweed", label: "채소·해조류" },
-  { value: "fruit", label: "과일" },
-  { value: "snack_dessert", label: "간식·디저트" },
-  { value: "drink_alcohol", label: "음료·주류" },
-  { value: "other", label: "기타·일반식" },
+  { value: "rice_grain_noodle", label: "밥·곡류·면 (밥·면·떡·빵)" },
+  { value: "meat_fish_egg", label: "고기·생선·계란 (닭·돼지·생선·계란)" },
+  { value: "dairy", label: "유제품 (우유·요거트·치즈)" },
+  { value: "vegetable_seaweed", label: "채소·해조류 (채소·김·미역)" },
+  { value: "fruit", label: "과일 (사과·바나나·딸기)" },
+  { value: "snack_dessert", label: "간식·디저트 (과자·시리얼바·초콜릿)" },
+  { value: "drink_alcohol", label: "음료·주류 (음료·커피·맥주)" },
+  { value: "other", label: "기타·일반식 (가공식품·양념)" },
 ];
 
 /* ---------------- helpers ---------------- */
