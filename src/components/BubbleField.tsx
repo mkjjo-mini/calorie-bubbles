@@ -17,10 +17,8 @@ interface Props {
   onRemove: (id: string) => void;
   /** <1 shrinks the collision radius so bubbles visually overlap (cramped). */
   compression?: number;
-  /** 0..1+: how full the bowl is. Drives where bubbles settle vertically. */
+  /** 0..1+: how full the bowl is. Drives settling pressure only. */
   fillness?: number;
-  /** Multiplier applied to bubble visual radius (puff up to fill bowl). */
-  visualScale?: number;
 }
 
 interface Node extends SimulationNodeDatum {
@@ -42,39 +40,61 @@ export function BubbleField({
   onRemove,
   compression = 1,
   fillness = 0,
-  visualScale = 1,
 }: Props) {
   const nodesRef = useRef<Map<string, Node>>(new Map());
   const simRef = useRef<Simulation<Node, undefined> | null>(null);
   const [, setTick] = useState(0);
 
   const cx = width / 2;
-  // Always pull bubbles to the bottom (the "water surface"). Stacking
-  // upward happens naturally via collisions — no mid-bowl anchor.
-  const f = Math.min(1, Math.max(0, fillness));
-  // Always sink to the bottom. Gravity stays strong; "no empty space" when
-  // full is achieved by puffing up the bubbles (visualScale below), not by
-  // floating them mid-bowl.
+  const packedFill = Math.min(1.35, Math.max(0, fillness));
+  const normalizedFill = Math.min(1, packedFill);
+  const overflow = Math.max(0, packedFill - 1);
   const anchorY = height - 4;
-  const yStrength = 0.14;
+  const yStrength = 0.16 - normalizedFill * 0.07 + overflow * 0.015;
+  const packedHeight = Math.min(0.94, 0.24 + packedFill * 0.58);
+  const pressureLine = height * (1 - packedHeight);
+  const pressureStrength = Math.max(0, packedFill - 0.45) * 0.18 + overflow * 0.12;
+
+  const createPackingForce = () => {
+    let nodes: Node[] = [];
+
+    const force = (alpha: number) => {
+      if (pressureStrength <= 0) return;
+
+      for (const node of nodes) {
+        if (node.y == null) continue;
+        const depth = node.y - pressureLine;
+        if (depth > 0) {
+          node.vy = (node.vy ?? 0) - depth * pressureStrength * alpha;
+        }
+      }
+    };
+
+    force.initialize = (initNodes: Node[]) => {
+      nodes = initNodes;
+    };
+
+    return force;
+  };
 
   // Initialize simulation once
   useEffect(() => {
     const sim = forceSimulation<Node>([])
       .alphaDecay(0.02)
-      .velocityDecay(0.35)
+      .velocityDecay(0.32)
       .force("x", forceX(cx).strength(0.05))
       .force("y", forceY(anchorY).strength(yStrength))
+      .force("pack", createPackingForce())
       .force(
         "collide",
-        forceCollide<Node>((d) => (d.r * visualScale + 2) * compression)
+        forceCollide<Node>((d) => (d.r + 2) * compression)
           .strength(1)
-          .iterations(4),
+          .iterations(6),
       )
       .on("tick", () => {
         // clamp to rectangular bounds (container has overflow:hidden)
         for (const n of nodesRef.current.values()) {
-          const r = n.r * visualScale + 1;
+          const r = n.r + 1;
           if (n.x! < r) n.x = r;
           if (n.x! > width - r) n.x = width - r;
           if (n.y! < r) n.y = r;
@@ -94,16 +114,18 @@ export function BubbleField({
     const sim = simRef.current;
     if (!sim) return;
     sim
+      .velocityDecay(0.36 - normalizedFill * 0.08)
       .force("x", forceX(cx).strength(0.05))
       .force("y", forceY(anchorY).strength(yStrength))
+      .force("pack", createPackingForce())
       .force(
         "collide",
-        forceCollide<Node>((d) => (d.r * visualScale + 2) * compression)
+        forceCollide<Node>((d) => (d.r + 2) * compression)
           .strength(compression < 1 ? 0.85 : 1)
-          .iterations(4),
+          .iterations(6),
       );
     sim.alpha(0.6).restart();
-  }, [cx, anchorY, yStrength, compression, visualScale]);
+  }, [cx, anchorY, yStrength, compression, normalizedFill, pressureLine, pressureStrength]);
 
   // Sync nodes with bubbles prop
   useEffect(() => {
@@ -150,7 +172,7 @@ export function BubbleField({
       <AnimatePresence>
         {nodes.map((n, i) => {
           const color = MACRO_COLORS[n.macro];
-          const r = n.r * visualScale;
+          const r = n.r;
           // deterministic per-bubble phase so each sways differently
           const phase = (i * 0.37) % 1;
           const swayDur = 3.6 + (i % 5) * 0.4;
