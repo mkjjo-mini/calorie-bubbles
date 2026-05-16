@@ -49,7 +49,6 @@ export async function handleLogin(req: Request, env: Env): Promise<Response> {
 
   try {
     const tokens = await generateToken(
-      env,
       body.authorizationCode,
       body.referrer,
     );
@@ -77,8 +76,7 @@ export async function handleLogin(req: Request, env: Env): Promise<Response> {
   } catch (e) {
     if (e instanceof TossOAuthError) {
       console.error("[auth/login]", e.code, e.message);
-      const status = e.code === "CONFIG_MISSING" ? 500 : 401;
-      return jsonError(status, e.code, "login failed");
+      return jsonError(401, e.code, "login failed");
     }
     console.error("[auth/login] unexpected", e);
     return jsonError(500, "INTERNAL", "login failed");
