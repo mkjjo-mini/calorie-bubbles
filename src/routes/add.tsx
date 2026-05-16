@@ -318,8 +318,12 @@ function AddFoodPage() {
         .filter((x): x is FoodPreset => !!x)
     : [];
 
+  // "내가 등록한 음식" 섹션은 사용자가 직접 등록한 것만 (식약처 자동 저장 제외)
   const sortedCustom = useMemo(
-    () => [...customFoods].sort((a, b) => b.created_at - a.created_at),
+    () =>
+      customFoods
+        .filter((c) => c.source !== "api")
+        .sort((a, b) => b.created_at - a.created_at),
     [customFoods],
   );
 
@@ -346,6 +350,7 @@ function AddFoodPage() {
           protein_g: food.protein,
           fat_g: food.fat,
           is_estimated: false,
+          source: "api",
           created_at: Date.now(),
           updated_at: Date.now(),
         };
@@ -411,12 +416,18 @@ function AddFoodPage() {
   /* ---------------- form save ---------------- */
 
   function handleFormSave(food: CustomFood) {
+    // 직접 등록 폼에서 들어온 음식은 명시적으로 source="user"
+    // (편집 케이스에선 기존 source 유지)
     const existingIdx = customFoods.findIndex((c) => c.id === food.id);
+    const saved: CustomFood = {
+      ...food,
+      source: food.source ?? customFoods[existingIdx]?.source ?? "user",
+    };
     let next: CustomFood[];
     if (existingIdx >= 0) {
-      next = customFoods.map((c) => (c.id === food.id ? food : c));
+      next = customFoods.map((c) => (c.id === saved.id ? saved : c));
     } else {
-      next = prependCustomFood(customFoods, food);
+      next = prependCustomFood(customFoods, saved);
     }
     persistCustom(next);
     // Do not auto-favorite — the star is a user-controlled favorite toggle only.

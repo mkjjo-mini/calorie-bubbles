@@ -156,6 +156,8 @@ export interface CustomFood {
   fat_g: number;
   is_estimated: boolean;
   category?: FoodCategory;
+  /** "user" = 사용자가 직접 등록 / "api" = 식약처 검색에서 가져와 자동 저장 */
+  source?: "user" | "api";
   created_at: number;
   updated_at: number;
 }
