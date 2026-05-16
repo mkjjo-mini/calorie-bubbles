@@ -1,7 +1,28 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tanstack-start-app",
-  "compatibility_date": "2025-09-24",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "src/server.ts",
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "tanstack-start-app",
+	"compatibility_date": "2025-09-24",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"main": "src/server.ts",
+	// Cookie Secure flag 분기용. dev에서는 ENVIRONMENT=development override 가능.
+	"vars": {
+		"ENVIRONMENT": "production"
+	},
+	// 세션 저장용 KV namespace (토스 OAuth 세션 페이로드).
+	// 셋업 명령: `npx wrangler kv namespace create SESSIONS`
+	// remote: true → local dev에서도 prod KV에 연결. 데이터 격리가 필요하면 dev용 namespace를
+	// 별도 생성 후 wrangler env 분리 권장.
+	"kv_namespaces": [
+		{
+			"binding": "SESSIONS",
+			"id": "71e26d1917784bd985719380152d8d40",
+			"remote": true
+		}
+	]
+	// Step 07에서 D1 binding 추가 예정:
+	// "d1_databases": [
+	//   { "binding": "DB", "database_name": "tandanji-bubble", "database_id": "..." }
+	// ]
 }

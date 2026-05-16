@@ -2,6 +2,8 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { handleAuth } from "./server/auth/router";
+import type { Env } from "./server/auth/env";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -69,6 +71,15 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // 1. /api/auth/* — cookie 발급/검증이 필요해 createServerFn(RPC)로는 불충분.
+      //    Worker fetch handler에서 직접 처리. Step 07의 /api/food-logs 등도 같은 패턴 확장.
+      const url = new URL(request.url);
+      if (url.pathname.startsWith("/api/auth/")) {
+        const authResponse = await handleAuth(request, env as Env);
+        if (authResponse) return authResponse;
+      }
+
+      // 2. 그 외는 TanStack Start server-entry로 위임
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

@@ -11,6 +11,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import { useSession } from "@/hooks/useSession";
 
 function NotFoundComponent() {
   return (
@@ -112,6 +113,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // 부팅 시 토스 세션 (silent). 앱인토스 외부 dev 환경에서는 unauthenticated로 폴백돼
+  // localStorage 모드로 정상 동작. 결과는 Step 07에서 useStorage()가 활용.
+  useSession();
 
   return (
     <QueryClientProvider client={queryClient}>
