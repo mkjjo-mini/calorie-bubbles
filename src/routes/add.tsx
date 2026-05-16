@@ -553,7 +553,7 @@ function AddFoodPage() {
                     {searchHistory.map((q) => (
                       <span
                         key={q}
-                        className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white pl-3 pr-1 py-1 text-xs text-neutral-700"
+                        className="inline-flex items-center gap-0.5 rounded-full border border-neutral-100 bg-neutral-50 pl-2.5 pr-0.5 py-0.5 text-[11px] text-neutral-600"
                       >
                         <button
                           type="button"
@@ -566,7 +566,7 @@ function AddFoodPage() {
                           type="button"
                           onClick={() => removeSearchHistory(q)}
                           aria-label="검색 기록 삭제"
-                          className="ml-0.5 flex h-5 w-5 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+                          className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 text-[10px]"
                         >
                           ×
                         </button>
