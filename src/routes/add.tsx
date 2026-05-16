@@ -604,7 +604,11 @@ function AddFoodPage() {
                   <FoodGrid
                     foods={showAllFavs ? favList : favList.slice(0, 10)}
                     favorites={favorites}
-                    onToggleFav={toggleFav}
+                    onToggleFav={(id) => {
+                      const c = customFoods.find((x) => x.id === id);
+                      if (c) toggleFavByName(c.name);
+                      else toggleFav(id);
+                    }}
                     onPick={(p) => {
                       const c = customFoods.find((x) => x.id === p.id);
                       setActiveFood(c ? customToPickable(c) : presetToPickable(p));
@@ -634,7 +638,11 @@ function AddFoodPage() {
                   <FoodGrid
                     foods={recentList}
                     favorites={favorites}
-                    onToggleFav={toggleFav}
+                    onToggleFav={(id) => {
+                      const c = customFoods.find((x) => x.id === id);
+                      if (c) toggleFavByName(c.name);
+                      else toggleFav(id);
+                    }}
                     onPick={(p) => {
                       const c = customFoods.find((x) => x.id === p.id);
                       setActiveFood(c ? customToPickable(c) : presetToPickable(p));
