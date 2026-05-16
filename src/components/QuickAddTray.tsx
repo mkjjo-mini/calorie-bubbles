@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Star, Clock } from "lucide-react";
 import foodPresets from "@/data/food-presets.json";
 import { displayName, MACRO_COLORS, type BubbleEntry, type Macro } from "@/lib/foods";
 
