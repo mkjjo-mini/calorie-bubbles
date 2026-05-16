@@ -10,7 +10,7 @@ import {
   kcalFromMacros,
   estimateMacrosFromKcal,
   prependCustomFood,
-  recomputeEstimatedFlag,
+  
 } from "@/lib/customFoods";
 import {
   Sheet,
