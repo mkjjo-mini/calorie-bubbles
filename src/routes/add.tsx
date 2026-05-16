@@ -352,12 +352,8 @@ function AddFoodPage() {
         const next = prependCustomFood(customFoods, newCustom);
         persistCustom(next);
         effectiveId = newCustom.id;
-        // API 음식 첫 추가 시 자동 즐겨찾기 (name 기반으로 통일 — 사용자 토글과 일치)
-        if (!favorites.includes(newCustom.name)) {
-          const nextFav = [newCustom.name, ...favorites];
-          setFavorites(nextFav);
-          localStorage.setItem(FAV_KEY, JSON.stringify(nextFav));
-        }
+        // 자동 즐겨찾기 없음 — 직접 등록과 동일하게 별표는 사용자 명시 토글로만.
+        // 최근 사용 트레이에는 아래 recents push로 자연 노출됨.
       }
     }
 
