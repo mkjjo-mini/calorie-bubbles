@@ -1192,30 +1192,55 @@ function CustomFoodFormSheet({
             </div>
           </div>
 
-          {/* Auto-fill preview — shown when kcal is set but macros / grams are empty */}
-          {kcalFilled && (macrosEmpty || !servingGValid) && (
-            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 space-y-0.5">
-              <p className="text-xs font-medium text-neutral-700">
-                💡 저장하면 이렇게 채워져요
-              </p>
-              {macrosEmpty && (() => {
-                const m = estimateMacrosFromKcal(kcalN, category);
-                return (
+          {/* Auto-fill preview — kcal OR macros side fills the other automatically */}
+          {(() => {
+            const willEstimateMacros = macrosEmpty && kcalFilled;
+            const willEstimateKcal = !kcalFilled && allMacrosFilled;
+            const effectiveKcal = kcalFilled
+              ? kcalN
+              : allMacrosFilled
+                ? kcalFromMacros({
+                    carbs: carbN,
+                    protein: proteinN,
+                    fat: fatN,
+                  })
+                : 0;
+            const willEstimateGrams =
+              !servingGValid && effectiveKcal > 0;
+            if (
+              !willEstimateMacros &&
+              !willEstimateKcal &&
+              !willEstimateGrams
+            )
+              return null;
+            return (
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 space-y-0.5">
+                <p className="text-xs font-medium text-neutral-700">
+                  💡 저장하면 이렇게 채워져요
+                </p>
+                {willEstimateMacros &&
+                  (() => {
+                    const m = estimateMacrosFromKcal(kcalN, category);
+                    return (
+                      <p className="text-xs text-neutral-600">
+                        탄 {m.carbs}g · 단 {m.protein}g · 지 {m.fat}g
+                      </p>
+                    );
+                  })()}
+                {willEstimateKcal && (
                   <p className="text-xs text-neutral-600">
-                    탄 {m.carbs}g · 단 {m.protein}g · 지 {m.fat}g
+                    열량: 약 {effectiveKcal} kcal
                   </p>
-                );
-              })()}
-              {!servingGValid && (() => {
-                const g = estimateGramsFromKcal(kcalN, category);
-                return (
+                )}
+                {willEstimateGrams && (
                   <p className="text-xs text-neutral-600">
-                    1회 제공량: 약 {g}g
+                    1회 제공량: 약{" "}
+                    {estimateGramsFromKcal(effectiveKcal, category)}g
                   </p>
-                );
-              })()}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
 
           <button
             disabled={!canSave}
