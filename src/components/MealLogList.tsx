@@ -36,8 +36,60 @@ interface FoodPreset {
 }
 const PRESETS = foodPresets as FoodPreset[];
 
-function findPresetByName(name: string): FoodPreset | undefined {
-  return PRESETS.find((p) => p.name.split(" ")[0] === name);
+interface Baseline {
+  name: string;
+  kcal: number;
+  carb: number;
+  protein: number;
+  fat: number;
+  serving_g: number;
+}
+
+interface CustomFoodLite {
+  name: string;
+  kcal: number;
+  carb_g: number;
+  protein_g: number;
+  fat_g: number;
+  serving_g: number;
+}
+
+function readCustomFoods(): CustomFoodLite[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem("customFoods") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function findBaselineByName(name: string): Baseline | undefined {
+  const lower = name.toLowerCase();
+  const preset =
+    PRESETS.find((p) => p.name.split(" ")[0] === name) ??
+    PRESETS.find((p) => p.name.toLowerCase() === lower);
+  if (preset) {
+    return {
+      name: preset.name,
+      kcal: preset.kcal,
+      carb: preset.carb,
+      protein: preset.protein,
+      fat: preset.fat,
+      serving_g: preset.serving_g,
+    };
+  }
+  const c = readCustomFoods().find((x) => x.name.toLowerCase() === lower);
+  if (c) {
+    return {
+      name: c.name,
+      kcal: c.kcal,
+      carb: c.carb_g,
+      protein: c.protein_g,
+      fat: c.fat_g,
+      serving_g: c.serving_g,
+    };
+  }
+  return undefined;
 }
 
 interface Props {
