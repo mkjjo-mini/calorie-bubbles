@@ -46,12 +46,13 @@ export function BubbleField({
   const [, setTick] = useState(0);
 
   const cx = width / 2;
-  // Anchor lerps from near the bottom (empty bowl: bubbles sink to the
-  // surface) up toward the middle (full bowl: bubbles fill the volume).
+  // Always pull bubbles to the bottom (the "water surface"). Stacking
+  // upward happens naturally via collisions — no mid-bowl anchor.
   const f = Math.min(1, Math.max(0, fillness));
-  const anchorY = (height - 12) * (1 - f) + height * 0.45 * f;
-  // Less downward pull when full so bubbles spread to fill the bowl.
-  const yStrength = 0.12 - 0.08 * f;
+  const anchorY = height - 4;
+  // Keep gravity strong even when full so bubbles rest on the bottom and
+  // collisions push the pile upward to fill the bowl.
+  const yStrength = 0.16 - 0.02 * f;
 
   // Initialize simulation once
   useEffect(() => {
