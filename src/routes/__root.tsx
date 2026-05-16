@@ -145,18 +145,14 @@ function BottomTabBar() {
             <Link
               key={tab.to}
               to={tab.to}
-              className={`flex items-center gap-1.5 rounded-full px-4 py-2 transition-all duration-200 ${
+              className={`flex flex-col items-center justify-center gap-1 rounded-full px-5 py-2 transition-all duration-200 ${
                 active
                   ? "bg-neutral-900 text-white shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-800"
+                  : "text-neutral-400 hover:text-neutral-700"
               }`}
             >
-              <Icon className="h-[18px] w-[18px]" strokeWidth={2.2} />
-              <span
-                className={`overflow-hidden text-[12px] font-semibold leading-none transition-all duration-200 ${
-                  active ? "max-w-[60px] opacity-100" : "max-w-0 opacity-0"
-                }`}
-              >
+              <Icon className="h-[20px] w-[20px]" strokeWidth={2.2} />
+              <span className="text-[10px] font-semibold leading-none">
                 {tab.label}
               </span>
             </Link>
