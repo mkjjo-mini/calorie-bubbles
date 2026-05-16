@@ -242,14 +242,14 @@ function ChipRow({
   onTap,
   onLongPress,
 }: {
-  label: string;
+  label: React.ReactNode;
   foods: FoodPreset[];
   onTap: (p: FoodPreset, el: HTMLElement) => void;
   onLongPress: (p: FoodPreset) => void;
 }) {
   return (
     <div>
-      <div className="text-[11px] font-medium text-neutral-500 mb-1.5">{label}</div>
+      <div className="text-[11px] font-medium text-neutral-500 mb-1.5 inline-flex items-center gap-1">{label}</div>
       <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-none">
         {foods.map((f) => (
           <Chip key={f.id} food={f} onTap={onTap} onLongPress={onLongPress} />
