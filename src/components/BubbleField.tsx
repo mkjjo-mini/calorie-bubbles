@@ -15,7 +15,10 @@ interface Props {
   width: number;
   height: number;
   onRemove: (id: string) => void;
+  /** <1 shrinks the collision radius so bubbles visually overlap (cramped). */
   compression?: number;
+  /** 0..1+: how full the bowl is. Drives where bubbles settle vertically. */
+  fillness?: number;
 }
 
 interface Node extends SimulationNodeDatum {
