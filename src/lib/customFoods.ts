@@ -158,6 +158,8 @@ export interface CustomFood {
   category?: FoodCategory;
   /** "user" = 사용자가 직접 등록 / "api" = 식약처 검색에서 가져와 자동 저장 */
   source?: "user" | "api";
+  /** 식약처 FOOD_CD (source="api" 일 때만). v2에서 D1 lookup 키로 사용 → full nutrients join */
+  food_code?: string;
   created_at: number;
   updated_at: number;
 }

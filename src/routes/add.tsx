@@ -49,6 +49,8 @@ interface Pickable {
   serving_g: number;
   serving_label: string; // e.g. "1봉 (40g)" or "100g"
   is_estimated?: boolean;
+  /** 식약처 FOOD_CD (source="api" 일 때만). v2 D1 lookup용. */
+  food_code?: string;
 }
 
 const PRESETS = foodPresets as FoodPreset[];
@@ -128,6 +130,7 @@ function apiToPickable(a: FoodApiResult): Pickable {
     fat: a.fat_g,
     serving_g: a.serving_g,
     serving_label: `${a.serving_g}g`,
+    food_code: a.code,
   };
 }
 
@@ -357,6 +360,7 @@ function AddFoodPage() {
           fat_g: food.fat,
           is_estimated: false,
           source: "api",
+          food_code: food.food_code,
           created_at: Date.now(),
           updated_at: Date.now(),
         };
