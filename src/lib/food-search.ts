@@ -29,9 +29,7 @@ function getApiKey(): string | undefined {
   if (typeof process !== "undefined" && process.env?.FOOD_API_KEY) {
     return process.env.FOOD_API_KEY;
   }
-  // @ts-expect-error import.meta.env may exist
   if (typeof import.meta !== "undefined" && import.meta.env?.FOOD_API_KEY) {
-    // @ts-expect-error
     return import.meta.env.FOOD_API_KEY as string;
   }
   return undefined;
@@ -102,7 +100,7 @@ export const searchFood = createServerFn({ method: "GET" })
       json = JSON.parse(text);
     } catch {
       console.error("[food-search] non-JSON response", text.slice(0, 500));
-      return [];
+      return { items: [], pageNo, numOfRows: NUM_OF_ROWS, totalCount: 0 };
     }
     // 신규 service envelope: { header, body: { items, totalCount, pageNo, numOfRows } }
     const items: any[] = json?.body?.items ?? [];
