@@ -111,6 +111,35 @@ export function estimateMacrosFromKcal(
   };
 }
 
+/**
+ * Average calorie density (kcal per gram) by food category.
+ * Based on heuristic averages from 식약처 식품영양성분 DB.
+ * Used to estimate serving_g when the user enters kcal but no gram value.
+ */
+export const CATEGORY_KCAL_PER_GRAM: Record<FoodCategory, number> = {
+  rice_grain_noodle: 1.3,
+  meat_fish_egg: 2.0,
+  dairy: 1.5,
+  vegetable_seaweed: 0.3,
+  fruit: 0.5,
+  snack_dessert: 4.5,
+  drink_alcohol: 0.4,
+  other: 1.5,
+};
+
+/**
+ * Estimate serving_g from kcal using the category's average kcal/g.
+ * Returns integer grams (rounded).
+ */
+export function estimateGramsFromKcal(
+  kcal: number,
+  category: FoodCategory,
+): number {
+  const density = CATEGORY_KCAL_PER_GRAM[category];
+  if (!density || density <= 0) return 0;
+  return Math.round(kcal / density);
+}
+
 /* ------------------------------------------------------------------ */
 /* customFoods array management                                       */
 /* ------------------------------------------------------------------ */

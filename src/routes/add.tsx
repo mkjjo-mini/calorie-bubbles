@@ -9,8 +9,8 @@ import {
   type FoodCategory,
   kcalFromMacros,
   estimateMacrosFromKcal,
+  estimateGramsFromKcal,
   prependCustomFood,
-  
 } from "@/lib/customFoods";
 import {
   Sheet,
@@ -1016,9 +1016,13 @@ function CustomFoodFormSheet({
           });
     }
 
-    // serving_g fallback: macro sum when user didn't enter grams (non-weight unit)
-    const resolvedServingG =
-      servingGValid ? servingG : finalCarb + finalProtein + finalFat;
+    // serving_g fallback: kcal × category density first; macro-sum as last resort
+    const fallbackCategory: FoodCategory = finalCategory ?? category ?? "other";
+    const resolvedServingG = servingGValid
+      ? servingG
+      : finalKcal > 0
+        ? estimateGramsFromKcal(finalKcal, fallbackCategory)
+        : finalCarb + finalProtein + finalFat;
 
     const food: CustomFood = {
       id: initial?.id ?? crypto.randomUUID(),
@@ -1187,6 +1191,31 @@ function CustomFoodFormSheet({
               ))}
             </div>
           </div>
+
+          {/* Auto-fill preview — shown when kcal is set but macros / grams are empty */}
+          {kcalFilled && (macrosEmpty || !servingGValid) && (
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 space-y-0.5">
+              <p className="text-xs font-medium text-neutral-700">
+                💡 저장하면 이렇게 채워져요
+              </p>
+              {macrosEmpty && (() => {
+                const m = estimateMacrosFromKcal(kcalN, category);
+                return (
+                  <p className="text-xs text-neutral-600">
+                    탄 {m.carbs}g · 단 {m.protein}g · 지 {m.fat}g
+                  </p>
+                );
+              })()}
+              {!servingGValid && (() => {
+                const g = estimateGramsFromKcal(kcalN, category);
+                return (
+                  <p className="text-xs text-neutral-600">
+                    1회 제공량: 약 {g}g
+                  </p>
+                );
+              })()}
+            </div>
+          )}
 
           <button
             disabled={!canSave}
