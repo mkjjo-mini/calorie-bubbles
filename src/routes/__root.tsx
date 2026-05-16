@@ -124,10 +124,12 @@ function RootComponent() {
   );
 }
 
+import { Home, CalendarDays, Settings as SettingsIcon } from "lucide-react";
+
 const TABS = [
-  { to: "/", emoji: "🫧", label: "홈" },
-  { to: "/history", emoji: "📅", label: "기록" },
-  { to: "/settings", emoji: "⚙️", label: "설정" },
+  { to: "/", icon: Home, label: "홈" },
+  { to: "/history", icon: CalendarDays, label: "기록" },
+  { to: "/settings", icon: SettingsIcon, label: "설정" },
 ] as const;
 
 function BottomTabBar() {
