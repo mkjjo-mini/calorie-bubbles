@@ -165,35 +165,40 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
           <div
             className="rounded-2xl border border-neutral-100 bg-white"
           >
-            {MEAL_SLOT_ORDER.map((slot) => {
+            {MEAL_SLOT_ORDER.map((slot, idx) => {
               const items = grouped[slot];
               const meta = MEAL_SLOT_META[slot];
               const slotKcal = items.reduce((s, x) => s + x.kcal, 0);
               return (
-                <SlotDropZone key={slot} slot={slot} isDragging={isDragging}>
-                  <div className="px-4 py-1.5 text-[12px] font-semibold text-neutral-700 flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1.5">
-                      <meta.Icon className="h-3.5 w-3.5 text-neutral-500" strokeWidth={2.2} />
-                      {meta.label}
-                    </span>
-                    <span className="text-neutral-400 tabular-nums">{slotKcal} kcal</span>
-                  </div>
-                  {items.length === 0 ? (
-                    <div className="px-4 py-2 text-[12px] text-neutral-300">
-                      {isDragging ? "여기에 놓아 옮기기" : "비어 있음"}
+                <div
+                  key={slot}
+                  className={idx > 0 ? "border-t border-neutral-100" : ""}
+                >
+                  <SlotDropZone slot={slot} isDragging={isDragging}>
+                    <div className="px-4 py-1.5 text-[12px] font-semibold text-neutral-700 flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5">
+                        <meta.Icon className="h-3.5 w-3.5 text-neutral-500" strokeWidth={2.2} />
+                        {meta.label}
+                      </span>
+                      <span className="text-neutral-400 tabular-nums">{slotKcal} kcal</span>
                     </div>
-                  ) : (
-                    <AnimatePresence initial={false}>
-                      {items.map((it) => (
-                        <DraggableLogRow
-                          key={it.foodLogId}
-                          item={it}
-                          onOpenActions={() => openActions(it)}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  )}
-                </SlotDropZone>
+                    {items.length === 0 ? (
+                      <div className="px-4 py-2 text-[12px] text-neutral-300">
+                        {isDragging ? "여기에 놓아 옮기기" : "비어 있음"}
+                      </div>
+                    ) : (
+                      <AnimatePresence initial={false}>
+                        {items.map((it) => (
+                          <DraggableLogRow
+                            key={it.foodLogId}
+                            item={it}
+                            onOpenActions={() => openActions(it)}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    )}
+                  </SlotDropZone>
+                </div>
               );
             })}
           </div>
