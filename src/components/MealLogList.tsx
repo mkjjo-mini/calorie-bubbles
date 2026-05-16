@@ -315,7 +315,15 @@ function DraggableLogRow({
   );
 }
 
-function LogRowVisual({ item, dragging = false }: { item: LogItem; dragging?: boolean }) {
+function LogRowVisual({
+  item,
+  dragging = false,
+  onOpenActions,
+}: {
+  item: LogItem;
+  dragging?: boolean;
+  onOpenActions?: () => void;
+}) {
   const dot = MACRO_COLORS[dominantMacro(item)];
   return (
     <div
@@ -334,6 +342,21 @@ function LogRowVisual({ item, dragging = false }: { item: LogItem; dragging?: bo
         </div>
       </div>
       <div className="text-[14px] font-bold tabular-nums text-neutral-900">{item.kcal}</div>
+      {onOpenActions && (
+        <button
+          type="button"
+          aria-label="더보기"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenActions();
+          }}
+          className="p-1.5 -mr-1 rounded-md text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 active:scale-95 transition flex items-center justify-center"
+          style={{ minWidth: 32, minHeight: 32 }}
+        >
+          <MoreVertical size={16} />
+        </button>
+      )}
     </div>
   );
 }
