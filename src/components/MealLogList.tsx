@@ -291,7 +291,7 @@ function DraggableLogRow({
     id: item.foodLogId,
   });
   const [primed, setPrimed] = useState(false);
-  const timerRef = React.useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   const clearTimer = () => {
     if (timerRef.current !== null) {
