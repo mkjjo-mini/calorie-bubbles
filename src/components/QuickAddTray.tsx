@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Star, Clock } from "lucide-react";
 import foodPresets from "@/data/food-presets.json";
 import { displayName, MACRO_COLORS, type BubbleEntry, type Macro } from "@/lib/foods";
 
@@ -172,10 +173,10 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     <>
       <div className="px-5 pt-3 pb-1 space-y-3">
         {favList.length > 0 && (
-          <ChipRow label="⭐ 즐겨찾기" foods={favList} onTap={handleTap} onLongPress={setSheet} />
+          <ChipRow label={<><Star className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />즐겨찾기</>} foods={favList} onTap={handleTap} onLongPress={setSheet} />
         )}
         {recentList.length > 0 && (
-          <ChipRow label="🕐 최근 사용" foods={recentList} onTap={handleTap} onLongPress={setSheet} />
+          <ChipRow label={<><Clock className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />최근 사용</>} foods={recentList} onTap={handleTap} onLongPress={setSheet} />
         )}
       </div>
 
@@ -241,14 +242,14 @@ function ChipRow({
   onTap,
   onLongPress,
 }: {
-  label: string;
+  label: React.ReactNode;
   foods: FoodPreset[];
   onTap: (p: FoodPreset, el: HTMLElement) => void;
   onLongPress: (p: FoodPreset) => void;
 }) {
   return (
     <div>
-      <div className="text-[11px] font-medium text-neutral-500 mb-1.5">{label}</div>
+      <div className="text-[11px] font-medium text-neutral-500 mb-1.5 inline-flex items-center gap-1">{label}</div>
       <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-none">
         {foods.map((f) => (
           <Chip key={f.id} food={f} onTap={onTap} onLongPress={onLongPress} />

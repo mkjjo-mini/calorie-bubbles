@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Star } from "lucide-react";
+import { ArrowLeft, Search, Star, Clock } from "lucide-react";
 import { toast } from "sonner";
 import foodPresets from "@/data/food-presets.json";
 import { displayName, type BubbleEntry, type Macro } from "@/lib/foods";
@@ -150,13 +150,13 @@ function AddFoodPage() {
 
         <div className="px-4 py-4 space-y-6">
           {favList.length > 0 && (
-            <Section title="⭐ 즐겨찾기">
+            <Section title={<><Star className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />즐겨찾기</>}>
               <FoodGrid foods={favList} favorites={favorites} onToggleFav={toggleFav} onPick={setActiveFood} />
             </Section>
           )}
 
           {recentList.length > 0 && (
-            <Section title="🕐 최근 사용">
+            <Section title={<><Clock className="w-3.5 h-3.5 text-neutral-500" strokeWidth={2.4} />최근 사용</>}>
               <FoodGrid foods={recentList} favorites={favorites} onToggleFav={toggleFav} onPick={setActiveFood} />
             </Section>
           )}
@@ -178,10 +178,10 @@ function AddFoodPage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="text-sm font-semibold text-neutral-800 mb-2">{title}</h2>
+      <h2 className="text-sm font-semibold text-neutral-800 mb-2 inline-flex items-center gap-1.5">{title}</h2>
       {children}
     </section>
   );
