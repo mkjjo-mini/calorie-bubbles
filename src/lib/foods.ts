@@ -47,11 +47,13 @@ export const DAILY_GOAL_KCAL = 2000;
 
 export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
 
-export const MEAL_SLOT_META: Record<MealSlot, { emoji: string; label: string }> = {
-  breakfast: { emoji: "🌅", label: "아침" },
-  lunch: { emoji: "🌞", label: "점심" },
-  dinner: { emoji: "🌙", label: "저녁" },
-  snack: { emoji: "🍪", label: "간식" },
+import { Sunrise, Sun, Moon, Cookie, type LucideIcon } from "lucide-react";
+
+export const MEAL_SLOT_META: Record<MealSlot, { Icon: LucideIcon; label: string }> = {
+  breakfast: { Icon: Sunrise, label: "아침" },
+  lunch: { Icon: Sun, label: "점심" },
+  dinner: { Icon: Moon, label: "저녁" },
+  snack: { Icon: Cookie, label: "간식" },
 };
 
 export const MEAL_SLOT_ORDER: MealSlot[] = ["breakfast", "lunch", "dinner", "snack"];
