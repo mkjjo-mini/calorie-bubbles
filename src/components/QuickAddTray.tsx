@@ -104,6 +104,7 @@ interface Props {
 export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [recents, setRecents] = useState<string[]>([]);
+  const [customs, setCustoms] = useState<CustomFoodLite[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [sheet, setSheet] = useState<FoodPreset | null>(null);
   const [flying, setFlying] = useState<FlyState[]>([]);
@@ -112,6 +113,11 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
   useEffect(() => {
     setFavorites(readArr(FAV_KEY));
     setRecents(readArr(RECENT_KEY));
+    try {
+      setCustoms(JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]"));
+    } catch {
+      setCustoms([]);
+    }
     setHydrated(true);
   }, []);
 
