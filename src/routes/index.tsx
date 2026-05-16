@@ -94,7 +94,11 @@ function Index() {
 
   // Stage by progress: 1 (<50%), 2 (50-100%), 3 (100-120%), 4 (120%+)
   const stage = rawPct >= 120 ? 4 : rawPct >= 100 ? 3 : rawPct >= 50 ? 2 : 1;
-  const compression = stage === 4 ? 0.7 : stage === 3 ? 0.78 : 1;
+  // Bubbles keep their visual size; compression only shrinks the collision
+  // radius so they overlap and feel cramped once the goal is exceeded.
+  const compression = stage === 4 ? 0.65 : stage === 3 ? 0.82 : 1;
+  // 0..1: how full the bowl is (clamped at 1 so overflow squeezes vs grows).
+  const fillness = Math.min(1, rawPct / 100);
 
   const bowlControls = useAnimationControls();
   const prevLenRef = useRef(0);
