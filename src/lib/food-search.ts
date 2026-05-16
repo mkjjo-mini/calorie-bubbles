@@ -37,20 +37,31 @@ function getApiKey(): string | undefined {
   return undefined;
 }
 
+export interface FoodApiPage {
+  items: FoodApiResult[];
+  pageNo: number;
+  numOfRows: number;
+  totalCount: number;
+}
+
 /**
  * Search 식품안전나라 (식약처) food DB via server proxy.
  * The API key never reaches the client.
  *
- * Empty query (or <2 chars) returns [] without an API call.
+ * Empty query (<1 char) returns empty page without an API call.
  * On error, throws — caller decides how to surface to user.
  */
 export const searchFood = createServerFn({ method: "GET" })
-  .inputValidator((q: string) => {
-    if (typeof q !== "string") return "";
-    return q.trim();
+  .inputValidator((input: { q: string; pageNo?: number }) => {
+    const q = typeof input?.q === "string" ? input.q.trim() : "";
+    const pageNo = Math.max(1, Math.floor(input?.pageNo ?? 1));
+    return { q, pageNo };
   })
-  .handler(async ({ data: q }): Promise<FoodApiResult[]> => {
-    if (q.length < 1) return [];
+  .handler(async ({ data }): Promise<FoodApiPage> => {
+    const { q, pageNo } = data;
+    if (q.length < 1) {
+      return { items: [], pageNo, numOfRows: 20, totalCount: 0 };
+    }
 
     const key = getApiKey();
     if (!key) {
@@ -59,11 +70,12 @@ export const searchFood = createServerFn({ method: "GET" })
       );
     }
 
+    const NUM_OF_ROWS = 20;
     const url = new URL(ENDPOINT);
     url.searchParams.set("serviceKey", key);
     url.searchParams.set("FOOD_NM_KR", q);
-    url.searchParams.set("pageNo", "1");
-    url.searchParams.set("numOfRows", "20");
+    url.searchParams.set("pageNo", String(pageNo));
+    url.searchParams.set("numOfRows", String(NUM_OF_ROWS));
     url.searchParams.set("type", "json");
 
     const res = await fetch(url.toString());
@@ -92,21 +104,18 @@ export const searchFood = createServerFn({ method: "GET" })
       console.error("[food-search] non-JSON response", text.slice(0, 500));
       return [];
     }
-    // 신규 service envelope: { header, body: { items: [...] } } (no response wrapper)
+    // 신규 service envelope: { header, body: { items, totalCount, pageNo, numOfRows } }
     const items: any[] = json?.body?.items ?? [];
-    // Temporary: log first item to identify the new field names
-    console.error(
-      "[food-search] 200 OK, items count=",
-      items.length,
-      "first item=",
-      JSON.stringify(items[0] ?? null),
-    );
+    const totalCount = Number.parseInt(json?.body?.totalCount, 10) || 0;
+    // Hard cap to protect daily API quota — clients should not fetch beyond 100 results per query
+    const MAX_TOTAL = 100;
+    const cappedTotal = Math.min(totalCount, MAX_TOTAL);
 
     // 신규 service field mapping (FoodNtrCpntDbInfo02):
     //   AMT_NUM1 = 에너지(kcal), AMT_NUM3 = 단백질(g), AMT_NUM4 = 지방(g),
     //   AMT_NUM6 = 탄수화물(g). 모두 SERVING_SIZE(보통 100g) 기준 값.
     //   Z10500 = 실제 1봉/1인분 무게 (예: 칼로리바란스 "76.00g"). 우선 사용.
-    return items
+    const mapped = items
       .map<FoodApiResult>((it) => {
         const kcal100 = Number.parseFloat(it.AMT_NUM1) || 0;
         const carb100 = Number.parseFloat(it.AMT_NUM6) || 0;
@@ -133,4 +142,11 @@ export const searchFood = createServerFn({ method: "GET" })
       })
       // Filter junk rows (0 kcal usually means missing data)
       .filter((f) => f.kcal > 0 && f.name.length > 0);
+
+    return {
+      items: mapped,
+      pageNo,
+      numOfRows: NUM_OF_ROWS,
+      totalCount: cappedTotal,
+    };
   });

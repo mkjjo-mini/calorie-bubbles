@@ -255,9 +255,15 @@ function AddFoodPage() {
     );
   }, [q, inSearch, customMatches]);
 
-  // External API (식약처) — debounced + 24h cached
-  const { results: apiResults, loading: apiLoading, error: apiError } =
-    useFoodSearch(query);
+  // External API (식약처) — debounced + 24h cached + pagination (loadMore)
+  const {
+    results: apiResults,
+    loading: apiLoading,
+    loadingMore: apiLoadingMore,
+    error: apiError,
+    hasMore: apiHasMore,
+    loadMore: apiLoadMore,
+  } = useFoodSearch(query);
 
   const apiMatches = useMemo<FoodApiResult[]>(() => {
     if (!inSearch) return [];
@@ -708,6 +714,16 @@ function AddFoodPage() {
                 <p className="text-[11px] text-amber-600 mt-2 text-center">
                   외부 검색 실패 ({apiError})
                 </p>
+              )}
+              {apiHasMore && (
+                <button
+                  type="button"
+                  onClick={apiLoadMore}
+                  disabled={apiLoadingMore}
+                  className="mt-2 w-full h-9 rounded-lg border border-neutral-200 bg-white text-xs font-medium text-neutral-600 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {apiLoadingMore ? "불러오는 중…" : "더 보기"}
+                </button>
               )}
               <button
                 onClick={() => {
