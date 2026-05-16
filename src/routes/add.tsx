@@ -390,7 +390,10 @@ function AddFoodPage() {
                     foods={recentList}
                     favorites={favorites}
                     onToggleFav={toggleFav}
-                    onPick={(p) => setActiveFood(presetToPickable(p))}
+                    onPick={(p) => {
+                      const c = customFoods.find((x) => x.id === p.id);
+                      setActiveFood(c ? customToPickable(c) : presetToPickable(p));
+                    }}
                   />
                 </Section>
               )}
