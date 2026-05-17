@@ -66,8 +66,8 @@ export function BubbleField({
   // Initialize simulation once
   useEffect(() => {
     const sim = forceSimulation<Node>([])
-      .alphaDecay(0.02)
-      .velocityDecay(0.35)
+      .alphaDecay(0.03)
+      .velocityDecay(0.55)
       .force("x", forceX(cx).strength(0.05))
       .force("y", forceY(anchorY).strength(yStrength))
       .force(
@@ -133,9 +133,9 @@ export function BubbleField({
           grams: b.grams,
           foodName: b.foodName,
           x: cx + (Math.random() - 0.5) * 20,
-          y: 10 + Math.random() * 20,
+          y: Math.max(r + 4, 10 + Math.random() * 20),
           vx: 0,
-          vy: 2,
+          vy: 0,
         });
         changed = true;
       } else if (existing.grams !== b.grams) {
@@ -155,7 +155,7 @@ export function BubbleField({
     prevCountRef.current = curr;
     // Removal: gentle resettle, gentler still when packed. Addition: stronger kick.
     const isRemoval = curr < prev;
-    const alpha = isRemoval ? Math.max(0.15, 0.35 * compression) : 0.45;
+    const alpha = isRemoval ? Math.max(0.12, 0.3 * compression) : 0.22;
     sim.alpha(alpha).restart();
   }, [bubbles, cx, bowlArea, goalKcal, maxR, compression]);
 
