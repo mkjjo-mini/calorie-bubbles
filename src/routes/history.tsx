@@ -414,7 +414,7 @@ function HistoryPage() {
           </div>
 
           {/* Minimap */}
-          <div className="px-3 pb-3">
+          <div className="px-5 pb-3">
             <div ref={minimapRef} className="relative h-7 w-full" role="presentation">
               {(() => {
                 const n = month.length;
