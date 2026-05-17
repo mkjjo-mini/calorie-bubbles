@@ -477,16 +477,16 @@ function AddFoodPage() {
     return recents
       .slice(0, 10)
       .map((id) => {
-        // Check presets first
+        // 1) cloud foods 우선 매칭 (user/api/preset 모두 포함)
+        const f = allFoods.find((x) => x.id === id);
+        if (f) return { type: "user" as const, data: f };
+        // 2) PRESETS json fallback (cloud INSERT 전 옛 preset id)
         const p = PRESETS.find((x) => x.id === id);
         if (p) return { type: "preset" as const, data: p };
-        // Check user foods
-        const f = userFoods.find((x) => x.id === id);
-        if (f) return { type: "user" as const, data: f };
         return null;
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [recents, hydrated, userFoods]);
+  }, [recents, hydrated, allFoods]);
 
   // "내가 등록한 음식" — user source only, sorted by created_at desc
   const sortedUserFoods = useMemo(
