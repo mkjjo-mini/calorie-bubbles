@@ -668,7 +668,7 @@ function AddFoodPage() {
       }
 
       toast(`${displayName(food.name)} 추가됨`);
-      navigate({ to: "/" });
+      navigate({ to: "/", search: { date: loggedDate } });
     } catch (e) {
       if (e instanceof CloudAuthError) {
         toast.error("로그인이 필요해요");
