@@ -1,0 +1,109 @@
+/**
+ * Repository 추상화 — LocalStorage 어댑터와 Cloud 어댑터가 같은 인터페이스 구현.
+ * useStorage() 훅이 isPaidUser 기준으로 어느 어댑터 사용할지 결정.
+ *
+ * 신규 컴포넌트는 useStorage()를 사용해서 자연스럽게 cloud 동기화 받음.
+ * 기존 컴포넌트(add.tsx 등)의 localStorage 직접 호출은 점진 마이그레이션 (별도 PR).
+ */
+import type { ResolvedGoal } from "@/lib/goal";
+
+export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
+
+export interface FoodRow {
+  id: string;
+  user_key: number;
+  source: "user" | "api" | "preset";
+  food_code?: string | null;
+  name: string;
+  serving_unit: string;
+  serving_amount: number;
+  serving_g: number;
+  kcal: number;
+  carb_g: number;
+  protein_g: number;
+  fat_g: number;
+  category?: string | null;
+  is_estimated: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type FoodInsert = Omit<
+  FoodRow,
+  "id" | "user_key" | "created_at" | "updated_at"
+>;
+
+export interface FoodLogRow {
+  id: string;
+  food_id: string;
+  logged_date: string;
+  meal_slot: MealSlot;
+  grams: number;
+  kcal: number;
+  carb_g: number;
+  protein_g: number;
+  fat_g: number;
+  created_at: string;
+  /** GET 시 foods JOIN으로 채워짐 */
+  food?: {
+    name: string;
+    food_code?: string | null;
+    source: "user" | "api" | "preset";
+    is_estimated: boolean;
+  };
+}
+
+export type FoodLogInsert = Omit<FoodLogRow, "id" | "created_at" | "food">;
+
+export interface FavoriteRow {
+  food_id: string;
+  added_at: string;
+  food?: {
+    name: string;
+    food_code?: string | null;
+    source: "user" | "api" | "preset";
+  };
+}
+
+export interface UserGoalInsert {
+  daily_kcal: number;
+  effective_from?: string;
+  effective_to?: string | null;
+  carb_ratio?: number | null;
+  protein_ratio?: number | null;
+  fat_ratio?: number | null;
+  notification_time?: string | null;
+}
+
+export interface Repository {
+  foods: {
+    list(): Promise<FoodRow[]>;
+    create(food: FoodInsert): Promise<FoodRow>;
+    update(id: string, patch: Partial<FoodInsert>): Promise<void>;
+    remove(id: string): Promise<void>;
+  };
+  foodLogs: {
+    /** date: "YYYY-MM-DD" (KST) */
+    listByDate(date: string): Promise<FoodLogRow[]>;
+    create(log: FoodLogInsert): Promise<FoodLogRow>;
+    remove(id: string): Promise<void>;
+  };
+  userGoal: {
+    /** date 생략 시 오늘 (서버측 todayKST) */
+    get(date?: string): Promise<ResolvedGoal>;
+    put(goal: UserGoalInsert): Promise<void>;
+  };
+  favorites: {
+    list(): Promise<FavoriteRow[]>;
+    add(food_id: string): Promise<void>;
+    remove(food_id: string): Promise<void>;
+  };
+}
+
+/** Worker가 401 SESSION_EXPIRED 응답 시 — useSession 자동 재로그인 트리거 */
+export class CloudAuthError extends Error {
+  constructor() {
+    super("CloudAuthError");
+    this.name = "CloudAuthError";
+  }
+}
