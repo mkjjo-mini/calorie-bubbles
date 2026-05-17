@@ -24,7 +24,9 @@ export const Route = createFileRoute("/history")({
 });
 
 /* ---------- layout constants (mirrors home bowl) ---------- */
-const DAY_COL_W = 88;
+const MIN_COL_W = 64;
+const MAX_COL_W = 168;
+const PER_FOOD_W = 22; // extra width per food on a day
 const TANK_H = 440;
 const WAVE_H = 140; // higher water level
 const BUBBLE_MIN = 24;
@@ -139,8 +141,8 @@ function HistoryPage() {
     cursor.getFullYear() === today.getFullYear() &&
     cursor.getMonth() === today.getMonth();
 
-  // Pre-compute bubbles for each day + scale
-  const { perDay, maxMetric } = useMemo(() => {
+  // Pre-compute bubbles for each day + scale + variable column widths
+  const { perDay, maxMetric, colLayouts, totalWidth } = useMemo(() => {
     const perDay = month.map(buildDayBubbles);
     let max = 0;
     perDay.forEach((arr) => {
@@ -149,7 +151,18 @@ function HistoryPage() {
         if (v > max) max = v;
       }
     });
-    return { perDay, maxMetric: max || 1 };
+    // Column width grows with number of foods that day, clamped.
+    const colLayouts: { start: number; width: number }[] = [];
+    let cursorX = 0;
+    perDay.forEach((arr) => {
+      const w = Math.min(
+        MAX_COL_W,
+        Math.max(MIN_COL_W, MIN_COL_W + arr.length * PER_FOOD_W),
+      );
+      colLayouts.push({ start: cursorX, width: w });
+      cursorX += w;
+    });
+    return { perDay, maxMetric: max || 1, colLayouts, totalWidth: cursorX };
   }, [month, mode]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -174,16 +187,20 @@ function HistoryPage() {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !isCurrentMonth) return;
-    const x = (today.getDate() - 1) * DAY_COL_W - el.clientWidth / 2 + DAY_COL_W / 2;
+    const col = colLayouts[today.getDate() - 1];
+    if (!col) return;
+    const x = col.start + col.width / 2 - el.clientWidth / 2;
     el.scrollTo({ left: Math.max(0, x), behavior: "auto" });
     setScrollX(el.scrollLeft);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cursor, isCurrentMonth]);
+  }, [cursor, isCurrentMonth, colLayouts]);
 
   function scrollToDay(idx: number, behavior: ScrollBehavior = "smooth") {
     const el = scrollRef.current;
     if (!el) return;
-    const x = idx * DAY_COL_W - el.clientWidth / 2 + DAY_COL_W / 2;
+    const col = colLayouts[idx];
+    if (!col) return;
+    const x = col.start + col.width / 2 - el.clientWidth / 2;
     el.scrollTo({ left: Math.max(0, x), behavior });
   }
   function goToToday() {
@@ -203,7 +220,6 @@ function HistoryPage() {
     });
   }
 
-  const totalWidth = month.length * DAY_COL_W;
   const reduced = prefersReducedMotion();
 
   // Minimap
@@ -351,7 +367,7 @@ function HistoryPage() {
                 className="absolute inset-0 pointer-events-none"
               >
                 {month.map((d, i) => {
-                  const x = i * DAY_COL_W;
+                  const x = colLayouts[i].start;
                   const isMonday = d.date.getDay() === 1;
                   return (
                     <line
@@ -370,12 +386,12 @@ function HistoryPage() {
               </svg>
 
               {/* Today column highlight (yellow, matches brand) */}
-              {isCurrentMonth && (
+              {isCurrentMonth && colLayouts[today.getDate() - 1] && (
                 <div
                   className="pointer-events-none absolute rounded-md"
                   style={{
-                    left: (today.getDate() - 1) * DAY_COL_W + 1,
-                    width: DAY_COL_W - 2,
+                    left: colLayouts[today.getDate() - 1].start + 1,
+                    width: colLayouts[today.getDate() - 1].width - 2,
                     top: 4,
                     height: TANK_H - 8,
                     border: "1.5px solid rgba(255,193,7,0.7)",
@@ -390,6 +406,8 @@ function HistoryPage() {
                   key={month[dayIdx].dateKey}
                   bubbles={bubbles}
                   dayIdx={dayIdx}
+                  colStart={colLayouts[dayIdx].start}
+                  colWidth={colLayouts[dayIdx].width}
                   mode={mode}
                   maxMetric={maxMetric}
                   favorites={favorites}
@@ -415,7 +433,7 @@ function HistoryPage() {
               }}
             >
               <div className="relative flex" style={{ width: totalWidth, height: 36 }}>
-                {month.map((d) => {
+                {month.map((d, i) => {
                   const color = progressColor(d);
                   const wd = ["일", "월", "화", "수", "목", "금", "토"][d.date.getDay()];
                   const isWknd = d.date.getDay() === 0 || d.date.getDay() === 6;
@@ -423,7 +441,7 @@ function HistoryPage() {
                     <div
                       key={d.dateKey}
                       className="flex flex-col items-center justify-center"
-                      style={{ width: DAY_COL_W }}
+                      style={{ width: colLayouts[i].width }}
                     >
                       <div
                         className="font-mono text-[11px] tabular-nums"
@@ -462,6 +480,8 @@ function HistoryPage() {
 function DayBubbles({
   bubbles,
   dayIdx,
+  colStart,
+  colWidth,
   mode,
   maxMetric,
   favorites,
@@ -471,6 +491,8 @@ function DayBubbles({
 }: {
   bubbles: FoodBubbleData[];
   dayIdx: number;
+  colStart: number;
+  colWidth: number;
   mode: MetricMode;
   maxMetric: number;
   favorites: Set<string>;
@@ -488,7 +510,7 @@ function DayBubbles({
 
   if (visible.length === 0) return null;
 
-  const colCenter = dayIdx * DAY_COL_W + DAY_COL_W / 2;
+  const colCenter = colStart + colWidth / 2;
   // Water surface line — bubbles rest with their bottom at this y, then stack upward.
   const waterTop = TANK_H - WAVE_H + 4;
 
@@ -505,21 +527,23 @@ function DayBubbles({
     );
     const seed = b.key + mode;
     const r = size / 2;
-    const maxJitter = Math.max(0, (DAY_COL_W - size - 4) / 2);
+    const maxJitter = Math.max(0, (colWidth - size - 4) / 2);
     const xPos = colCenter + (hash01(seed, 3) - 0.5) * 2 * maxJitter;
     return { b, size, r, xPos, seed };
   });
 
-  // Gravity stacking: place largest first at the surface, smaller stack on top.
+  // Gravity stacking: largest first at the surface, smaller stack on top.
+  // Allow a bit of overlap (OVERLAP=0.78) so bubbles cluster nicely.
+  const OVERLAP = 0.78;
   items.sort((a, b) => b.r - a.r);
   const placed: { x: number; y: number; r: number }[] = [];
   const positioned = items.map(({ b, size, r, xPos, seed }) => {
     let yPos = waterTop - r; // resting on water surface
     for (const p of placed) {
       const dx = xPos - p.x;
-      const sumR = r + p.r + 1;
-      if (Math.abs(dx) < sumR) {
-        const dy = Math.sqrt(sumR * sumR - dx * dx);
+      const minDist = (r + p.r) * OVERLAP;
+      if (Math.abs(dx) < minDist) {
+        const dy = Math.sqrt(minDist * minDist - dx * dx);
         const stackedY = p.y - dy;
         if (stackedY < yPos) yPos = stackedY;
       }
