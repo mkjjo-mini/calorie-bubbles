@@ -359,11 +359,11 @@ function HistoryPage() {
   const hasAnyRecord = perDay.some((arr) => arr.length > 0);
 
   return (
-    <div className="min-h-screen w-full bg-white">
-      <main className="mx-auto flex w-full max-w-[420px] flex-col">
+    <div className="min-h-screen w-full bg-white flex justify-center">
+      <main className="w-full max-w-[375px] flex flex-col">
         {/* HEADER */}
         <header className="sticky top-0 z-30 border-b border-neutral-200/70 bg-white/95 backdrop-blur">
-          <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center justify-between px-5 pt-6 pb-2.5">
             <div className="flex items-center gap-1">
               <button
                 onClick={() => navMonth(-1)}
