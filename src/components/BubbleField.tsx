@@ -133,9 +133,9 @@ export function BubbleField({
           grams: b.grams,
           foodName: b.foodName,
           x: cx + (Math.random() - 0.5) * 20,
-          y: 10 + Math.random() * 20,
+          y: Math.max(r + 4, 10 + Math.random() * 20),
           vx: 0,
-          vy: 2,
+          vy: 0,
         });
         changed = true;
       } else if (existing.grams !== b.grams) {
