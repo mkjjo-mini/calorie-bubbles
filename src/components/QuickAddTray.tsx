@@ -238,7 +238,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
 
     const log = await cloudRepository.foodLogs.create({
       food_id: foodId,
-      logged_date: todayKST(),
+      logged_date: loggedDate ?? todayKST(),
       meal_slot: mealSlot,
       grams,
       kcal,
