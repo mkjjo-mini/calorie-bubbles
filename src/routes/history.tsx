@@ -810,15 +810,6 @@ function Bubble({
   );
 }
 
-// Light HSL detection so we pick dark text on yellowish bubbles in kcal mode
-function isLight(hsl: string): boolean {
-  const m = hsl.match(/hsl\((\d+)\s+\d+%\s+(\d+)%\)/);
-  if (!m) return false;
-  const h = +m[1];
-  const l = +m[2];
-  // yellows/greens with high lightness are "light"
-  return l >= 62 && h >= 40 && h <= 200;
-}
 
 /* ---------- popover content ---------- */
 function PopoverBody({
