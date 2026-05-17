@@ -516,8 +516,11 @@ function DayBubbles({
   if (visible.length === 0) return null;
 
   const colCenter = colStart + colWidth / 2;
-  // Water surface line — bubbles rest with their bottom at this y, then stack upward.
-  const waterTop = TANK_H - WAVE_H + 4;
+  const dayInset = 4;
+  const leftBound = colStart + dayInset;
+  const rightBound = colStart + colWidth - dayInset;
+  // Wave uses paths peaking around the upper half, so use the visible crest area.
+  const waterSurfaceY = TANK_H - WAVE_H * 0.58;
 
   // Pre-compute size + stable horizontal jitter for each visible bubble
   const items = visible.map((b) => {
@@ -532,18 +535,17 @@ function DayBubbles({
     );
     const seed = b.key + mode;
     const r = size / 2;
-    const maxJitter = Math.max(0, (colWidth - size - 4) / 2);
-    const xPos = colCenter + (hash01(seed, 3) - 0.5) * 2 * maxJitter;
+    const usableWidth = Math.max(0, rightBound - leftBound - size);
+    const xPos = leftBound + r + hash01(seed, 3) * usableWidth;
     return { b, size, r, xPos, seed };
   });
 
-  // Gravity stacking: largest first at the surface, smaller stack on top.
-  // Allow a bit of overlap (OVERLAP=0.78) so bubbles cluster nicely.
-  const OVERLAP = 0.78;
+  // Gravity stacking inside each day boundary. Slight overlap is allowed.
+  const OVERLAP = 0.92;
   items.sort((a, b) => b.r - a.r);
   const placed: { x: number; y: number; r: number }[] = [];
   const positioned = items.map(({ b, size, r, xPos, seed }) => {
-    let yPos = waterTop - r; // resting on water surface
+    let yPos = waterSurfaceY - r;
     for (const p of placed) {
       const dx = xPos - p.x;
       const minDist = (r + p.r) * OVERLAP;
@@ -553,6 +555,8 @@ function DayBubbles({
         if (stackedY < yPos) yPos = stackedY;
       }
     }
+    yPos = Math.min(yPos, TANK_H - WAVE_H * 0.32 - r);
+    yPos = Math.max(r + 8, yPos);
     placed.push({ x: xPos, y: yPos, r });
     return { b, size, xPos, yPos, seed };
   });
@@ -563,33 +567,22 @@ function DayBubbles({
         const color =
           mode === "kcal" ? foodColor(b.name) : MACRO_COLORS[mode];
 
-        // Gentle bob — they're floating on water, not flying
+        // Gentle bob only — no drop-in when toggling metrics.
         const swayDur = 3.6 + hash01(seed, 9) * 2.0;
         const bobAmp = 1.5 + hash01(seed, 17) * 2;
         const swayAmp = 1 + hash01(seed, 11) * 2;
         const delay = -hash01(seed, 19) * swayDur;
-
-        // Gravity drop on enter: from above tank down to resting y
-        const dropFrom = -(yPos + size); // start above the tank
-        const enterDelay = reduced
-          ? 0
-          : Math.min(1100, dayIdx * 20 + i * 50);
 
         return (
           <Popover key={b.key}>
             <PopoverTrigger asChild>
               <motion.button
                 className="absolute flex items-center justify-center rounded-full"
-                initial={
-                  reduced ? false : { opacity: 0, scale: 0.6, y: dropFrom }
-                }
+                initial={reduced ? false : { opacity: 0, scale: 0.92 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{
-                  delay: enterDelay / 1000,
-                  type: "spring",
-                  stiffness: 140,
-                  damping: 14,
-                  mass: 0.8,
+                  duration: reduced ? 0 : 0.22,
+                  ease: "easeOut",
                 }}
                 style={{
                   left: xPos - size / 2,
