@@ -172,7 +172,10 @@ function HistoryPage() {
     let max = 0;
     _perDay.forEach((arr) => {
       for (const b of arr) {
-        const v = mode === "kcal" ? b.kcal : b[mode];
+        // 탄/단/지는 같은 g 단위라 통합 max 사용 — 토글 시 음식간 상대 크기 일관
+        const v = mode === "kcal"
+          ? b.kcal
+          : Math.max(b.carbs, b.protein, b.fat);
         if (v > max) max = v;
       }
     });
