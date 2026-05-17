@@ -552,13 +552,15 @@ function DayBubbles({
               <motion.button
                 className="absolute flex items-center justify-center rounded-full"
                 initial={
-                  reduced ? false : { opacity: 0, scale: 0.4, y: -8 }
+                  reduced ? false : { opacity: 0, scale: 0.6, y: dropFrom }
                 }
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{
                   delay: enterDelay / 1000,
-                  duration: 0.35,
-                  ease: "easeOut",
+                  type: "spring",
+                  stiffness: 140,
+                  damping: 14,
+                  mass: 0.8,
                 }}
                 style={{
                   left: xPos - size / 2,
