@@ -911,6 +911,7 @@ function AddFoodPage() {
                     favFoodIds={favFoodIds}
                     onToggleFav={(id) => void toggleFav(id)}
                     onPick={(c) => setActiveFood(customFoodToPickable(c))}
+                    onLongPress={(c) => setActionTarget(c)}
                   />
                   {favCustomFoods.length > 10 && (
                     <button
@@ -1134,11 +1135,13 @@ function FoodGrid({
   favFoodIds,
   onToggleFav,
   onPick,
+  onLongPress,
 }: {
   foods: CustomFood[];
   favFoodIds: Set<string>;
   onToggleFav: (id: string) => void;
   onPick: (f: CustomFood) => void;
+  onLongPress: (f: CustomFood) => void;
 }) {
   if (foods.length === 0) {
     return <p className="text-xs text-neutral-400">결과가 없어요</p>;
@@ -1152,7 +1155,7 @@ function FoodGrid({
           isFav={favFoodIds.has(f.id)}
           onToggleFav={() => onToggleFav(f.id)}
           onPick={() => onPick(f)}
-          onLongPress={() => {/* favorites grid doesn't need long-press actions */}}
+          onLongPress={() => onLongPress(f)}
         />
       ))}
     </div>
