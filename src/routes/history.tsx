@@ -391,7 +391,7 @@ function HistoryPage() {
           </div>
 
           {/* Segmented metric control */}
-          <div className="px-3 pb-2">
+          <div className="px-3 pb-3">
             <div className="flex w-full items-center gap-1 rounded-full bg-neutral-100 p-1">
               {METRICS.map((m) => {
                 const active = mode === m.id;
