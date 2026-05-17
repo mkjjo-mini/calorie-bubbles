@@ -359,32 +359,47 @@ function HistoryPage() {
           {/* Minimap */}
           <div className="px-3 pb-2">
             <div ref={minimapRef} className="relative h-4 w-full" role="presentation">
-              <div className="absolute inset-0 flex items-center justify-center gap-[4px]">
-                {month.map((d, i) => {
-                  const color = progressColor(d, mode);
-                  const isToday =
-                    isCurrentMonth && d.date.getDate() === today.getDate();
-                  return (
-                    <button
-                      key={d.dateKey}
-                      onClick={() => scrollToDay(i)}
-                      aria-label={`${d.date.getMonth() + 1}/${d.date.getDate()}로 이동`}
-                      style={{
-                        display: "block",
-                        flexShrink: 0,
-                        padding: 0,
-                        border: 0,
-                        width: 10,
-                        height: 10,
-                        borderRadius: "9999px",
-                        backgroundColor: color ?? "#CBD5E1",
-                        boxShadow: isToday ? "0 0 0 2px #FFD700" : undefined,
-                        cursor: "pointer",
-                      }}
-                    />
-                  );
-                })}
-              </div>
+              {(() => {
+                const n = month.length;
+                const gap = mmW > 0 && n > 1
+                  ? Math.max(1, Math.min(4, Math.floor((mmW - n * 10) / (n - 1))))
+                  : 4;
+                const maxDotByWidth = mmW > 0
+                  ? Math.floor((mmW - gap * Math.max(0, n - 1)) / n)
+                  : 10;
+                const dot = Math.max(4, Math.min(10, maxDotByWidth));
+                return (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ gap: `${gap}px` }}
+                  >
+                    {month.map((d, i) => {
+                      const color = progressColor(d, mode);
+                      const isToday =
+                        isCurrentMonth && d.date.getDate() === today.getDate();
+                      return (
+                        <button
+                          key={d.dateKey}
+                          onClick={() => scrollToDay(i)}
+                          aria-label={`${d.date.getMonth() + 1}/${d.date.getDate()}로 이동`}
+                          style={{
+                            display: "block",
+                            flexShrink: 0,
+                            padding: 0,
+                            border: 0,
+                            width: dot,
+                            height: dot,
+                            borderRadius: "9999px",
+                            backgroundColor: color ?? "#CBD5E1",
+                            boxShadow: isToday ? "0 0 0 2px #FFD700" : undefined,
+                            cursor: "pointer",
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })()}
               {mmViewportW > 0 && (
                 <div
                   className="pointer-events-none absolute top-1/2 -translate-y-1/2 rounded-full border border-neutral-900/30 bg-neutral-900/5"
