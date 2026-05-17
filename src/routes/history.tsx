@@ -489,41 +489,62 @@ function DayBubbles({
   if (visible.length === 0) return null;
 
   const colCenter = dayIdx * DAY_COL_W + DAY_COL_W / 2;
+  // Water surface line — bubbles rest with their bottom at this y, then stack upward.
+  const waterTop = TANK_H - WAVE_H + 4;
+
+  // Pre-compute size + stable horizontal jitter for each visible bubble
+  const items = visible.map((b) => {
+    const value = metricValue(b, mode);
+    const ratio = maxMetric > 0 ? value / maxMetric : 0;
+    const size = Math.max(
+      BUBBLE_MIN,
+      Math.min(
+        BUBBLE_MAX,
+        BUBBLE_MIN + Math.sqrt(ratio) * (BUBBLE_MAX - BUBBLE_MIN),
+      ),
+    );
+    const seed = b.key + mode;
+    const r = size / 2;
+    const maxJitter = Math.max(0, (DAY_COL_W - size - 4) / 2);
+    const xPos = colCenter + (hash01(seed, 3) - 0.5) * 2 * maxJitter;
+    return { b, size, r, xPos, seed };
+  });
+
+  // Gravity stacking: place largest first at the surface, smaller stack on top.
+  items.sort((a, b) => b.r - a.r);
+  const placed: { x: number; y: number; r: number }[] = [];
+  const positioned = items.map(({ b, size, r, xPos, seed }) => {
+    let yPos = waterTop - r; // resting on water surface
+    for (const p of placed) {
+      const dx = xPos - p.x;
+      const sumR = r + p.r + 1;
+      if (Math.abs(dx) < sumR) {
+        const dy = Math.sqrt(sumR * sumR - dx * dx);
+        const stackedY = p.y - dy;
+        if (stackedY < yPos) yPos = stackedY;
+      }
+    }
+    placed.push({ x: xPos, y: yPos, r });
+    return { b, size, xPos, yPos, seed };
+  });
 
   return (
     <>
-      {visible.map((b, i) => {
-        const value = metricValue(b, mode);
-        const ratio = maxMetric > 0 ? value / maxMetric : 0;
-        const size = Math.max(
-          BUBBLE_MIN,
-          Math.min(
-            BUBBLE_MAX,
-            BUBBLE_MIN + Math.sqrt(ratio) * (BUBBLE_MAX - BUBBLE_MIN),
-          ),
-        );
-
-        // Stable jitter per (date, food, mode)
-        // Bubbles bob just above the wave (like the home bowl).
-        const seed = b.key + mode;
-        const jitterX = (hash01(seed, 3) - 0.5) * (DAY_COL_W - size - 6);
-        // Anchor the bubble bottom near the wave top, with stable vertical scatter upward.
-        const waterTop = TANK_H - WAVE_H - 6;
-        const verticalScatter = hash01(seed, 5) * FLOAT_BAND;
-        const yPos = waterTop - size / 2 - verticalScatter;
-        const xPos = colCenter + jitterX;
-
+      {positioned.map(({ b, size, xPos, yPos, seed }, i) => {
         const color =
           mode === "kcal" ? foodColor(b.name) : MACRO_COLORS[mode];
 
-        const swayDur = 3.4 + hash01(seed, 9) * 2.2;
-        const swayAmp = 4 + hash01(seed, 11) * 5;
-        const bobAmp = 3 + hash01(seed, 17) * 4;
+        // Gentle bob — they're floating on water, not flying
+        const swayDur = 3.6 + hash01(seed, 9) * 2.0;
+        const bobAmp = 1.5 + hash01(seed, 17) * 2;
+        const swayAmp = 1 + hash01(seed, 11) * 2;
         const delay = -hash01(seed, 19) * swayDur;
 
+        // Gravity drop on enter: from above tank down to resting y
+        const dropFrom = -(yPos + size); // start above the tank
         const enterDelay = reduced
           ? 0
-          : Math.min(900, dayIdx * 25 + i * 30);
+          : Math.min(1100, dayIdx * 20 + i * 50);
 
         return (
           <Popover key={b.key}>
