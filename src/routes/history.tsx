@@ -370,7 +370,7 @@ function HistoryPage() {
                 {/* Water surface line */}
                 <WaterSurface
                   width={totalWidth}
-                  y={WATER_TOP}
+                  y={SURFACE_Y}
                   reduced={reduced}
                 />
               </svg>
