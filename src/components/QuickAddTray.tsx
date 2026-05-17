@@ -331,7 +331,8 @@ export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
   async function handleSheetAdd(mode: "serving" | "gram", qty: number, saveAsBase: boolean) {
     if (!sheet) return;
     const { food } = sheet;
-    toast.info(`[디버그] sheet add source=${food.source} saveAsBase=${saveAsBase} mode=${mode} qty=${qty} sg=${food.serving_g}`);
+    // 진단용 alert (sonner 대신 — 확실히 보임)
+    alert(`[디버그] sheet add\nsource=${food.source}\nsaveAsBase=${saveAsBase}\nmode=${mode}\nqty=${qty}\nserving_g=${food.serving_g}`);
     pushRecent(food.id);
 
     // saveAsBase: source 무관하게 cloud foods.update (preset은 UI에서 체크박스 숨김)

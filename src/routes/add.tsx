@@ -505,7 +505,8 @@ function AddFoodPage() {
     qty: number,
     saveAsBase: boolean = false,
   ) {
-    toast.info(`[디버그] handleAdd source=${food.source} saveAsBase=${saveAsBase} mode=${mode} qty=${qty}`);
+    // 진단용 alert (sonner 대신 — 확실히 보임)
+    alert(`[디버그] handleAdd\nsource=${food.source}\nsaveAsBase=${saveAsBase}\nmode=${mode}\nqty=${qty}\nserving_g=${food.serving_g}`);
     const reconciled = reconcileApiMacros(food);
 
     const mult = mode === "serving" ? qty : qty / food.serving_g;
