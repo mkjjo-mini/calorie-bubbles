@@ -68,6 +68,12 @@ function hash01(str: string, salt = 0) {
   return ((h >>> 0) % 10000) / 10000;
 }
 
+/** dateKey "YYYY-M-D" → "YYYY-MM-DD" */
+function dateKeyToIso(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 // Curated palette for kcal-mode bubbles — distinct from macro RGB identity.
 // Solid mid-tone jewel colors. Each entry pairs a fill color with a readable text color.
 const KCAL_PALETTE: { color: string; text: string }[] = [
