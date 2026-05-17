@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Pencil, ArrowLeftRight, Trash2 } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
