@@ -149,6 +149,10 @@ function CloudTestPage() {
       toast.success("삭제됨");
       await refresh();
     } catch (e) {
+      if (e instanceof CloudAuthError) {
+        setAuthError(true);
+        return;
+      }
       toast.error(`삭제 실패: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
@@ -165,6 +169,10 @@ function CloudTestPage() {
       }
       await refresh();
     } catch (e) {
+      if (e instanceof CloudAuthError) {
+        setAuthError(true);
+        return;
+      }
       toast.error(`토글 실패: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
@@ -176,6 +184,10 @@ function CloudTestPage() {
       toast.success("음식 삭제됨");
       await refresh();
     } catch (e) {
+      if (e instanceof CloudAuthError) {
+        setAuthError(true);
+        return;
+      }
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("FOOD_IN_USE")) {
         toast.error("이 음식을 사용한 식사 기록이 있어 삭제 불가");

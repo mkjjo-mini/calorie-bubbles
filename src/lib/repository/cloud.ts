@@ -21,6 +21,8 @@ async function api<T = unknown>(
 ): Promise<T> {
   const res = await fetch(`/api${path}`, {
     credentials: "include",
+    // iOS WebView가 GET 응답을 적극 캐시 — 추가/삭제 후 stale 방지
+    cache: "no-store",
     headers: {
       "content-type": "application/json",
       ...(init?.headers ?? {}),

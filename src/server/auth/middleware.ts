@@ -14,9 +14,18 @@ export function jsonError(
 ): Response {
   return new Response(JSON.stringify({ code, message }), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: NO_STORE_JSON_HEADERS,
   });
 }
+
+/**
+ * 모든 /api/* 응답에 적용할 헤더. 특히 iOS WebView의 GET 응답 캐시를 차단해야
+ * 추가/삭제 후 stale 화면 발생 방지. private = shared cache (CDN) 차단.
+ */
+export const NO_STORE_JSON_HEADERS = {
+  "content-type": "application/json",
+  "cache-control": "no-store, private",
+} as const;
 
 export async function withSession(
   req: Request,
