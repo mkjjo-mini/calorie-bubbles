@@ -518,6 +518,7 @@ function HistoryPage() {
                   onToggleFavorite={toggleFavorite}
                   reduced={reduced}
                   date={month[dayIdx].date}
+                  tankH={TANK_H}
                 />
               ))}
 
