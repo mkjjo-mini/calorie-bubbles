@@ -483,11 +483,15 @@ function HistoryPage() {
 
 
 /* ---------- bubbles for one day ---------- */
+const WAVE_PERIOD_MS = 10000; // matches Wave.tsx first wave duration
+const WAVE_AMP_RATIO = 0.4; // matches Wave.tsx first wave amplitude (0.5 baseline → 0.1 crest)
+
 function DayBubbles({
   bubbles,
   dayIdx,
   colStart,
   colWidth,
+  waveWidth,
   mode,
   maxMetric,
   favorites,
@@ -499,6 +503,7 @@ function DayBubbles({
   dayIdx: number;
   colStart: number;
   colWidth: number;
+  waveWidth: number;
   mode: MetricMode;
   maxMetric: number;
   favorites: Set<string>;
@@ -516,12 +521,11 @@ function DayBubbles({
 
   if (visible.length === 0) return null;
 
-  const colCenter = colStart + colWidth / 2;
   const dayInset = 4;
   const leftBound = colStart + dayInset;
   const rightBound = colStart + colWidth - dayInset;
-  // Wave uses paths peaking around the upper half, so use the visible crest area.
-  const waterSurfaceY = TANK_H - WAVE_H * 0.58;
+  // Static stacking baseline = mean water level of the higher wave (wave1 baseline).
+  const waterSurfaceY = TANK_H - WAVE_H * 0.5;
 
   // Pre-compute size + stable horizontal jitter for each visible bubble
   const items = visible.map((b) => {
@@ -556,7 +560,8 @@ function DayBubbles({
         if (stackedY < yPos) yPos = stackedY;
       }
     }
-    yPos = Math.min(yPos, TANK_H - WAVE_H * 0.32 - r);
+    // Clamp so bubble bottom never dips past the tank, even at trough.
+    yPos = Math.min(yPos, TANK_H - WAVE_H * 0.55 - r);
     yPos = Math.max(r + 8, yPos);
     placed.push({ x: xPos, y: yPos, r });
     return { b, size, xPos, yPos, seed };
@@ -564,88 +569,140 @@ function DayBubbles({
 
   return (
     <>
-      {positioned.map(({ b, size, xPos, yPos, seed }, i) => {
+      {positioned.map(({ b, size, xPos, yPos, seed }) => {
         const color =
           mode === "kcal" ? foodColor(b.name) : MACRO_COLORS[mode];
-
-        // Gentle bob only — no drop-in when toggling metrics.
-        const swayDur = 3.6 + hash01(seed, 9) * 2.0;
-        const bobAmp = 1.5 + hash01(seed, 17) * 2;
-        const swayAmp = 1 + hash01(seed, 11) * 2;
-        const delay = -hash01(seed, 19) * swayDur;
-
         return (
-          <Popover key={b.key}>
-            <PopoverTrigger asChild>
-              <motion.button
-                className="absolute flex items-center justify-center rounded-full"
-                initial={reduced ? false : { opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{
-                  duration: reduced ? 0 : 0.22,
-                  ease: "easeOut",
-                }}
-                style={{
-                  left: xPos - size / 2,
-                  top: yPos - size / 2,
-                  width: size,
-                  height: size,
-                  background: `radial-gradient(circle at 32% 28%, ${color}ee, ${color}bb 58%, ${color}77)`,
-                  boxShadow: `inset -5px -7px 12px ${color}55, 0 4px 10px rgba(15,23,42,0.18)`,
-                  border: `1px solid ${color}`,
-                  willChange: "transform",
-                }}
-                aria-label={`${date.getMonth() + 1}/${date.getDate()} ${b.name}`}
-              >
-                <motion.span
-                  className="flex h-full w-full items-center justify-center rounded-full"
-                  animate={
-                    reduced
-                      ? undefined
-                      : {
-                          y: [0, -bobAmp, 0, bobAmp * 0.7, 0],
-                          x: [0, swayAmp * 0.5, 0, -swayAmp * 0.5, 0],
-                          rotate: [0, swayAmp * 0.25, 0, -swayAmp * 0.25, 0],
-                        }
-                  }
-                  transition={{
-                    duration: swayDur,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay,
-                  }}
-                >
-                  {size >= 28 && (
-                    <span
-                      className="px-1 text-center text-[10px] font-semibold leading-tight"
-                      style={{
-                        color:
-                          mode === "carbs" || (mode === "kcal" && isLight(color))
-                            ? "#3F2A00"
-                            : "#FFFFFF",
-                        maxWidth: size - 6,
-                        wordBreak: "keep-all",
-                      }}
-                    >
-                      {b.name}
-                    </span>
-                  )}
-                </motion.span>
-              </motion.button>
-            </PopoverTrigger>
-            <PopoverContent side="top" align="center" className="w-56 p-3">
-              <PopoverBody
-                bubble={b}
-                date={date}
-                mode={mode}
-                favorite={favorites.has(b.name)}
-                onToggle={() => onToggleFavorite(b.name)}
-              />
-            </PopoverContent>
-          </Popover>
+          <Bubble
+            key={b.key}
+            bubble={b}
+            size={size}
+            xPos={xPos}
+            yPos={yPos}
+            seed={seed}
+            color={color}
+            waveWidth={waveWidth}
+            mode={mode}
+            reduced={reduced}
+            date={date}
+            favorite={favorites.has(b.name)}
+            onToggleFavorite={onToggleFavorite}
+          />
         );
       })}
     </>
+  );
+}
+
+function Bubble({
+  bubble: b,
+  size,
+  xPos,
+  yPos,
+  seed,
+  color,
+  waveWidth,
+  mode,
+  reduced,
+  date,
+  favorite,
+  onToggleFavorite,
+}: {
+  bubble: FoodBubbleData;
+  size: number;
+  xPos: number;
+  yPos: number;
+  seed: string;
+  color: string;
+  waveWidth: number;
+  mode: MetricMode;
+  reduced: boolean;
+  date: Date;
+  favorite: boolean;
+  onToggleFavorite: (name: string) => void;
+}) {
+  // Y offset that follows the higher wave's surface at this bubble's x.
+  const time = useTime();
+  const waveY = useTransform(time, (t) => {
+    if (reduced || waveWidth <= 0) return 0;
+    const phase =
+      2 * Math.PI * (xPos / waveWidth + (t % WAVE_PERIOD_MS) / WAVE_PERIOD_MS);
+    return -WAVE_H * WAVE_AMP_RATIO * Math.sin(phase);
+  });
+
+  // Gentle bob layered on top of the wave-follow translate.
+  const swayDur = 3.6 + hash01(seed, 9) * 2.0;
+  const bobAmp = 1.5 + hash01(seed, 17) * 2;
+  const swayAmp = 1 + hash01(seed, 11) * 2;
+  const delay = -hash01(seed, 19) * swayDur;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <motion.button
+          className="absolute flex items-center justify-center rounded-full"
+          initial={reduced ? false : { opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: reduced ? 0 : 0.22, ease: "easeOut" }}
+          style={{
+            left: xPos - size / 2,
+            top: yPos - size / 2,
+            width: size,
+            height: size,
+            y: waveY,
+            background: `radial-gradient(circle at 32% 28%, ${color}ee, ${color}bb 58%, ${color}77)`,
+            boxShadow: `inset -5px -7px 12px ${color}55, 0 4px 10px rgba(15,23,42,0.18)`,
+            border: `1px solid ${color}`,
+            willChange: "transform",
+          }}
+          aria-label={`${date.getMonth() + 1}/${date.getDate()} ${b.name}`}
+        >
+          <motion.span
+            className="flex h-full w-full items-center justify-center rounded-full"
+            animate={
+              reduced
+                ? undefined
+                : {
+                    y: [0, -bobAmp, 0, bobAmp * 0.7, 0],
+                    x: [0, swayAmp * 0.5, 0, -swayAmp * 0.5, 0],
+                    rotate: [0, swayAmp * 0.25, 0, -swayAmp * 0.25, 0],
+                  }
+            }
+            transition={{
+              duration: swayDur,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay,
+            }}
+          >
+            {size >= 28 && (
+              <span
+                className="px-1 text-center text-[10px] font-semibold leading-tight"
+                style={{
+                  color:
+                    mode === "carbs" || (mode === "kcal" && isLight(color))
+                      ? "#3F2A00"
+                      : "#FFFFFF",
+                  maxWidth: size - 6,
+                  wordBreak: "keep-all",
+                }}
+              >
+                {b.name}
+              </span>
+            )}
+          </motion.span>
+        </motion.button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="center" className="w-56 p-3">
+        <PopoverBody
+          bubble={b}
+          date={date}
+          mode={mode}
+          favorite={favorite}
+          onToggle={() => onToggleFavorite(b.name)}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 
