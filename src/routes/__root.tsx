@@ -128,10 +128,11 @@ function RootComponent() {
   );
 }
 
-import { Home, CalendarDays, Settings as SettingsIcon } from "lucide-react";
+import { Home, CalendarDays, Settings as SettingsIcon, Cloud } from "lucide-react";
 
 const TABS = [
   { to: "/", icon: Home, label: "홈" },
+  { to: "/cloud-test", icon: Cloud, label: "테스트" }, // TODO: Step 07 검증 완료 후 제거
   { to: "/history", icon: CalendarDays, label: "기록" },
   { to: "/settings", icon: SettingsIcon, label: "설정" },
 ] as const;
