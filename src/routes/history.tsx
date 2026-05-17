@@ -304,14 +304,12 @@ function HistoryPage() {
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-            {isCurrentMonth && (
-              <button
-                onClick={goToToday}
-                className="rounded-full bg-neutral-900 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm active:scale-95"
-              >
-                오늘로 이동
-              </button>
-            )}
+            <button
+              onClick={goToToday}
+              className="rounded-full bg-neutral-900 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm active:scale-95"
+            >
+              오늘로
+            </button>
           </div>
 
           {/* Segmented metric control */}
