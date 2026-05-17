@@ -37,7 +37,7 @@ type MetricMode = "kcal" | Macro;
 
 const METRICS: { id: MetricMode; label: string }[] = [
   { id: "kcal", label: "kcal" },
-  { id: "carbs", label: "탄수" },
+  { id: "carbs", label: "탄수화물" },
   { id: "protein", label: "단백질" },
   { id: "fat", label: "지방" },
 ];
