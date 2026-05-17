@@ -143,26 +143,26 @@ function HistoryPage() {
 
   // Pre-compute bubbles for each day + scale + variable column widths
   const { perDay, maxMetric, colLayouts, totalWidth } = useMemo(() => {
-    const perDay = month.map(buildDayBubbles);
+    const _perDay = month.map(buildDayBubbles);
     let max = 0;
-    perDay.forEach((arr) => {
+    _perDay.forEach((arr) => {
       for (const b of arr) {
         const v = mode === "kcal" ? b.kcal : b[mode];
         if (v > max) max = v;
       }
     });
     // Column width grows with number of foods that day, clamped.
-    const colLayouts: { start: number; width: number }[] = [];
+    const _colLayouts: { start: number; width: number }[] = [];
     let cursorX = 0;
-    perDay.forEach((arr) => {
+    _perDay.forEach((arr) => {
       const w = Math.min(
         MAX_COL_W,
         Math.max(MIN_COL_W, MIN_COL_W + arr.length * PER_FOOD_W),
       );
-      colLayouts.push({ start: cursorX, width: w });
+      _colLayouts.push({ start: cursorX, width: w });
       cursorX += w;
     });
-    return { perDay, maxMetric: max || 1, colLayouts, totalWidth: cursorX };
+    return { perDay: _perDay, maxMetric: max || 1, colLayouts: _colLayouts, totalWidth: cursorX };
   }, [month, mode]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
