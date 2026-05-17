@@ -515,7 +515,7 @@ function Index() {
         <AlertDialog open={openResetDialog} onOpenChange={setOpenResetDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>오늘 기록을 모두 지울까요?</AlertDialogTitle>
+              <AlertDialogTitle>{isToday ? "오늘 기록을 모두 지울까요?" : `${formatPastDate(selectedDate)} 기록을 모두 지울까요?`}</AlertDialogTitle>
               <AlertDialogDescription className="text-[13px] text-neutral-500">
                 지운 기록은 되돌릴 수 없어요.
               </AlertDialogDescription>
