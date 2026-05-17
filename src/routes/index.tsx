@@ -247,7 +247,7 @@ function Index() {
       if (e instanceof CloudAuthError) {
         toast.error("로그인이 필요해요");
       } else {
-        toast.error("초기화 실패");
+        toast.error("비우기 실패");
       }
     }
   }
@@ -266,7 +266,7 @@ function Index() {
               onClick={reset}
               className="text-xs text-neutral-400 hover:text-neutral-600"
             >
-              초기화
+              비우기
             </button>
           </div>
 
