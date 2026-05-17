@@ -404,15 +404,18 @@ function Index() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setOpenResetDialog(false)}>
-                취소
-              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => void confirmReset()}
-                className="bg-red-600 text-white hover:bg-red-700"
+                className="bg-white text-red-600 border border-neutral-200 hover:bg-red-50"
               >
                 지우기
               </AlertDialogAction>
+              <AlertDialogCancel
+                onClick={() => setOpenResetDialog(false)}
+                className="bg-neutral-900 text-white hover:bg-neutral-800 border-0"
+              >
+                취소
+              </AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
