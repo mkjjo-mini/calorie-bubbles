@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { toast } from "sonner";
 import { BubbleField } from "@/components/BubbleField";
 import { Wave } from "@/components/Wave";
 import { EmptyStomach } from "@/components/EmptyStomach";
 import { QuickAddTray } from "@/components/QuickAddTray";
-import { Plus } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -17,6 +19,9 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { MealLogList } from "@/components/MealLogList";
 import {
   DAILY_GOAL_KCAL,
@@ -32,9 +37,40 @@ import { cloudRepository } from "@/lib/repository/cloud";
 import { CloudAuthError, type FoodLogRow } from "@/lib/repository/types";
 import { todayKST } from "@/lib/time";
 
+const homeSearchSchema = z.object({
+  date: fallback(z.string(), todayKST()).default(todayKST()),
+});
+
 export const Route = createFileRoute("/")({
+  validateSearch: zodValidator(homeSearchSchema),
   component: Index,
 });
+
+/** Parse YYYY-MM-DD as a local-date (no timezone shift). */
+function parseYmd(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+/** YYYY-MM-DD from a Date in local time (used after Calendar select). */
+function toYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+function formatPastDate(ymd: string): string {
+  const d = parseYmd(ymd);
+  return `${d.getMonth() + 1}/${d.getDate()} ${WEEKDAY_KO[d.getDay()]}`;
+}
+
+function addDays(ymd: string, delta: number): string {
+  const d = parseYmd(ymd);
+  d.setDate(d.getDate() + delta);
+  return toYmd(d);
+}
 
 /**
  * Convert cloud FoodLogRow[] → BubbleEntry[] for the existing bubble/UI system.
