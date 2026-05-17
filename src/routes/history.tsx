@@ -552,12 +552,13 @@ function DayBubbles({
         );
 
         // Stable jitter per (date, food, mode)
-        // Bubbles float above the water surface, bottom touching/dipping in.
+        // Bubbles bob just above the wave (like the home bowl).
         const seed = b.key + mode;
         const jitterX = (hash01(seed, 3) - 0.5) * (DAY_COL_W - size - 6);
-        // Center y so bubble bottom sits near the surface, with stable vertical scatter
+        // Anchor the bubble bottom near the wave top, with stable vertical scatter upward.
+        const waterTop = TANK_H - WAVE_H - 6;
         const verticalScatter = hash01(seed, 5) * FLOAT_BAND;
-        const yPos = SURFACE_Y - size / 2 + 6 - verticalScatter;
+        const yPos = waterTop - size / 2 - verticalScatter;
         const xPos = colCenter + jitterX;
 
         const color =
