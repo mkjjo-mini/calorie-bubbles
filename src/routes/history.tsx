@@ -319,8 +319,8 @@ function HistoryPage() {
           </div>
         </header>
 
-        {/* WATER TANK */}
-        <div className="relative">
+        {/* WATER BOWL (mirrors home palette: cream gradient + yellow border + bottom wave) */}
+        <div className="relative px-3 pt-3 pb-2">
           {!hasAnyRecord && (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 text-center text-sm text-neutral-400">
               이 달은 기록이 없어요
@@ -329,24 +329,22 @@ function HistoryPage() {
 
           <div
             ref={scrollRef}
-            className="no-scrollbar overflow-x-auto overflow-y-hidden"
+            className="no-scrollbar relative overflow-x-auto overflow-y-hidden shadow-inner"
             style={{
               WebkitOverflowScrolling: "touch",
               scrollbarWidth: "none",
               msOverflowStyle: "none",
+              height: TANK_H,
+              borderRadius: 20,
               background:
-                "linear-gradient(180deg, #FFFDF5 0%, #FFFDF5 " +
-                ((SURFACE_Y / TANK_H) * 100).toFixed(1) +
-                "%, #E6F4FB " +
-                ((SURFACE_Y / TANK_H) * 100).toFixed(1) +
-                "%, #9FD2EA 100%)",
+                "radial-gradient(120% 80% at 50% 10%, #f8fafc 0%, #eef2f6 60%, #e5eaf0 100%)",
+              border: "1.5px solid rgba(255,193,7,0.65)",
+              boxShadow:
+                "0 0 22px rgba(255,193,7,0.25), inset 0 4px 12px rgba(0,0,0,0.04)",
             }}
           >
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}`}</style>
-            <div
-              className="relative"
-              style={{ width: totalWidth, height: TANK_H }}
-            >
+            <div className="relative" style={{ width: totalWidth, height: TANK_H }}>
               {/* Day column verticals (subtle) */}
               <svg
                 width={totalWidth}
@@ -362,31 +360,27 @@ function HistoryPage() {
                       x1={x}
                       x2={x}
                       y1={0}
-                      y2={TANK_H}
-                      stroke={isMonday ? "rgba(15,23,42,0.10)" : "rgba(15,23,42,0.04)"}
+                      y2={TANK_H - WAVE_H}
+                      stroke={
+                        isMonday ? "rgba(15,23,42,0.08)" : "rgba(15,23,42,0.035)"
+                      }
                       strokeWidth={1}
                     />
                   );
                 })}
-                {/* Water surface line */}
-                <WaterSurface
-                  width={totalWidth}
-                  y={SURFACE_Y}
-                  reduced={reduced}
-                />
               </svg>
 
-              {/* Today column highlight */}
+              {/* Today column highlight (yellow, matches brand) */}
               {isCurrentMonth && (
                 <div
                   className="pointer-events-none absolute rounded-md"
                   style={{
                     left: (today.getDate() - 1) * DAY_COL_W + 1,
                     width: DAY_COL_W - 2,
-                    top: 0,
-                    height: TANK_H,
-                    border: "1.5px solid rgba(59,130,246,0.35)",
-                    background: "rgba(59,130,246,0.05)",
+                    top: 4,
+                    height: TANK_H - 8,
+                    border: "1.5px solid rgba(255,193,7,0.7)",
+                    background: "rgba(255,215,0,0.08)",
                   }}
                 />
               )}
@@ -405,6 +399,9 @@ function HistoryPage() {
                   date={month[dayIdx].date}
                 />
               ))}
+
+              {/* Wave at bottom — same component as home */}
+              <Wave width={totalWidth} height={WAVE_H} />
             </div>
           </div>
 
