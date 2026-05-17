@@ -359,6 +359,22 @@ function HistoryPage() {
     }
   }
 
+  function startLongPress(dateKey: string) {
+    return (e: React.PointerEvent) => {
+      if (e.button !== 0 && e.button !== -1) return;
+      lpTimerRef.current = window.setTimeout(() => {
+        lpTimerRef.current = null;
+        setGoHomeDialog({ open: true, dateKey });
+      }, 600);
+    };
+  }
+  function cancelLongPress() {
+    if (lpTimerRef.current) {
+      clearTimeout(lpTimerRef.current);
+      lpTimerRef.current = null;
+    }
+  }
+
   const reduced = prefersReducedMotion();
 
   // Minimap
