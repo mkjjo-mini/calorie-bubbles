@@ -363,32 +363,35 @@ function HistoryPage() {
       <main className="w-full max-w-[375px] flex flex-col">
         {/* HEADER */}
         <header className="sticky top-0 z-30 border-b border-neutral-200/70 bg-white/95 backdrop-blur">
-          <div className="flex items-center justify-between px-5 pt-6 pb-2.5">
-            <div className="flex items-center gap-1">
+          <div className="flex items-center justify-between px-5 pt-6 pb-3">
+            <div className="flex items-center gap-1 min-w-0">
               <button
                 onClick={() => navMonth(-1)}
                 aria-label="이전 달"
-                className="rounded-full p-1.5 text-neutral-700 hover:bg-neutral-100"
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <div className="min-w-[92px] text-center text-[13px] font-semibold text-neutral-900 tabular-nums">
+              <div className="px-1 text-lg font-semibold text-neutral-900 tabular-nums">
                 {cursor.getFullYear()}년 {cursor.getMonth() + 1}월
               </div>
               <button
                 onClick={() => navMonth(1)}
                 aria-label="다음 달"
-                className="rounded-full p-1.5 text-neutral-700 hover:bg-neutral-100"
+                disabled={isCurrentMonth}
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-            <button
-              onClick={goToToday}
-              className="text-xs text-neutral-400 hover:text-neutral-600"
-            >
-              오늘
-            </button>
+            {!isCurrentMonth && (
+              <button
+                onClick={goToToday}
+                className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
+              >
+                이번 달
+              </button>
+            )}
           </div>
 
           {/* Segmented metric control */}
