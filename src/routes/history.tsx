@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Wave } from "@/components/Wave";
 import {
   displayName,
   MACRO_COLORS,
@@ -22,11 +23,11 @@ export const Route = createFileRoute("/history")({
   component: HistoryPage,
 });
 
-/* ---------- layout constants ---------- */
+/* ---------- layout constants (mirrors home bowl) ---------- */
 const DAY_COL_W = 88;
-const TANK_H = 460; // mobile-friendly height
-const SURFACE_Y = 300; // water surface line (bubbles float along this)
-const FLOAT_BAND = 56; // ± vertical range above the surface for bubble centers
+const TANK_H = 440;
+const WAVE_H = 48; // matches home Wave height
+const FLOAT_BAND = 240; // vertical scatter range above the wave
 const BUBBLE_MIN = 24;
 const BUBBLE_MAX = 76;
 
