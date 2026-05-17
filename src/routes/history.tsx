@@ -78,10 +78,12 @@ interface FoodBubbleData {
   protein: number;
   fat: number;
   kcal: number;
+  count: number; // 합산된 섭취 횟수 (foodLogId 기준 unique)
 }
 
 function buildDayBubbles(day: DayData): FoodBubbleData[] {
   const map = new Map<string, FoodBubbleData>();
+  const seenLogs = new Map<string, Set<string>>();
   for (const e of day.entries) {
     const name = displayName(e.foodName);
     const key = normalizeFoodKey(e.foodName);
@@ -95,11 +97,18 @@ function buildDayBubbles(day: DayData): FoodBubbleData[] {
         protein: 0,
         fat: 0,
         kcal: 0,
+        count: 0,
       };
       map.set(key, b);
+      seenLogs.set(key, new Set());
     }
     b[e.macro] += e.grams;
     b.ts = Math.min(b.ts, e.addedAt);
+    const logs = seenLogs.get(key)!;
+    if (!logs.has(e.foodLogId)) {
+      logs.add(e.foodLogId);
+      b.count += 1;
+    }
   }
   for (const b of map.values()) {
     b.kcal = Math.round(
