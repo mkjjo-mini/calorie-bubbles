@@ -869,7 +869,7 @@ function Bubble({
                 fontSize: size >= 28 ? 10 : 8,
                 color:
                   mode === "kcal"
-                    ? kcalBubbleText(b.name)
+                    ? textColor
                     : mode === "carbs"
                       ? "#3F2A00"
                       : "#FFFFFF",
