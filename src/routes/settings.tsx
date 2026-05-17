@@ -1,6 +1,6 @@
 import * as React from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsMenuPage,
@@ -37,14 +37,6 @@ function SettingsMenuPage() {
     <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[390px] flex flex-col">
         <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-neutral-100 bg-white/95 px-4 py-3 backdrop-blur">
-          <button
-            type="button"
-            aria-label="뒤로"
-            onClick={() => navigate({ to: "/" })}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-700 active:bg-neutral-100"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
           <h1 className="text-base font-semibold text-neutral-900">설정</h1>
         </header>
 
