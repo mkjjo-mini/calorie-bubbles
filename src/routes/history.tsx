@@ -550,6 +550,7 @@ function DayBubbles({
   onToggleFavorite,
   reduced,
   date,
+  tankH,
 }: {
   bubbles: FoodBubbleData[];
   dayIdx: number;
@@ -562,6 +563,7 @@ function DayBubbles({
   onToggleFavorite: (name: string) => void;
   reduced: boolean;
   date: Date;
+  tankH: number;
 }) {
   if (bubbles.length === 0) return null;
 
@@ -577,7 +579,7 @@ function DayBubbles({
   const leftBound = colStart + dayInset;
   const rightBound = colStart + colWidth - dayInset;
   // Static stacking baseline = mean water level of the higher wave (wave1 baseline).
-  const waterSurfaceY = TANK_H - WAVE_H * 0.5;
+  const waterSurfaceY = tankH - WAVE_H * 0.5;
 
   // Pre-compute size + stable horizontal jitter for each visible bubble
   const items = visible.map((b) => {
