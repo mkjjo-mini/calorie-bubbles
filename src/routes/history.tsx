@@ -208,17 +208,19 @@ function HistoryPage() {
     };
   }, []);
 
-  // Scroll to today on mount when current month
+  // Scroll to today when month data loads (cursor 변경 또는 첫 mount).
+  // mode 토글에는 무반응 — 사용자가 보던 시점 유지.
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || !isCurrentMonth) return;
+    if (!el || !isCurrentMonth || month.length === 0) return;
     const col = colLayouts[today.getDate() - 1];
     if (!col) return;
     const x = col.start + col.width / 2 - el.clientWidth / 2;
     el.scrollTo({ left: Math.max(0, x), behavior: "auto" });
     setScrollX(el.scrollLeft);
+    // month deps만 — mode 변경 시엔 month 객체 동일이라 발동 X
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cursor, isCurrentMonth, colLayouts]);
+  }, [month]);
 
   function scrollToDay(idx: number, behavior: ScrollBehavior = "smooth") {
     const el = scrollRef.current;
