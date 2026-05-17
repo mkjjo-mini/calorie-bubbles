@@ -51,12 +51,14 @@ export function BubbleField({
 }: Props) {
   const nodesRef = useRef<Map<string, Node>>(new Map());
   const simRef = useRef<Simulation<Node, undefined> | null>(null);
+  const prevCountRef = useRef<number>(0);
   const [, setTick] = useState(0);
 
   const cx = width / 2;
-  // Always sink to bottom — strong constant gravity.
+  // Always sink to bottom — gravity strength softens when packed so removing
+  // a bubble in a crowded bowl doesn't cause the whole pile to snap downward.
   const anchorY = height - 4;
-  const yStrength = 0.18;
+  const yStrength = 0.18 * compression; // compression<1 → gentler gravity
 
   const bowlArea = width * height;
   const maxR = height * 0.45;
