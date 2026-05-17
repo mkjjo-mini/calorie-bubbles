@@ -150,8 +150,14 @@ export function BubbleField({
     const sim = simRef.current;
     if (!sim || !changed) return;
     sim.nodes(Array.from(map.values()));
-    sim.alpha(0.9).restart();
-  }, [bubbles, cx, bowlArea, goalKcal, maxR]);
+    const prev = prevCountRef.current;
+    const curr = map.size;
+    prevCountRef.current = curr;
+    // Removal: gentle resettle, gentler still when packed. Addition: stronger kick.
+    const isRemoval = curr < prev;
+    const alpha = isRemoval ? Math.max(0.15, 0.35 * compression) : 0.9;
+    sim.alpha(alpha).restart();
+  }, [bubbles, cx, bowlArea, goalKcal, maxR, compression]);
 
   const nodes = Array.from(nodesRef.current.values());
 
