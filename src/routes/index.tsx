@@ -493,6 +493,7 @@ function Index() {
         {/* Quick add tray */}
         <QuickAddTray
           bubbleContainerRef={bowlRef}
+          loggedDate={selectedDate}
           onAdded={(log) => {
             setLogs((prev) => [...prev, log]);
           }}
