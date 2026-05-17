@@ -359,11 +359,11 @@ function HistoryPage() {
   const hasAnyRecord = perDay.some((arr) => arr.length > 0);
 
   return (
-    <div className="min-h-screen w-full bg-white">
-      <main className="mx-auto flex w-full max-w-[420px] flex-col">
+    <div className="min-h-screen w-full bg-white flex justify-center">
+      <main className="w-full max-w-[375px] flex flex-col">
         {/* HEADER */}
         <header className="sticky top-0 z-30 border-b border-neutral-200/70 bg-white/95 backdrop-blur">
-          <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center justify-between px-5 pt-6 pb-2.5">
             <div className="flex items-center gap-1">
               <button
                 onClick={() => navMonth(-1)}
@@ -392,7 +392,7 @@ function HistoryPage() {
           </div>
 
           {/* Segmented metric control */}
-          <div className="px-3 pb-3">
+          <div className="px-5 pb-3">
             <div className="flex w-full items-center gap-1 rounded-full bg-neutral-100 p-1">
               {METRICS.map((m) => {
                 const active = mode === m.id;
@@ -414,7 +414,7 @@ function HistoryPage() {
           </div>
 
           {/* Minimap */}
-          <div className="px-3 pb-3">
+          <div className="px-5 pb-3">
             <div ref={minimapRef} className="relative h-7 w-full" role="presentation">
               {(() => {
                 const n = month.length;
@@ -479,7 +479,7 @@ function HistoryPage() {
         </header>
 
         {/* WATER BOWL (mirrors home palette: cream gradient + yellow border + bottom wave) */}
-        <div className="relative px-3 pt-4 pb-2">
+        <div className="relative px-5 pt-4 pb-2">
           {!hasAnyRecord && (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 text-center text-sm text-neutral-400">
               이 달은 기록이 없어요
