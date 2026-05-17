@@ -349,8 +349,10 @@ function HistoryPage() {
                       key={d.dateKey}
                       onClick={() => scrollToDay(i)}
                       aria-label={`${d.date.getMonth() + 1}/${d.date.getDate()}로 이동`}
-                      className="h-2.5 w-2.5 shrink-0 rounded-full bg-neutral-300 transition-transform hover:scale-125"
+                      className="shrink-0 rounded-full transition-transform hover:scale-125"
                       style={{
+                        width: 10,
+                        height: 10,
                         background: color ?? "#CBD5E1",
                         boxShadow: isToday
                           ? "0 0 0 2px #FFD700"
