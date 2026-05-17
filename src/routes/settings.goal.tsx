@@ -488,6 +488,22 @@ function RecommendWizard({
                   onChange={(e) => setData((d) => ({ ...d, targetWeight: e.target.value }))}
                   placeholder="60"
                 />
+                {Number(data.targetWeight) > 0 && Number(data.weight) > 0 && (
+                  <>
+                    {data.goal === "loss" &&
+                      Number(data.targetWeight) >= Number(data.weight) && (
+                        <p className="mt-1 text-xs text-red-500">
+                          감량 목표는 현재 체중보다 낮아야 해요
+                        </p>
+                      )}
+                    {data.goal === "gain" &&
+                      Number(data.targetWeight) <= Number(data.weight) && (
+                        <p className="mt-1 text-xs text-red-500">
+                          증량 목표는 현재 체중보다 높아야 해요
+                        </p>
+                      )}
+                  </>
+                )}
               </div>
               <div>
                 <FieldLabel required>목표까지 기간 (주)</FieldLabel>
