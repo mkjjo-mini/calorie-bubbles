@@ -163,6 +163,12 @@ function HistoryPage() {
   const [mode, setMode] = useState<MetricMode>("kcal");
   const [version, setVersion] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(() => new Set());
+  const navigate = useNavigate();
+  const [goHomeDialog, setGoHomeDialog] = useState<{
+    open: boolean;
+    dateKey: string | null;
+  }>({ open: false, dateKey: null });
+  const lpTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     let alive = true;
