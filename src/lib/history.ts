@@ -135,15 +135,24 @@ export function metricValue(f: FoodAgg, mode: MetricMode): number {
 }
 
 /* ---------- favorites ---------- */
+// add.tsx 와 동일 키 사용 (동기화). 과거 키("tandanji-favorites")는 첫 로드 시 1회 병합 후 제거.
 
-const FAV_KEY = "tandanji-favorites";
+const FAV_KEY = "favorites";
+const LEGACY_FAV_KEY = "tandanji-favorites";
 
 export function loadFavorites(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = localStorage.getItem(FAV_KEY);
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw) as string[]);
+    const main = JSON.parse(localStorage.getItem(FAV_KEY) || "[]") as string[];
+    const legacyRaw = localStorage.getItem(LEGACY_FAV_KEY);
+    if (legacyRaw) {
+      const legacy = JSON.parse(legacyRaw) as string[];
+      const merged = new Set([...main, ...legacy]);
+      localStorage.setItem(FAV_KEY, JSON.stringify(Array.from(merged)));
+      localStorage.removeItem(LEGACY_FAV_KEY);
+      return merged;
+    }
+    return new Set(main);
   } catch {
     return new Set();
   }
