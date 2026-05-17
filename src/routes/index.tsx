@@ -21,7 +21,6 @@ import { MealLogList } from "@/components/MealLogList";
 import {
   DAILY_GOAL_KCAL,
   displayName,
-  inferMealSlot,
   MACRO_COLORS,
   MACRO_KCAL,
   MACRO_LABELS,
@@ -378,37 +377,8 @@ function Index() {
         {/* Quick add tray */}
         <QuickAddTray
           bubbleContainerRef={bowlRef}
-          onAdd={(items) => {
-            // QuickAddTray delivers BubbleEntry[] — convert to synthetic FoodLogRow
-            // grouped by foodLogId for display; cloud sync happens in add.tsx
-            const byLogId = new Map<string, BubbleEntry[]>();
-            for (const it of items) {
-              const arr = byLogId.get(it.foodLogId) ?? [];
-              arr.push(it);
-              byLogId.set(it.foodLogId, arr);
-            }
-            const syntheticLogs: FoodLogRow[] = [];
-            const now = Date.now();
-            byLogId.forEach((group, logId) => {
-              const carb = group.filter((e) => e.macro === "carbs").reduce((s, e) => s + e.grams, 0);
-              const protein = group.filter((e) => e.macro === "protein").reduce((s, e) => s + e.grams, 0);
-              const fat = group.filter((e) => e.macro === "fat").reduce((s, e) => s + e.grams, 0);
-              const kcal = Math.round(carb * 4 + protein * 4 + fat * 9);
-              syntheticLogs.push({
-                id: logId,
-                food_id: "",
-                logged_date: todayKST(),
-                meal_slot: group[0]?.meal_slot ?? inferMealSlot(now),
-                grams: Math.round(carb + protein + fat),
-                kcal,
-                carb_g: carb,
-                protein_g: protein,
-                fat_g: fat,
-                created_at: new Date(group[0]?.addedAt ?? now).toISOString(),
-                food: { name: group[0]?.foodName ?? "", food_code: null, source: "preset", is_estimated: false },
-              });
-            });
-            setLogs((prev) => [...prev, ...syntheticLogs]);
+          onAdded={(log) => {
+            setLogs((prev) => [...prev, log]);
           }}
         />
 

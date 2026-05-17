@@ -1,79 +1,31 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Star, Clock } from "lucide-react";
-import foodPresets from "@/data/food-presets.json";
-import { displayName, MACRO_COLORS, type BubbleEntry, type Macro } from "@/lib/foods";
+import { toast } from "sonner";
+import { displayName, inferMealSlot, MACRO_COLORS, type BubbleEntry, type Macro } from "@/lib/foods";
 import {
   QuantitySheet,
   type Pickable,
   type LastQty,
 } from "@/components/QuantitySheet";
+import { cloudRepository } from "@/lib/repository/cloud";
+import { CloudAuthError, type FoodRow, type FoodLogRow } from "@/lib/repository/types";
+import { resolveFoodId } from "@/lib/foods-resolve";
+import { todayKST } from "@/lib/time";
+import type { FoodInsert } from "@/lib/repository/types";
 
-interface FoodPreset {
-  id: string;
-  name: string;
-  kcal: number;
-  carb: number;
-  protein: number;
-  fat: number;
-  serving_g: number;
-  /** undefined → 정적 preset, "custom"/"api" → customFood로부터 변환됨 */
-  source?: "preset" | "custom" | "api";
-}
-
-const PRESETS = foodPresets as FoodPreset[];
-const FAV_KEY = "favorites";
 const LAST_QTY_KEY = "lastQtyByName";
+const RECENT_KEY = "recentFoods";
 
 type LastQtyMap = Record<string, LastQty>;
 
-function formatQty(food: FoodPreset, last: LastQty | undefined): string {
+function formatQty(food: FoodRow, last: LastQty | undefined): string {
   if (!last) return "1인분";
   return last.mode === "gram"
     ? `${last.qty}g`
     : last.qty === 1
       ? "1인분"
       : `${last.qty}인분`;
-}
-const RECENT_KEY = "recentFoods";
-const CUSTOM_KEY = "customFoods";
-
-interface CustomFoodLite {
-  id: string;
-  name: string;
-  kcal: number;
-  carb_g: number;
-  protein_g: number;
-  fat_g: number;
-  serving_g: number;
-  /** customFood의 source — Pickable 변환 시 saveAsBase UI 분기에 사용 */
-  source?: "user" | "api";
-}
-
-function customToPreset(c: CustomFoodLite): FoodPreset {
-  return {
-    id: c.id,
-    name: c.name,
-    kcal: c.kcal,
-    carb: c.carb_g,
-    protein: c.protein_g,
-    fat: c.fat_g,
-    serving_g: c.serving_g,
-    source: c.source === "api" ? "api" : "custom",
-  };
-}
-
-function toPickable(p: FoodPreset): Pickable {
-  return {
-    source: p.source ?? "preset",
-    id: p.id,
-    name: p.name,
-    kcal: p.kcal,
-    carb: p.carb,
-    protein: p.protein,
-    fat: p.fat,
-    serving_g: p.serving_g,
-  };
 }
 
 function readArr(key: string): string[] {
@@ -85,37 +37,59 @@ function readArr(key: string): string[] {
   }
 }
 
-function dominantMacro(p: FoodPreset): Macro {
+function dominantMacro(f: FoodRow): Macro {
   const m: [Macro, number][] = [
-    ["carbs", p.carb],
-    ["protein", p.protein],
-    ["fat", p.fat],
+    ["carbs", f.carb_g],
+    ["protein", f.protein_g],
+    ["fat", f.fat_g],
   ];
   m.sort((a, b) => b[1] - a[1]);
   return m[0][0];
 }
 
-/**
- * Build BubbleEntry triple from any source shape (FoodPreset or Pickable).
- * Both expose carb/protein/fat/serving_g/name with identical semantics.
- */
+function foodRowToPickable(f: FoodRow): Pickable {
+  const isWeight = f.serving_unit === "g" || f.serving_unit === "ml";
+  const label = isWeight
+    ? `${f.serving_g}${f.serving_unit}`
+    : `${f.serving_amount}${f.serving_unit} (${f.serving_g}g)`;
+  return {
+    source: f.source === "user" ? "custom" : f.source,
+    id: f.id,
+    name: f.name,
+    kcal: f.kcal,
+    carb: f.carb_g,
+    protein: f.protein_g,
+    fat: f.fat_g,
+    serving_g: f.serving_g,
+    serving_label: label,
+    is_estimated: f.is_estimated,
+    food_code: f.food_code ?? undefined,
+  };
+}
+
+/** FoodRow shape for building BubbleEntry during animation */
 type EntrySource = {
   name: string;
-  carb: number;
-  protein: number;
-  fat: number;
+  carb_g: number;
+  protein_g: number;
+  fat_g: number;
   serving_g: number;
 };
 
-function buildEntries(p: EntrySource, mode: "serving" | "gram", qty: number): BubbleEntry[] {
+function buildEntries(
+  p: EntrySource,
+  mode: "serving" | "gram",
+  qty: number,
+  foodLogId: string,
+  now: number,
+  mealSlot: ReturnType<typeof inferMealSlot>,
+): BubbleEntry[] {
   const mult = mode === "serving" ? qty : qty / p.serving_g;
   const macros: Record<Macro, number> = {
-    carbs: p.carb * mult,
-    protein: p.protein * mult,
-    fat: p.fat * mult,
+    carbs: p.carb_g * mult,
+    protein: p.protein_g * mult,
+    fat: p.fat_g * mult,
   };
-  const now = Date.now();
-  const foodLogId = `${now}-${Math.random().toString(36).slice(2, 9)}`;
   const out: BubbleEntry[] = [];
   (["carbs", "protein", "fat"] as Macro[]).forEach((m, i) => {
     const grams = Math.round(macros[m] * 10) / 10;
@@ -127,6 +101,7 @@ function buildEntries(p: EntrySource, mode: "serving" | "gram", qty: number): Bu
         grams,
         foodName: displayName(p.name),
         addedAt: now,
+        meal_slot: mealSlot,
       });
     }
   });
@@ -140,67 +115,166 @@ interface FlyState {
   curveDir: 1 | -1;
   curveAmt: number;
   color: string;
+  /** pre-built optimistic BubbleEntry[] for fly animation; actual log in newLog */
   entries: BubbleEntry[];
+  newLog: FoodLogRow;
 }
 
 interface Props {
   bubbleContainerRef: RefObject<HTMLDivElement | null>;
-  onAdd: (entries: BubbleEntry[]) => void;
+  onAdded: (log: FoodLogRow) => void;
 }
 
-export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
-  const [favorites, setFavorites] = useState<string[]>([]);
+export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
+  const [favFoods, setFavFoods] = useState<FoodRow[]>([]);
   const [recents, setRecents] = useState<string[]>([]);
-  const [customs, setCustoms] = useState<CustomFoodLite[]>([]);
   const [lastQtyMap, setLastQtyMap] = useState<LastQtyMap>({});
   const [hydrated, setHydrated] = useState(false);
-  const [sheet, setSheet] = useState<Pickable | null>(null);
+  const [sheet, setSheet] = useState<{ food: FoodRow; pickable: Pickable } | null>(null);
   const [flying, setFlying] = useState<FlyState[]>([]);
   const flyIdRef = useRef(0);
 
   useEffect(() => {
-    setFavorites(readArr(FAV_KEY));
     setRecents(readArr(RECENT_KEY));
-    try {
-      setCustoms(JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]"));
-    } catch {
-      setCustoms([]);
-    }
     try {
       setLastQtyMap(JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}"));
     } catch {
       setLastQtyMap({});
     }
-    setHydrated(true);
+    void loadCloudData();
   }, []);
 
-  function pushRecent(id: string) {
-    const next = [id, ...recents.filter((x) => x !== id)].slice(0, 10);
-    setRecents(next);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  // 다른 탭(add.tsx 등)에서 즐겨찾기 변경 후 홈으로 돌아오면 최신화
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") void loadCloudData();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadCloudData() {
+    try {
+      const [foods, favs] = await Promise.all([
+        cloudRepository.foods.list(),
+        cloudRepository.favorites.list(),
+      ]);
+      const favFoodIdSet = new Set(favs.map((f) => f.food_id));
+      setFavFoods(foods.filter((f) => favFoodIdSet.has(f.id)));
+    } catch (e) {
+      if (e instanceof CloudAuthError) {
+        toast.error("로그인이 필요해요");
+      }
+      // Non-auth failures silently swallowed — tray just won't show favorites
+    }
+    setHydrated(true);
   }
 
-  function fly(p: FoodPreset, chipEl: HTMLElement, entries: BubbleEntry[]) {
+  function pushRecent(foodId: string) {
+    setRecents((prev) => {
+      const next = [foodId, ...prev.filter((x) => x !== foodId)].slice(0, 10);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function persistLastQty(name: string, qty: number, mode: "serving" | "gram") {
+    setLastQtyMap((prev) => {
+      const next = { ...prev, [name]: { qty, mode } };
+      localStorage.setItem(LAST_QTY_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  async function createLog(
+    food: FoodRow,
+    mode: "serving" | "gram",
+    qty: number,
+  ): Promise<FoodLogRow> {
+    const now = Date.now();
+    const mealSlot = inferMealSlot(now);
+    const mult = mode === "serving" ? qty : qty / food.serving_g;
+    const carbG = Math.round(food.carb_g * mult * 10) / 10;
+    const proteinG = Math.round(food.protein_g * mult * 10) / 10;
+    const fatG = Math.round(food.fat_g * mult * 10) / 10;
+    const kcal = Math.round(carbG * 4 + proteinG * 4 + fatG * 9);
+    const grams = mode === "gram" ? qty : Math.round(food.serving_g * qty);
+
+    // Resolve food_id (preset/api may need upsert)
+    let foodId: string;
+    if (food.source === "user") {
+      foodId = food.id;
+    } else {
+      const food_code = food.food_code ?? food.id;
+      const insert: FoodInsert = {
+        source: food.source,
+        food_code,
+        name: food.name,
+        serving_unit: food.serving_unit,
+        serving_amount: food.serving_amount,
+        serving_g: food.serving_g,
+        kcal: food.kcal,
+        carb_g: food.carb_g,
+        protein_g: food.protein_g,
+        fat_g: food.fat_g,
+        category: food.category ?? null,
+        is_estimated: food.is_estimated,
+      };
+      foodId = await resolveFoodId({ source: food.source, food_code, insert });
+    }
+
+    const log = await cloudRepository.foodLogs.create({
+      food_id: foodId,
+      logged_date: todayKST(),
+      meal_slot: mealSlot,
+      grams,
+      kcal,
+      carb_g: carbG,
+      protein_g: proteinG,
+      fat_g: fatG,
+    });
+
+    // Attach food name for display (API returns food join on some backends;
+    // fall back to injecting from local FoodRow so bubbles show the name)
+    if (!log.food) {
+      (log as FoodLogRow).food = {
+        name: food.name,
+        food_code: food.food_code ?? null,
+        source: food.source,
+        is_estimated: food.is_estimated,
+      };
+    }
+
+    return log;
+  }
+
+  function fly(food: FoodRow, chipEl: HTMLElement, newLog: FoodLogRow) {
+    const now = newLog.created_at
+      ? new Date(newLog.created_at).getTime()
+      : Date.now();
+    const mealSlot = inferMealSlot(now);
+    const last = lastQtyMap[food.name];
+    const mode = last?.mode ?? "serving";
+    const qty = last?.qty ?? 1;
+    const entries = buildEntries(food, mode, qty, newLog.id, now, mealSlot);
+
     const chipRect = chipEl.getBoundingClientRect();
     const containerRect = bubbleContainerRef.current?.getBoundingClientRect();
     if (!containerRect) {
-      onAdd(entries);
+      onAdded(newLog);
       return;
     }
     const from = {
       x: chipRect.left + chipRect.width / 2,
       y: chipRect.top + chipRect.height / 2,
     };
-    // pop where chip meets the nearest bowl edge (straight line from chip to bowl center)
     const cx = containerRect.left + containerRect.width / 2;
     const cy = containerRect.top + containerRect.height / 2;
     const dx = cx - from.x;
     const dy = cy - from.y;
-    // approximate bowl as ellipse inscribed in containerRect
     const rx = containerRect.width / 2;
     const ry = containerRect.height / 2;
-    // ray from (from) toward (cx,cy): point on ellipse where it enters
-    // parametrize as P = from + t*(d), find smallest t>0 where ((P.x-cx)/rx)^2 + ((P.y-cy)/ry)^2 = 1
     const ox = from.x - cx;
     const oy = from.y - cy;
     const A = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
@@ -216,124 +290,135 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
     }
     const to = { x: from.x + dx * t, y: from.y + dy * t };
     const id = ++flyIdRef.current;
-    const color = MACRO_COLORS[dominantMacro(p)];
+    const color = MACRO_COLORS[dominantMacro(food)];
     const curveDir: 1 | -1 = Math.random() > 0.5 ? 1 : -1;
     const curveAmt = 40 + Math.random() * 60;
-    setFlying((prev) => [...prev, { id, from, to, curveDir, curveAmt, color, entries }]);
+    setFlying((prev) => [
+      ...prev,
+      { id, from, to, curveDir, curveAmt, color, entries, newLog },
+    ]);
   }
 
-  function persistLastQty(name: string, qty: number, mode: "serving" | "gram") {
-    const next = { ...lastQtyMap, [name]: { qty, mode } };
-    setLastQtyMap(next);
-    localStorage.setItem(LAST_QTY_KEY, JSON.stringify(next));
-  }
-
-  function handleTap(p: FoodPreset, chipEl: HTMLElement) {
-    const last = lastQtyMap[p.name];
+  async function handleTap(food: FoodRow, chipEl: HTMLElement) {
+    const last = lastQtyMap[food.name];
     const mode = last?.mode ?? "serving";
     const qty = last?.qty ?? 1;
-    const entries = buildEntries(p, mode, qty);
-    if (entries.length === 0) return;
-    pushRecent(p.id);
-    persistLastQty(p.name, qty, mode);
-    fly(p, chipEl, entries);
+    pushRecent(food.id);
+    persistLastQty(food.name, qty, mode);
+
+    try {
+      const newLog = await createLog(food, mode, qty);
+      fly(food, chipEl, newLog);
+    } catch (e) {
+      if (e instanceof CloudAuthError) {
+        toast.error("로그인이 필요해요");
+      } else {
+        toast.error(`추가 실패: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
   }
 
-  function handleSheetAdd(mode: "serving" | "gram", qty: number, saveAsBase: boolean) {
+  async function handleSheetAdd(mode: "serving" | "gram", qty: number, saveAsBase: boolean) {
     if (!sheet) return;
-    const entries = buildEntries(sheet, mode, qty);
-    if (entries.length > 0) {
-      pushRecent(sheet.id);
+    const { food } = sheet;
+    pushRecent(food.id);
 
-      if (saveAsBase) {
-        // customFood의 기준 단위 자체를 이 양으로 변경 (serving_g + kcal + 매크로 비례 환산)
+    if (saveAsBase && food.source === "user" && food.serving_g > 0) {
+      const newServingG = mode === "gram" ? qty : qty * food.serving_g;
+      if (newServingG > 0) {
+        const ratio = newServingG / food.serving_g;
         try {
-          const fullList = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]");
-          const idx = fullList.findIndex((x: { id: string }) => x.id === sheet.id);
-          if (idx >= 0) {
-            const c = fullList[idx];
-            const oldServingG = c.serving_g;
-            const newServingG = mode === "gram" ? qty : qty * oldServingG;
-            if (oldServingG > 0 && newServingG > 0) {
-              const ratio = newServingG / oldServingG;
-              fullList[idx] = {
-                ...c,
-                serving_g: newServingG,
-                serving_amount: newServingG,
-                serving_unit: "g",
-                kcal: Math.round(c.kcal * ratio),
-                carb_g: Math.round(c.carb_g * ratio * 10) / 10,
-                protein_g: Math.round(c.protein_g * ratio * 10) / 10,
-                fat_g: Math.round(c.fat_g * ratio * 10) / 10,
-                updated_at: Date.now(),
-              };
-              localStorage.setItem(CUSTOM_KEY, JSON.stringify(fullList));
-              setCustoms(
-                fullList.map((x: CustomFoodLite) => ({
-                  id: x.id,
-                  name: x.name,
-                  kcal: x.kcal,
-                  carb_g: x.carb_g,
-                  protein_g: x.protein_g,
-                  fat_g: x.fat_g,
-                  serving_g: x.serving_g,
-                  source: x.source,
-                })),
-              );
-              // 기준 단위가 바뀌었으므로 lastQty는 1인분으로 reset
-              persistLastQty(sheet.name, 1, "serving");
-            } else {
-              persistLastQty(sheet.name, qty, mode);
-            }
-          } else {
-            persistLastQty(sheet.name, qty, mode);
-          }
+          await cloudRepository.foods.update(food.id, {
+            serving_g: newServingG,
+            serving_amount: newServingG,
+            serving_unit: "g",
+            kcal: Math.round(food.kcal * ratio),
+            carb_g: Math.round(food.carb_g * ratio * 10) / 10,
+            protein_g: Math.round(food.protein_g * ratio * 10) / 10,
+            fat_g: Math.round(food.fat_g * ratio * 10) / 10,
+          });
+          // Reflect updated serving in local state
+          setFavFoods((prev) =>
+            prev.map((f) =>
+              f.id === food.id
+                ? {
+                    ...f,
+                    serving_g: newServingG,
+                    serving_amount: newServingG,
+                    serving_unit: "g",
+                    kcal: Math.round(food.kcal * ratio),
+                    carb_g: Math.round(food.carb_g * ratio * 10) / 10,
+                    protein_g: Math.round(food.protein_g * ratio * 10) / 10,
+                    fat_g: Math.round(food.fat_g * ratio * 10) / 10,
+                  }
+                : f,
+            ),
+          );
+          persistLastQty(food.name, 1, "serving");
         } catch {
-          persistLastQty(sheet.name, qty, mode);
+          persistLastQty(food.name, qty, mode);
         }
       } else {
-        persistLastQty(sheet.name, qty, mode);
+        persistLastQty(food.name, qty, mode);
       }
-
-      onAdd(entries);
+    } else {
+      persistLastQty(food.name, qty, mode);
     }
+
     setSheet(null);
+
+    try {
+      const newLog = await createLog(food, mode, qty);
+      onAdded(newLog);
+    } catch (e) {
+      if (e instanceof CloudAuthError) {
+        toast.error("로그인이 필요해요");
+      } else {
+        toast.error(`추가 실패: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
   }
 
   if (!hydrated) return null;
 
-  const favList = favorites
-    .map((key) => {
-      // favorites에는 preset id 또는 customFood id/name이 들어올 수 있음 (혼재)
-      const preset = PRESETS.find((p) => p.id === key);
-      if (preset) return preset;
-      const customById = customs.find((c) => c.id === key);
-      if (customById) return customToPreset(customById);
-      const lower = key.toLowerCase();
-      const customByName = customs.find((c) => c.name.toLowerCase() === lower);
-      return customByName ? customToPreset(customByName) : undefined;
-    })
-    .filter((x): x is FoodPreset => !!x);
+  // Recent list: food_id 기반으로 매칭 (unified cloud UUID)
   const recentList = recents
     .slice(0, 10)
-    .map((id) => {
-      const p = PRESETS.find((x) => x.id === id);
-      if (p) return p;
-      const c = customs.find((x) => x.id === id);
-      return c ? customToPreset(c) : undefined;
-    })
-    .filter((x): x is FoodPreset => !!x);
+    .map((id) => favFoods.find((f) => f.id === id))
+    .filter((f): f is FoodRow => !!f);
 
-  if (favList.length === 0 && recentList.length === 0) return null;
+  if (favFoods.length === 0 && recentList.length === 0) return null;
 
   return (
     <>
       <div className="px-5 pt-3 pb-1 space-y-3">
-        {favList.length > 0 && (
-          <ChipRow label={<><Star className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />즐겨찾기</>} foods={favList} lastQtyMap={lastQtyMap} onTap={handleTap} onLongPress={(p) => setSheet(toPickable(p))} />
+        {favFoods.length > 0 && (
+          <ChipRow
+            label={
+              <>
+                <Star className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />
+                즐겨찾기
+              </>
+            }
+            foods={favFoods}
+            lastQtyMap={lastQtyMap}
+            onTap={handleTap}
+            onLongPress={(f) => setSheet({ food: f, pickable: foodRowToPickable(f) })}
+          />
         )}
         {recentList.length > 0 && (
-          <ChipRow label={<><Clock className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />최근 사용</>} foods={recentList} lastQtyMap={lastQtyMap} onTap={handleTap} onLongPress={(p) => setSheet(toPickable(p))} />
+          <ChipRow
+            label={
+              <>
+                <Clock className="w-3 h-3 text-neutral-500" strokeWidth={2.4} />
+                최근 사용
+              </>
+            }
+            foods={recentList}
+            lastQtyMap={lastQtyMap}
+            onTap={handleTap}
+            onLongPress={(f) => setSheet({ food: f, pickable: foodRowToPickable(f) })}
+          />
         )}
       </div>
 
@@ -344,16 +429,8 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
             key={f.id}
             initial={{ x: f.from.x, y: f.from.y, scale: 0.6, opacity: 1 }}
             animate={{
-              x: [
-                f.from.x,
-                f.from.x + f.curveDir * f.curveAmt * 0.4,
-                f.to.x,
-              ],
-              y: [
-                f.from.y,
-                (f.from.y + f.to.y) / 2 - 20,
-                f.to.y,
-              ],
+              x: [f.from.x, f.from.x + f.curveDir * f.curveAmt * 0.4, f.to.x],
+              y: [f.from.y, (f.from.y + f.to.y) / 2 - 20, f.to.y],
               scale: [0.6, 1.05, 1.6],
               opacity: [1, 1, 0],
             }}
@@ -362,7 +439,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
               ease: [0.22, 0.61, 0.36, 1],
             }}
             onAnimationComplete={() => {
-              onAdd(f.entries);
+              onAdded(f.newLog);
               setFlying((prev) => prev.filter((x) => x.id !== f.id));
             }}
             style={{
@@ -385,8 +462,8 @@ export function QuickAddTray({ bubbleContainerRef, onAdd }: Props) {
 
       {sheet && (
         <QuantitySheet
-          food={sheet}
-          last={lastQtyMap[sheet.name]}
+          food={sheet.pickable}
+          last={lastQtyMap[sheet.food.name]}
           onClose={() => setSheet(null)}
           onAdd={handleSheetAdd}
         />
@@ -403,14 +480,16 @@ function ChipRow({
   onLongPress,
 }: {
   label: React.ReactNode;
-  foods: FoodPreset[];
+  foods: FoodRow[];
   lastQtyMap: LastQtyMap;
-  onTap: (p: FoodPreset, el: HTMLElement) => void;
-  onLongPress: (p: FoodPreset) => void;
+  onTap: (f: FoodRow, el: HTMLElement) => void;
+  onLongPress: (f: FoodRow) => void;
 }) {
   return (
     <div>
-      <div className="text-[11px] font-medium text-neutral-500 mb-1.5 inline-flex items-center gap-1">{label}</div>
+      <div className="text-[11px] font-medium text-neutral-500 mb-1.5 inline-flex items-center gap-1">
+        {label}
+      </div>
       <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-none">
         {foods.map((f) => (
           <Chip
@@ -432,10 +511,10 @@ function Chip({
   onTap,
   onLongPress,
 }: {
-  food: FoodPreset;
+  food: FoodRow;
   last: LastQty | undefined;
-  onTap: (p: FoodPreset, el: HTMLElement) => void;
-  onLongPress: (p: FoodPreset) => void;
+  onTap: (f: FoodRow, el: HTMLElement) => void;
+  onLongPress: (f: FoodRow) => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -462,7 +541,7 @@ function Chip({
     }
     if (!longPressedRef.current && ref.current) {
       setEcho((n) => n + 1);
-      onTap(food, ref.current);
+      void onTap(food, ref.current);
     }
   }
 
@@ -491,4 +570,3 @@ function Chip({
     </motion.button>
   );
 }
-
