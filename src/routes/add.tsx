@@ -639,9 +639,9 @@ function AddFoodPage() {
         fat_g: fatG,
       });
 
-      // Update recents (UX-only localStorage)
-      const effectiveId = food.source === "custom" ? food.id : food.id;
-      const nextRecent = [effectiveId, ...recents.filter((x) => x !== effectiveId)].slice(0, 10);
+      // Update recents (UX-only localStorage) — cloud food_id(UUID) 저장
+      // QuickAddTray가 allFoods.id로 매칭하므로 통일 필요
+      const nextRecent = [foodId, ...recents.filter((x) => x !== foodId)].slice(0, 10);
       localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
       setRecents(nextRecent);
 
