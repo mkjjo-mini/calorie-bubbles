@@ -86,9 +86,9 @@ function NotificationsPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#FFFDF5] flex justify-center">
+    <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[390px] flex flex-col">
-        <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-neutral-100 bg-[#FFFDF5]/95 px-4 py-3 backdrop-blur">
+        <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-neutral-100 bg-white/95 px-4 py-3 backdrop-blur">
           <button
             type="button"
             aria-label="뒤로"

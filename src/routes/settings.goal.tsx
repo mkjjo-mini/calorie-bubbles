@@ -334,7 +334,7 @@ function RecommendWizard({
         onClick={onClose}
         aria-hidden
       />
-      <div className="relative w-full max-w-[390px] rounded-t-3xl bg-[#FFFDF5] max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
+      <div className="relative w-full max-w-[390px] rounded-t-3xl bg-white max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
         {/* 핸들 */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-neutral-200" />
@@ -527,7 +527,7 @@ function RecommendWizard({
         </div>
 
         {/* 하단 버튼 */}
-        <div className="px-5 pb-6 pt-2 space-y-2 border-t border-neutral-100 bg-[#FFFDF5]">
+        <div className="px-5 pb-6 pt-2 space-y-2 border-t border-neutral-100 bg-white">
           {step === 5 && rec ? (
             <>
               <Button
@@ -688,10 +688,10 @@ function GoalPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#FFFDF5] flex justify-center">
+    <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[390px] flex flex-col">
         {/* 헤더 */}
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-100 bg-[#FFFDF5]/95 px-4 py-3 backdrop-blur">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-100 bg-white/95 px-4 py-3 backdrop-blur">
           <div className="flex items-center gap-2">
             <button
               type="button"
