@@ -525,7 +525,7 @@ function AddFoodPage() {
     );
     const grams = mode === "gram" ? qty : Math.round(food.serving_g * qty);
     const now = Date.now();
-    const loggedDate = todayKST();
+    // loggedDate from search params (defaults to today)
     const mealSlot = inferMealSlot(now);
 
     try {
