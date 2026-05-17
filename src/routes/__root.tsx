@@ -128,11 +128,11 @@ function RootComponent() {
   );
 }
 
-import { Home, Droplets, Settings as SettingsIcon } from "lucide-react";
+import { Home, Waves, Settings as SettingsIcon } from "lucide-react";
 
 const TABS = [
   { to: "/", icon: Home, label: "홈" },
-  { to: "/history", icon: Droplets, label: "기록" },
+  { to: "/history", icon: Waves, label: "기록" },
   { to: "/settings", icon: SettingsIcon, label: "설정" },
 ] as const;
 
