@@ -350,7 +350,9 @@ export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
           fat_g: Math.round(food.fat_g * ratio * 10) / 10,
         };
         try {
+          alert(`[디버그] update 호출 직전 food.id=${food.id}\nupdated=${JSON.stringify(updated)}`);
           await cloudRepository.foods.update(food.id, updated);
+          alert(`[디버그] update 성공`);
           // 두 state 모두 즉시 반영 — 다음 sheet/chip 렌더 시 새 값 사용
           const apply = (f: FoodRow) =>
             f.id === food.id ? { ...f, ...updated } : f;
@@ -359,6 +361,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
           persistLastQty(food.name, 1, "serving");
           toast.success(`${newServingG}g을 1인분 기준으로 저장했어요`);
         } catch (e) {
+          alert(`[디버그] update 실패: ${e instanceof Error ? e.message : String(e)}`);
           persistLastQty(food.name, qty, mode);
           if (e instanceof CloudAuthError) toast.error("로그인이 필요해요");
           else toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
