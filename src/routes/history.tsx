@@ -526,21 +526,6 @@ function HistoryPage() {
                 })}
               </svg>
 
-              {/* Today column highlight (yellow, matches brand) */}
-              {isCurrentMonth && colLayouts[today.getDate() - 1] && (
-                <div
-                  className="pointer-events-none absolute rounded-md"
-                  style={{
-                    left: colLayouts[today.getDate() - 1].start + 1,
-                    width: colLayouts[today.getDate() - 1].width - 2,
-                    top: 4,
-                    height: TANK_H - 8,
-                    border: "1.5px solid rgba(255,193,7,0.7)",
-                    background: "rgba(255,215,0,0.08)",
-                  }}
-                />
-              )}
-
               {/* Date watermarks at top of each column */}
               {month.map((d, i) => {
                 const col = colLayouts[i];
