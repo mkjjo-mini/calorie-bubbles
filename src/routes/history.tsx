@@ -338,7 +338,7 @@ function HistoryPage() {
 
           {/* Minimap */}
           <div className="px-3 pb-2">
-            <div ref={minimapRef} className="relative h-3 w-full" role="presentation">
+            <div ref={minimapRef} className="relative h-4 w-full" role="presentation">
               <div className="absolute inset-0 flex items-center justify-center gap-[4px]">
                 {month.map((d, i) => {
                   const color = progressColor(d, mode);
