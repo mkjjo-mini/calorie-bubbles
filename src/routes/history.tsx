@@ -367,7 +367,7 @@ function HistoryPage() {
                 className="absolute inset-0 pointer-events-none"
               >
                 {month.map((d, i) => {
-                  const x = i * DAY_COL_W;
+                  const x = colLayouts[i].start;
                   const isMonday = d.date.getDay() === 1;
                   return (
                     <line
@@ -386,12 +386,12 @@ function HistoryPage() {
               </svg>
 
               {/* Today column highlight (yellow, matches brand) */}
-              {isCurrentMonth && (
+              {isCurrentMonth && colLayouts[today.getDate() - 1] && (
                 <div
                   className="pointer-events-none absolute rounded-md"
                   style={{
-                    left: (today.getDate() - 1) * DAY_COL_W + 1,
-                    width: DAY_COL_W - 2,
+                    left: colLayouts[today.getDate() - 1].start + 1,
+                    width: colLayouts[today.getDate() - 1].width - 2,
                     top: 4,
                     height: TANK_H - 8,
                     border: "1.5px solid rgba(255,193,7,0.7)",
@@ -406,6 +406,8 @@ function HistoryPage() {
                   key={month[dayIdx].dateKey}
                   bubbles={bubbles}
                   dayIdx={dayIdx}
+                  colStart={colLayouts[dayIdx].start}
+                  colWidth={colLayouts[dayIdx].width}
                   mode={mode}
                   maxMetric={maxMetric}
                   favorites={favorites}
