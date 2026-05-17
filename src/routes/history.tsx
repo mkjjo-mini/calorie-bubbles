@@ -78,10 +78,12 @@ interface FoodBubbleData {
   protein: number;
   fat: number;
   kcal: number;
+  count: number; // 합산된 섭취 횟수 (foodLogId 기준 unique)
 }
 
 function buildDayBubbles(day: DayData): FoodBubbleData[] {
   const map = new Map<string, FoodBubbleData>();
+  const seenLogs = new Map<string, Set<string>>();
   for (const e of day.entries) {
     const name = displayName(e.foodName);
     const key = normalizeFoodKey(e.foodName);
@@ -95,11 +97,18 @@ function buildDayBubbles(day: DayData): FoodBubbleData[] {
         protein: 0,
         fat: 0,
         kcal: 0,
+        count: 0,
       };
       map.set(key, b);
+      seenLogs.set(key, new Set());
     }
     b[e.macro] += e.grams;
     b.ts = Math.min(b.ts, e.addedAt);
+    const logs = seenLogs.get(key)!;
+    if (!logs.has(e.foodLogId)) {
+      logs.add(e.foodLogId);
+      b.count += 1;
+    }
   }
   for (const b of map.values()) {
     b.kcal = Math.round(
@@ -782,9 +791,19 @@ function PopoverBody({
   return (
     <div className="text-[12px]">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-neutral-900">
-          {bubble.name}
-        </span>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[13px] font-semibold text-neutral-900">
+            {bubble.name}
+          </span>
+          {bubble.count > 1 && (
+            <span
+              className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-700"
+              aria-label={`${bubble.count}회 섭취`}
+            >
+              ×{bubble.count}
+            </span>
+          )}
+        </div>
         <button
           onClick={onToggle}
           aria-label={favorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
@@ -800,6 +819,9 @@ function PopoverBody({
       </div>
       <div className="mt-1 text-neutral-500">
         {date.getMonth() + 1}/{date.getDate()} · {bubble.kcal} kcal
+        {bubble.count > 1 && (
+          <span className="text-neutral-400"> · {bubble.count}회 합산</span>
+        )}
       </div>
       <div className="mt-1 text-neutral-600">
         탄 {Math.round(bubble.carbs)}g · 단 {Math.round(bubble.protein)}g · 지{" "}
