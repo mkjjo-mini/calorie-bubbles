@@ -227,7 +227,7 @@ function HistoryPage() {
   const hasAnyRecord = perDay.some((arr) => arr.length > 0);
 
   return (
-    <div className="min-h-screen w-full" style={{ background: "#FFFDF5" }}>
+    <div className="min-h-screen w-full bg-white">
       <main className="mx-auto flex w-full max-w-[420px] flex-col">
         {/* HEADER */}
         <header className="sticky top-0 z-30 border-b border-neutral-200/70 bg-white/95 backdrop-blur">
