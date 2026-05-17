@@ -391,9 +391,7 @@ function HistoryPage() {
               borderRadius: 20,
               background:
                 "radial-gradient(120% 80% at 50% 10%, #f8fafc 0%, #eef2f6 60%, #e5eaf0 100%)",
-              border: "1.5px solid rgba(255,193,7,0.65)",
-              boxShadow:
-                "0 0 22px rgba(255,193,7,0.25), inset 0 4px 12px rgba(0,0,0,0.04)",
+              boxShadow: "inset 0 4px 12px rgba(0,0,0,0.04)",
             }}
           >
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}`}</style>
