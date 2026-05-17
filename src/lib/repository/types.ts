@@ -91,6 +91,8 @@ export interface UserProfileRow {
   goal: "loss" | "maintain" | "gain";
   target_weight_kg: number | null;
   target_period_weeks: number | null;
+  /** 30분 단위 시각 "HH:MM" 배열 (예: ["08:00","12:30"]). null 또는 빈 배열 시 알림 off */
+  notification_times: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -104,6 +106,7 @@ export interface UserProfileInsert {
   goal?: "loss" | "maintain" | "gain";
   target_weight_kg?: number | null;
   target_period_weeks?: number | null;
+  notification_times?: string[] | null;
 }
 
 export interface Repository {

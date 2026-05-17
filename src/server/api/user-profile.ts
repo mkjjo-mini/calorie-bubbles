@@ -3,9 +3,11 @@
  *
  * GET  /api/user-profile  → 본인 row 반환 (없으면 null)
  * PUT  /api/user-profile  → UPSERT (user_key 서버 강제, onConflict: user_key)
+
  *                           body: { height_cm, weight_kg, sex, birth_year,
  *                                   activity_level?, goal?,
- *                                   target_weight_kg?, target_period_weeks? }
+ *                                   target_weight_kg?, target_period_weeks?,
+ *                                   notification_times?: string[] (HH:MM, 30분 단위) }
  */
 import type { Env } from "../auth/env";
 import { jsonError, withSession } from "../auth/middleware";
@@ -19,6 +21,7 @@ const VALID_ACTIVITY = new Set([
   "very_active",
 ]);
 const VALID_GOAL = new Set(["loss", "maintain", "gain"]);
+const NOTIFY_TIME_RE = /^([01][0-9]|2[0-3]):(00|30)$/;
 
 export async function handleUserProfile(
   req: Request,
@@ -126,6 +129,29 @@ export async function handleUserProfile(
         );
       }
 
+      // notification_times: string[] (각 원소 HH:MM, 30분 단위만)
+      let notificationTimes: string[] | null = null;
+      if (b.notification_times !== undefined && b.notification_times !== null) {
+        if (!Array.isArray(b.notification_times)) {
+          return jsonError(
+            400,
+            "INVALID_BODY",
+            "notification_times must be an array of HH:MM strings",
+          );
+        }
+        for (const t of b.notification_times) {
+          if (typeof t !== "string" || !NOTIFY_TIME_RE.test(t)) {
+            return jsonError(
+              400,
+              "INVALID_BODY",
+              `notification_times: invalid 30-min slot "${String(t)}"`,
+            );
+          }
+        }
+        // dedupe + sort
+        notificationTimes = Array.from(new Set(b.notification_times as string[])).sort();
+      }
+
       const upsertRow = {
         user_key: userKey,
         height_cm: height,
@@ -138,6 +164,7 @@ export async function handleUserProfile(
         ...(b.goal !== undefined ? { goal: b.goal } : {}),
         target_weight_kg: targetWeight,
         target_period_weeks: targetPeriod,
+        notification_times: notificationTimes,
         updated_at: new Date().toISOString(),
       };
 
