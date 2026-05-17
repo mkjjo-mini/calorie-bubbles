@@ -212,6 +212,40 @@ function HistoryPage() {
     return { perDay: _perDay, maxMetric: max || 1, colLayouts: _colLayouts, totalWidth: cursorX };
   }, [month, mode]);
 
+  // Month-level kcal color assignment: distinct palette slots until exhausted.
+  // Same food name keeps the same color across all days of the month.
+  const monthKcalColors = useMemo(() => {
+    const map = new Map<string, { color: string; text: string }>();
+    const N = KCAL_PALETTE.length;
+    const used = new Set<number>();
+    const seenNames: string[] = [];
+    perDay.forEach((arr) => {
+      for (const b of arr) {
+        if (!map.has(b.name)) {
+          seenNames.push(b.name);
+          map.set(b.name, KCAL_PALETTE[0]); // placeholder, overwritten below
+        }
+      }
+    });
+    // Stable order by first appearance, then greedy preferred-index probing.
+    for (const name of seenNames) {
+      const preferred = Math.floor(hash01(name, 1) * N) % N;
+      let idx = preferred;
+      if (used.size < N) {
+        for (let step = 0; step < N; step++) {
+          const candidate = (preferred + step) % N;
+          if (!used.has(candidate)) {
+            idx = candidate;
+            break;
+          }
+        }
+        used.add(idx);
+      }
+      map.set(name, KCAL_PALETTE[idx]);
+    }
+    return map;
+  }, [perDay]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollX, setScrollX] = useState(0);
   const [viewportW, setViewportW] = useState(0);
