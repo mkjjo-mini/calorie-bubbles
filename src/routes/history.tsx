@@ -24,7 +24,9 @@ export const Route = createFileRoute("/history")({
 });
 
 /* ---------- layout constants (mirrors home bowl) ---------- */
-const DAY_COL_W = 88;
+const MIN_COL_W = 64;
+const MAX_COL_W = 168;
+const PER_FOOD_W = 22; // extra width per food on a day
 const TANK_H = 440;
 const WAVE_H = 140; // higher water level
 const BUBBLE_MIN = 24;
