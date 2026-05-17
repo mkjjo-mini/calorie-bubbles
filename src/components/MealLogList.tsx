@@ -389,7 +389,9 @@ function DraggableLogRow({
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0 : 1,
-    touchAction: "none",
+    // primed(long-press) 통과 전엔 vertical scroll 허용, 후엔 자유 drag
+    // pan-y로 두면 좌 swipe(horizontal)는 react가 받고 위/아래는 native scroll에 양보
+    touchAction: primed ? "none" : "pan-y",
   };
 
   // Compose with dnd-kit's listeners so drag activation still works.
