@@ -36,8 +36,8 @@ function SettingsMenuPage() {
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[390px] flex flex-col">
-        <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-neutral-100 bg-white/95 px-4 py-3 backdrop-blur">
-          <h1 className="text-base font-semibold text-neutral-900">설정</h1>
+        <header className="sticky top-0 z-10 border-b border-neutral-100 bg-white/95 px-5 pt-6 pb-3 backdrop-blur">
+          <h1 className="text-lg font-semibold text-neutral-900">Settings</h1>
         </header>
 
         <div className="flex-1 px-4 pt-4 pb-12">
