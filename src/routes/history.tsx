@@ -456,7 +456,6 @@ function HistoryPage() {
                       stroke={
                         isMonday ? "rgba(59,130,246,0.55)" : "rgba(15,23,42,0.035)"
                       }
-                      strokeDasharray={isMonday ? "4 3" : undefined}
                       strokeWidth={1}
                     />
                   );
