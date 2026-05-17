@@ -411,10 +411,13 @@ function HistoryPage() {
                 const isWknd = d.date.getDay() === 0 || d.date.getDay() === 6;
                 const isToday =
                   isCurrentMonth && d.date.getDate() === today.getDate();
+                const wd = ["일", "월", "화", "수", "목", "금", "토"][
+                  d.date.getDay()
+                ];
                 return (
                   <div
                     key={`wm-${d.dateKey}`}
-                    className="pointer-events-none absolute flex flex-col items-center"
+                    className="pointer-events-none absolute flex items-baseline justify-center gap-1"
                     style={{
                       left: col.start,
                       width: col.width,
@@ -425,14 +428,27 @@ function HistoryPage() {
                       className="font-mono text-[10px] tabular-nums leading-none"
                       style={{
                         color: isToday
-                          ? "rgba(180,130,0,0.85)"
+                          ? "rgba(180,130,0,0.9)"
                           : isWknd
-                            ? "rgba(15,23,42,0.22)"
-                            : "rgba(15,23,42,0.28)",
+                            ? "rgba(15,23,42,0.28)"
+                            : "rgba(15,23,42,0.34)",
                         fontWeight: isToday ? 700 : 500,
                       }}
                     >
-                      {d.date.getDate()}
+                      {d.date.getMonth() + 1}/{d.date.getDate()}
+                    </span>
+                    <span
+                      className="text-[9px] leading-none"
+                      style={{
+                        color: isToday
+                          ? "rgba(180,130,0,0.8)"
+                          : isWknd
+                            ? "rgba(15,23,42,0.22)"
+                            : "rgba(15,23,42,0.28)",
+                        fontWeight: isToday ? 600 : 400,
+                      }}
+                    >
+                      {wd}
                     </span>
                   </div>
                 );
