@@ -261,8 +261,9 @@ function HistoryPage() {
         getComputedStyle(document.documentElement).getPropertyValue("--sab") || "0",
         10,
       ) || 0;
-      const BOTTOM_NAV = 72 + Math.max(safeBottom, 16) + 12;
-      const next = Math.max(320, Math.floor(window.innerHeight - top - BOTTOM_NAV));
+      // 하단 탭바 + safe-area + 탱크 래퍼 pb-2(8px) + 여유
+      const BOTTOM_NAV = 72 + Math.max(safeBottom, 16) + 8 + 12;
+      const next = Math.max(280, Math.floor(window.innerHeight - top - BOTTOM_NAV));
       setTankH(next);
     }
     recalc();
