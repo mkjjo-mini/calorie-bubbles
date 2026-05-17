@@ -433,7 +433,7 @@ function HistoryPage() {
               }}
             >
               <div className="relative flex" style={{ width: totalWidth, height: 36 }}>
-                {month.map((d) => {
+                {month.map((d, i) => {
                   const color = progressColor(d);
                   const wd = ["일", "월", "화", "수", "목", "금", "토"][d.date.getDay()];
                   const isWknd = d.date.getDay() === 0 || d.date.getDay() === 6;
