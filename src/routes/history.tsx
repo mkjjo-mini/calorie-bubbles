@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion, useTime, useTransform } from "framer-motion";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Wave } from "@/components/Wave";
 import {
   displayName,
@@ -56,6 +66,12 @@ function hash01(str: string, salt = 0) {
     h = Math.imul(h, 16777619);
   }
   return ((h >>> 0) % 10000) / 10000;
+}
+
+/** dateKey "YYYY-M-D" → "YYYY-MM-DD" */
+function dateKeyToIso(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 // Curated palette for kcal-mode bubbles — distinct from macro RGB identity.
@@ -147,6 +163,12 @@ function HistoryPage() {
   const [mode, setMode] = useState<MetricMode>("kcal");
   const [version, setVersion] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(() => new Set());
+  const navigate = useNavigate();
+  const [goHomeDialog, setGoHomeDialog] = useState<{
+    open: boolean;
+    dateKey: string | null;
+  }>({ open: false, dateKey: null });
+  const lpTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -334,6 +356,22 @@ function HistoryPage() {
         else next.delete(food_id);
         return next;
       });
+    }
+  }
+
+  function startLongPress(dateKey: string) {
+    return (e: React.PointerEvent) => {
+      if (e.button !== 0 && e.button !== -1) return;
+      lpTimerRef.current = window.setTimeout(() => {
+        lpTimerRef.current = null;
+        setGoHomeDialog({ open: true, dateKey });
+      }, 600);
+    };
+  }
+  function cancelLongPress() {
+    if (lpTimerRef.current) {
+      clearTimeout(lpTimerRef.current);
+      lpTimerRef.current = null;
     }
   }
 
@@ -579,6 +617,23 @@ function HistoryPage() {
                 );
               })}
 
+              {/* Long press hit areas per day column */}
+              {month.map((d, i) => (
+                <div
+                  key={`lp-${d.dateKey}`}
+                  className="absolute top-0"
+                  style={{
+                    left: colLayouts[i].start,
+                    width: colLayouts[i].width,
+                    height: TANK_H,
+                    touchAction: "pan-x",
+                  }}
+                  onPointerDown={startLongPress(d.dateKey)}
+                  onPointerUp={cancelLongPress}
+                  onPointerCancel={cancelLongPress}
+                />
+              ))}
+
               {/* Bubbles */}
               {perDay.map((bubbles, dayIdx) => (
                 <DayBubbles
@@ -605,6 +660,45 @@ function HistoryPage() {
           </div>
 
         </div>
+
+        {/* Go to home date dialog */}
+        <AlertDialog
+          open={goHomeDialog.open}
+          onOpenChange={(open) => {
+            if (!open) setGoHomeDialog({ open: false, dateKey: null });
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>해당 일자로 이동할까요?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {goHomeDialog.dateKey
+                  ? `${goHomeDialog.dateKey.split("-")[1]}월 ${goHomeDialog.dateKey.split("-")[2]}일 기록 화면으로 이동합니다.`
+                  : ""}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => setGoHomeDialog({ open: false, dateKey: null })}
+              >
+                취소
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (goHomeDialog.dateKey) {
+                    navigate({
+                      to: "/",
+                      search: { date: dateKeyToIso(goHomeDialog.dateKey) },
+                    });
+                  }
+                  setGoHomeDialog({ open: false, dateKey: null });
+                }}
+              >
+                이동
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
