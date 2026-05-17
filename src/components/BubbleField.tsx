@@ -155,7 +155,7 @@ export function BubbleField({
     prevCountRef.current = curr;
     // Removal: gentle resettle, gentler still when packed. Addition: stronger kick.
     const isRemoval = curr < prev;
-    const alpha = isRemoval ? Math.max(0.15, 0.35 * compression) : 0.45;
+    const alpha = isRemoval ? Math.max(0.12, 0.3 * compression) : 0.22;
     sim.alpha(alpha).restart();
   }, [bubbles, cx, bowlArea, goalKcal, maxR, compression]);
 
