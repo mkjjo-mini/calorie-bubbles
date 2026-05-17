@@ -413,6 +413,7 @@ function HistoryPage() {
                   dayIdx={dayIdx}
                   colStart={colLayouts[dayIdx].start}
                   colWidth={colLayouts[dayIdx].width}
+                  waveWidth={totalWidth}
                   mode={mode}
                   maxMetric={maxMetric}
                   favorites={favorites}
