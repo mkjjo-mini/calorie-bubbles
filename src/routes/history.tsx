@@ -616,7 +616,7 @@ function DayBubbles({
       }
     }
     // Clamp so bubble bottom never dips past the tank, even at trough.
-    yPos = Math.min(yPos, TANK_H - WAVE_H * 0.55 - r);
+    yPos = Math.min(yPos, tankH - WAVE_H * 0.55 - r);
     yPos = Math.max(r + 8, yPos);
     placed.push({ x: xPos, y: yPos, r });
     return { b, size, xPos, yPos, seed };
