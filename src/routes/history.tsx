@@ -753,21 +753,25 @@ function Bubble({
               delay,
             }}
           >
-            {size >= 28 && (
-              <span
-                className="px-1 text-center text-[10px] font-semibold leading-tight"
-                style={{
-                  color:
-                    mode === "carbs" || (mode === "kcal" && isLight(color))
-                      ? "#3F2A00"
-                      : "#FFFFFF",
-                  maxWidth: size - 6,
-                  wordBreak: "keep-all",
-                }}
-              >
-                {b.name}
-              </span>
-            )}
+            <span
+              className="px-1 text-center font-semibold leading-tight"
+              style={{
+                fontSize: size >= 28 ? 10 : 8,
+                color:
+                  mode === "carbs" || (mode === "kcal" && isLight(color))
+                    ? "#3F2A00"
+                    : "#FFFFFF",
+                maxWidth: size - 4,
+                wordBreak: "keep-all",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                display: "-webkit-box",
+                WebkitBoxOrient: "vertical",
+                WebkitLineClamp: 2,
+              }}
+            >
+              {b.name}
+            </span>
           </motion.span>
         </motion.button>
       </PopoverTrigger>
