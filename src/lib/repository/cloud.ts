@@ -12,6 +12,7 @@ import {
   type FoodRow,
   type Repository,
   type UserGoalInsert,
+  type UserNotifications,
   type UserProfileInsert,
   type UserProfileRow,
 } from "./types";
@@ -110,6 +111,14 @@ export const cloudRepository: Repository = {
       api<UserProfileRow>("/user-profile", {
         method: "PUT",
         body: JSON.stringify(profile),
+      }),
+  },
+  userNotifications: {
+    get: () => api<UserNotifications>("/user-notifications"),
+    put: (times: string[]) =>
+      api<UserNotifications>("/user-notifications", {
+        method: "PUT",
+        body: JSON.stringify({ times }),
       }),
   },
 };

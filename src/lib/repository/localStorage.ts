@@ -46,4 +46,10 @@ export const localRepository: Repository = {
       throw new Error("[localRepository] userProfile.put 미구현");
     },
   },
+  userNotifications: {
+    get: async () => ({ times: [] }),
+    put: async () => {
+      throw new Error("[localRepository] userNotifications.put 미구현");
+    },
+  },
 };

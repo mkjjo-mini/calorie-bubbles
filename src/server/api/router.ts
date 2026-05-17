@@ -10,6 +10,7 @@ import { handleFoodLogs } from "./food-logs";
 import { handleFoods } from "./foods";
 import { handleSubscriptionStatus } from "./subscription-status";
 import { handleUserGoals, handleUserGoalsMonth } from "./user-goals";
+import { handleUserNotifications } from "./user-notifications";
 import { handleUserProfile } from "./user-profile";
 
 export async function handleApi(
@@ -32,6 +33,8 @@ export async function handleApi(
       return handleSubscriptionStatus(req, env);
     case "/api/user-profile":
       return handleUserProfile(req, env);
+    case "/api/user-notifications":
+      return handleUserNotifications(req, env);
     default:
       return null;
   }

@@ -91,8 +91,6 @@ export interface UserProfileRow {
   goal: "loss" | "maintain" | "gain";
   target_weight_kg: number | null;
   target_period_weeks: number | null;
-  /** 30분 단위 시각 "HH:MM" 배열 (예: ["08:00","12:30"]). null 또는 빈 배열 시 알림 off */
-  notification_times: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -106,7 +104,11 @@ export interface UserProfileInsert {
   goal?: "loss" | "maintain" | "gain";
   target_weight_kg?: number | null;
   target_period_weeks?: number | null;
-  notification_times?: string[] | null;
+}
+
+export interface UserNotifications {
+  /** 30분 단위 "HH:MM" 시간 배열 (예: ["08:00","12:30"]). 빈 배열 = 알림 off */
+  times: string[];
 }
 
 export interface Repository {
@@ -139,6 +141,10 @@ export interface Repository {
   userProfile: {
     get(): Promise<UserProfileRow | null>;
     put(profile: UserProfileInsert): Promise<UserProfileRow>;
+  };
+  userNotifications: {
+    get(): Promise<UserNotifications>;
+    put(times: string[]): Promise<UserNotifications>;
   };
 }
 
