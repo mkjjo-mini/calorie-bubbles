@@ -129,8 +129,22 @@ function Index() {
   }, [entries.length, stage, bowlControls]);
 
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Maps logId → pending cloud DELETE so we can cancel on undo
+  const pendingDeleteRef = useRef<Map<string, { log: FoodLogRow; timerId: ReturnType<typeof setTimeout> }>>(new Map());
   const bowlRef = useRef<HTMLDivElement>(null);
   const [openResetDialog, setOpenResetDialog] = useState(false);
+
+  // Flush all pending deletes on unmount
+  useEffect(() => {
+    return () => {
+      for (const [logId, { timerId }] of pendingDeleteRef.current) {
+        clearTimeout(timerId);
+        // Fire-and-forget cloud DELETE on unmount
+        void cloudRepository.foodLogs.remove(logId);
+      }
+      pendingDeleteRef.current.clear();
+    };
+  }, []);
 
   function changeSlot(foodLogId: string, slot: MealSlot) {
     setLogs((prev) =>
@@ -142,67 +156,70 @@ function Index() {
 
   const lastToastIdRef = useRef<string | number | null>(null);
 
-  async function removeByLogId(logId: string, label?: string) {
-    const target = logs.find((l) => l.id === logId);
+  function removeByLogId(logId: string, label?: string) {
+    // Find in current logs OR in pending-delete map (edge case: double-delete)
+    const target = logs.find((l) => l.id === logId) ?? pendingDeleteRef.current.get(logId)?.log;
     if (!target) return;
 
-    // Optimistic remove
-    setLogs((prev) => prev.filter((l) => l.id !== logId));
+    // Cancel any existing pending delete for this id (restart timer)
+    const existing = pendingDeleteRef.current.get(logId);
+    if (existing) {
+      clearTimeout(existing.timerId);
+      pendingDeleteRef.current.delete(logId);
+    }
 
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    // Dismiss previous undo toast
     if (lastToastIdRef.current != null) toast.dismiss(lastToastIdRef.current);
+
+    // Optimistic remove from UI
+    setLogs((prev) => prev.filter((l) => l.id !== logId));
 
     const tid = `undo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     lastToastIdRef.current = tid;
     const name = label ?? target.food?.name ?? "음식";
 
-    try {
-      await cloudRepository.foodLogs.remove(logId);
-    } catch (e) {
-      // Revert on failure
-      setLogs((prev) => [...prev, target]);
-      if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
-      } else {
-        toast.error("삭제 실패");
-      }
-      return;
-    }
+    // Schedule deferred cloud DELETE after 5 s
+    const timerId = setTimeout(() => {
+      pendingDeleteRef.current.delete(logId);
+      lastToastIdRef.current = null;
+      void cloudRepository.foodLogs.remove(logId).catch((e) => {
+        // Revert on failure — add back to logs
+        setLogs((prev) => [...prev, target]);
+        if (e instanceof CloudAuthError) {
+          toast.error("로그인이 필요해요");
+        } else {
+          toast.error("삭제 실패");
+        }
+      });
+    }, 5000);
 
-    toast(`${displayName(name)} 삭제했어요`, {
+    pendingDeleteRef.current.set(logId, { log: target, timerId });
+
+    toast(`${displayName(name)}을 지웠어요`, {
       id: tid,
       duration: 5000,
       action: {
-        label: "되돌리기",
-        onClick: async () => {
-          try {
-            // Re-create the log
-            const restored = await cloudRepository.foodLogs.create({
-              food_id: target.food_id,
-              logged_date: target.logged_date,
-              meal_slot: target.meal_slot,
-              grams: target.grams,
-              kcal: target.kcal,
-              carb_g: target.carb_g,
-              protein_g: target.protein_g,
-              fat_g: target.fat_g,
-            });
-            setLogs((prev) => [
-              ...prev,
-              { ...restored, food: target.food },
-            ]);
-            if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-            lastToastIdRef.current = null;
-          } catch {
-            toast.error("되돌리기 실패");
+        label: "되살리기",
+        onClick: () => {
+          const pending = pendingDeleteRef.current.get(logId);
+          if (pending) {
+            clearTimeout(pending.timerId);
+            pendingDeleteRef.current.delete(logId);
           }
+          // Restore to UI at original position (append — will re-sort by addedAt)
+          setLogs((prev) => {
+            if (prev.some((l) => l.id === logId)) return prev; // already there
+            return [...prev, target];
+          });
+          lastToastIdRef.current = null;
         },
       },
     });
 
+    // Keep undoTimerRef for compatibility (unused logic removed)
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     undoTimerRef.current = setTimeout(() => {
       undoTimerRef.current = null;
-      lastToastIdRef.current = null;
     }, 5000);
   }
 
@@ -386,7 +403,7 @@ function Index() {
           <MealLogList
             entries={entries}
             onChangeSlot={changeSlot}
-            onDelete={(logId) => void removeByLogId(logId)}
+            onDelete={(logId, foodName) => removeByLogId(logId, foodName)}
             onReplaceQty={replaceQty}
           />
         )}

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useMotionValue, useTransform } from "framer-motion";
 import { toast } from "sonner";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Trash2 } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
+  useDndContext,
   useSensor,
   useSensors,
   useDraggable,
@@ -95,7 +96,7 @@ function findBaselineByName(name: string): Baseline | undefined {
 interface Props {
   entries: BubbleEntry[];
   onChangeSlot: (foodLogId: string, slot: MealSlot) => void;
-  onDelete: (foodLogId: string) => void;
+  onDelete: (foodLogId: string, foodName: string) => void;
   onReplaceQty: (foodLogId: string, newEntries: BubbleEntry[]) => void;
 }
 
@@ -121,6 +122,9 @@ function dominantMacro(item: LogItem): Macro {
 }
 
 export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: Props) {
+  // Expose onDelete ref so DraggableLogRow can call it without prop-drilling through DndContext
+  const onDeleteRef = useRef(onDelete);
+  onDeleteRef.current = onDelete;
   const [actionFor, setActionFor] = useState<LogItem | null>(null);
   const [slotSheetFor, setSlotSheetFor] = useState<LogItem | null>(null);
   const [editFor, setEditFor] = useState<LogItem | null>(null);
@@ -248,6 +252,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
                             key={it.foodLogId}
                             item={it}
                             onOpenActions={() => openActions(it)}
+                            onDelete={(id, name) => onDeleteRef.current(id, name)}
                           />
                         ))}
                       </AnimatePresence>
@@ -274,7 +279,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
             setActionFor(null);
             if (action === "edit") setEditFor(target);
             else if (action === "slot") setSlotSheetFor(target);
-            else if (action === "delete") onDelete(target.foodLogId);
+            else if (action === "delete") onDelete(target.foodLogId, target.foodName);
           }}
         />
       )}
@@ -340,19 +345,33 @@ function SlotDropZone({
   );
 }
 
+const SWIPE_DELETE_THRESHOLD = -80;
+const SWIPE_DRAG_CONSTRAINT_LEFT = -120;
+
 function DraggableLogRow({
   item,
   onOpenActions,
+  onDelete,
 }: {
   item: LogItem;
   onOpenActions: () => void;
+  onDelete: (foodLogId: string, foodName: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.foodLogId,
   });
+  const { active: dndActive } = useDndContext();
+  const isDndActive = dndActive !== null;
+
   const [primed, setPrimed] = useState(false);
+  const [deleted, setDeleted] = useState(false);
   const timerRef = useRef<number | null>(null);
   const startPos = useRef<{ x: number; y: number } | null>(null);
+
+  // framer-motion motion value for swipe x offset
+  const x = useMotionValue(0);
+  const trashOpacity = useTransform(x, [-120, -60, 0], [1, 0.6, 0]);
+  const trashScale = useTransform(x, [-120, -60, 0], [1.1, 0.9, 0.7]);
 
   const clearTimer = () => {
     if (timerRef.current !== null) {
@@ -407,6 +426,19 @@ function DraggableLogRow({
     onKeyDown: dndListeners.onKeyDown as React.KeyboardEventHandler<HTMLDivElement> | undefined,
   };
 
+  function handleDragEnd() {
+    if (x.get() < SWIPE_DELETE_THRESHOLD) {
+      // Crossed threshold — trigger delete
+      setDeleted(true);
+      onDelete(item.foodLogId, item.foodName);
+    } else {
+      // Spring back to origin
+      x.set(0);
+    }
+  }
+
+  if (deleted) return null;
+
   return (
     <motion.div
       ref={setNodeRef}
@@ -417,16 +449,32 @@ function DraggableLogRow({
         scale: primed ? 1.02 : 1,
       }}
       transition={{ scale: { type: "spring", stiffness: 400, damping: 28 } }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
       style={style}
       {...attributes}
       {...composed}
       onContextMenu={(e) => e.preventDefault()}
-      className={`select-none rounded-xl transition-shadow ${
+      className={`select-none rounded-xl transition-shadow relative overflow-hidden ${
         primed ? "bg-white shadow-lg ring-1 ring-neutral-200" : ""
       }`}
     >
-      <LogRowVisual item={item} onOpenActions={onOpenActions} />
+      {/* Delete background revealed on swipe */}
+      <div className="absolute inset-0 flex items-center justify-end pr-5 bg-red-500 rounded-xl">
+        <motion.div style={{ opacity: trashOpacity, scale: trashScale }}>
+          <Trash2 size={20} className="text-white" />
+        </motion.div>
+      </div>
+
+      {/* Swipeable content — framer drag only when dnd is not active */}
+      <motion.div
+        drag={isDndActive ? false : "x"}
+        dragConstraints={{ left: SWIPE_DRAG_CONSTRAINT_LEFT, right: 0 }}
+        dragElastic={0.2}
+        style={{ x, position: "relative", backgroundColor: "white", borderRadius: 12 }}
+        onDragEnd={handleDragEnd}
+      >
+        <LogRowVisual item={item} onOpenActions={onOpenActions} />
+      </motion.div>
     </motion.div>
   );
 }
