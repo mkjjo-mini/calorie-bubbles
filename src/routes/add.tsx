@@ -599,6 +599,33 @@ function AddFoodPage() {
             description: "라벨 칼로리와 매크로 합이 안 맞아 카테고리 기준으로 보정했어요",
           });
         }
+
+        // saveAsBase: api 음식도 1인분 기준 cloud 갱신 (custom 분기와 동일 패턴)
+        if (saveAsBase && food.serving_g > 0) {
+          const newServingG = mode === "gram" ? qty : qty * food.serving_g;
+          if (newServingG > 0) {
+            const ratio = newServingG / food.serving_g;
+            try {
+              await cloudRepository.foods.update(foodId, {
+                serving_g: newServingG,
+                serving_amount: newServingG,
+                serving_unit: "g",
+                kcal: Math.round(food.kcal * ratio),
+                carb_g: Math.round(reconciled.carb * ratio * 10) / 10,
+                protein_g: Math.round(reconciled.protein * ratio * 10) / 10,
+                fat_g: Math.round(reconciled.fat * ratio * 10) / 10,
+              });
+              await loadCloudData();
+              toast.success(`${newServingG}g을 1인분 기준으로 저장했어요`);
+            } catch (e) {
+              if (e instanceof CloudAuthError) {
+                toast.error("로그인이 필요해요");
+              } else {
+                toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
+              }
+            }
+          }
+        }
       }
 
       await cloudRepository.foodLogs.create({
