@@ -12,10 +12,11 @@ import {
   type Macro,
 } from "@/lib/foods";
 import {
+  addFavorite,
   loadFavorites,
   loadMonth,
   progressColor,
-  saveFavorites,
+  removeFavorite,
   type DayData,
 } from "@/lib/history";
 
@@ -72,6 +73,8 @@ function normalizeFoodKey(name: string): string {
 // Build per-day bubbles aggregated by food name
 interface FoodBubbleData {
   key: string;
+  /** 같은 이름 그룹의 대표 food_id (첫번째 FoodAgg) — 즐겨찾기 토글에 사용 */
+  food_id: string;
   name: string;
   ts: number;
   carbs: number;
@@ -90,6 +93,7 @@ function buildDayBubbles(day: DayData): FoodBubbleData[] {
     if (!b) {
       b = {
         key: `${day.dateKey}-${name}`,
+        food_id: f.food_id,
         name,
         ts: f.ts,
         carbs: 0,
@@ -125,7 +129,15 @@ function HistoryPage() {
   const [version, setVersion] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(() => new Set());
 
-  useEffect(() => setFavorites(loadFavorites()), []);
+  useEffect(() => {
+    let alive = true;
+    loadFavorites().then((s) => {
+      if (alive) setFavorites(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const [month, setMonth] = useState<DayData[]>([]);
   useEffect(() => {
@@ -223,14 +235,27 @@ function HistoryPage() {
   function navMonth(delta: number) {
     setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
   }
-  function toggleFavorite(name: string) {
+  async function toggleFavorite(food_id: string) {
+    const has = favorites.has(food_id);
+    // optimistic update
     setFavorites((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      saveFavorites(next);
+      if (has) next.delete(food_id);
+      else next.add(food_id);
       return next;
     });
+    try {
+      if (has) await removeFavorite(food_id);
+      else await addFavorite(food_id);
+    } catch {
+      // rollback on failure
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (has) next.add(food_id);
+        else next.delete(food_id);
+        return next;
+      });
+    }
   }
 
   const reduced = prefersReducedMotion();
@@ -642,7 +667,7 @@ function DayBubbles({
             mode={mode}
             reduced={reduced}
             date={date}
-            favorite={favorites.has(b.name)}
+            favorite={favorites.has(b.food_id)}
             onToggleFavorite={onToggleFavorite}
           />
         );
@@ -756,7 +781,7 @@ function Bubble({
           date={date}
           mode={mode}
           favorite={favorite}
-          onToggle={() => onToggleFavorite(b.name)}
+          onToggle={() => onToggleFavorite(b.food_id)}
         />
       </PopoverContent>
     </Popover>

@@ -18,6 +18,8 @@ export type MetricMode = "kcal" | Macro;
 
 export interface FoodAgg {
   foodLogId: string;
+  /** cloud foods FK — 즐겨찾기 토글에 사용 */
+  food_id: string;
   foodName: string;
   ts: number;
   meal_slot: "breakfast" | "lunch" | "dinner" | "snack";
@@ -60,6 +62,7 @@ function rowToFoodAgg(row: FoodLogRow): FoodAgg {
   arr.sort((a, b) => b[1] - a[1]);
   return {
     foodLogId: row.id,
+    food_id: row.food_id,
     foodName: row.food?.name ?? "(이름 없음)",
     ts: row.created_at ? new Date(row.created_at).getTime() : 0,
     meal_slot: row.meal_slot ?? "snack",
@@ -174,30 +177,22 @@ export function metricValue(f: FoodAgg, mode: MetricMode): number {
   return f[mode];
 }
 
-/* ---------- favorites (Phase 2.b — add.tsx 마이그 시 cloud로 전환 예정) ---------- */
-// add.tsx 와 동일 키 사용 (동기화). 과거 키("tandanji-favorites")는 첫 로드 시 1회 병합 후 제거.
+/* ---------- favorites — cloud food_id Set ---------- */
 
-const FAV_KEY = "favorites";
-const LEGACY_FAV_KEY = "tandanji-favorites";
-
-export function loadFavorites(): Set<string> {
-  if (typeof window === "undefined") return new Set();
+/** cloudRepository.favorites.list() → Set<food_id> */
+export async function loadFavorites(): Promise<Set<string>> {
   try {
-    const main = JSON.parse(localStorage.getItem(FAV_KEY) || "[]") as string[];
-    const legacyRaw = localStorage.getItem(LEGACY_FAV_KEY);
-    if (legacyRaw) {
-      const legacy = JSON.parse(legacyRaw) as string[];
-      const merged = new Set([...main, ...legacy]);
-      localStorage.setItem(FAV_KEY, JSON.stringify(Array.from(merged)));
-      localStorage.removeItem(LEGACY_FAV_KEY);
-      return merged;
-    }
-    return new Set(main);
+    const rows = await cloudRepository.favorites.list();
+    return new Set((rows ?? []).map((r) => r.food_id));
   } catch {
     return new Set();
   }
 }
 
-export function saveFavorites(s: Set<string>) {
-  localStorage.setItem(FAV_KEY, JSON.stringify(Array.from(s)));
+export async function addFavorite(food_id: string): Promise<void> {
+  await cloudRepository.favorites.add(food_id);
+}
+
+export async function removeFavorite(food_id: string): Promise<void> {
+  await cloudRepository.favorites.remove(food_id);
 }
