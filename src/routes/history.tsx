@@ -58,12 +58,25 @@ function hash01(str: string, salt = 0) {
   return ((h >>> 0) % 10000) / 10000;
 }
 
-// Color from food name — playful HSL palette, stable for same name across timeline
-function foodColor(name: string): string {
-  const hue = Math.floor(hash01(name, 1) * 360);
-  const sat = 65 + Math.floor(hash01(name, 7) * 15); // 65-80
-  const lit = 60 + Math.floor(hash01(name, 13) * 8); // 60-68
-  return `hsl(${hue} ${sat}% ${lit}%)`;
+// Curated palette for kcal-mode bubbles — distinct from macro RGB identity.
+// Mid-tone, jewel-ish colors that read well at 25% alpha over the tank.
+const KCAL_PALETTE = [
+  "#5EC4B6", // mint
+  "#9B8CE0", // lavender
+  "#F2A57C", // peach
+  "#4FB3C9", // teal
+  "#E8B86E", // apricot
+  "#C29BD8", // light purple
+  "#A8B86C", // olive
+  "#E58CA8", // rose
+  "#7B95B5", // slate blue
+  "#8FB08A", // sage
+];
+
+// Deterministic: same food name always picks same color across months.
+function kcalBubbleColor(name: string): string {
+  const idx = Math.floor(hash01(name, 1) * KCAL_PALETTE.length);
+  return KCAL_PALETTE[idx] ?? KCAL_PALETTE[0];
 }
 
 function normalizeFoodKey(name: string): string {
