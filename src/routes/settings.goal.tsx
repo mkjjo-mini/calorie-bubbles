@@ -498,6 +498,11 @@ function RecommendWizard({
                   onChange={(e) => setData((d) => ({ ...d, targetWeeks: e.target.value }))}
                   placeholder="12"
                 />
+                {Number(data.targetWeeks) > 0 && (
+                  <p className="mt-1 text-xs text-neutral-400">
+                    약 {(Number(data.targetWeeks) / 4.345).toFixed(1)}개월
+                  </p>
+                )}
               </div>
             </div>
           )}
