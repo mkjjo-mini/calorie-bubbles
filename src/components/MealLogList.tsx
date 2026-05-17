@@ -666,9 +666,18 @@ function EditQuantitySheet({
   const [mode, setMode] = useState<"serving" | "gram">("gram");
   const [qtyStr, setQtyStr] = useState(String(initialGrams || 100));
 
-  useEffect(() => {
-    setQtyStr(mode === "serving" ? "1" : String(initialGrams || baseline.serving_g));
-  }, [mode, initialGrams, baseline]);
+  // mode 토글 시 현재 값을 새 단위로 비례 환산
+  function switchMode(next: "serving" | "gram") {
+    if (next === mode) return;
+    const cur = parseFloat(qtyStr) || 0;
+    if (next === "serving") {
+      const servings = baseline.serving_g > 0 ? cur / baseline.serving_g : 1;
+      setQtyStr(String(Math.round(servings * 100) / 100));
+    } else {
+      setQtyStr(String(Math.round(cur * baseline.serving_g)));
+    }
+    setMode(next);
+  }
 
   const qty = parseFloat(qtyStr) || 0;
   const mult = mode === "serving" ? qty : qty / baseline.serving_g;
@@ -717,7 +726,7 @@ function EditQuantitySheet({
           {(["serving", "gram"] as const).map((m) => (
             <button
               key={m}
-              onClick={() => setMode(m)}
+              onClick={() => switchMode(m)}
               className={`h-8 rounded-md text-sm font-medium transition ${
                 mode === m ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500"
               }`}
