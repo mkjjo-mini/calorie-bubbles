@@ -835,9 +835,8 @@ function PopoverBody({
         >
           <Star
             className="h-4 w-4"
-            fill={favorite ? "#FFD700" : "transparent"}
-            stroke={favorite ? "#D4A300" : "#9CA3AF"}
-            strokeWidth={2}
+            fill={favorite ? "#FFD700" : "none"}
+            stroke={favorite ? "#FFD700" : "#9ca3af"}
           />
         </button>
       </div>
