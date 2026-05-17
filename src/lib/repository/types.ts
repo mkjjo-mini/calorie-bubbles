@@ -81,6 +81,31 @@ export interface UserGoalInsert {
   notification_time?: string | null;
 }
 
+export interface UserProfileRow {
+  user_key: number;
+  height_cm: number;
+  weight_kg: number;
+  sex: "male" | "female";
+  birth_year: number;
+  activity_level: "sedentary" | "light" | "moderate" | "active" | "very_active";
+  goal: "loss" | "maintain" | "gain";
+  target_weight_kg: number | null;
+  target_period_weeks: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserProfileInsert {
+  height_cm: number;
+  weight_kg: number;
+  sex: "male" | "female";
+  birth_year: number;
+  activity_level?: "sedentary" | "light" | "moderate" | "active" | "very_active";
+  goal?: "loss" | "maintain" | "gain";
+  target_weight_kg?: number | null;
+  target_period_weeks?: number | null;
+}
+
 export interface Repository {
   foods: {
     list(): Promise<FoodRow[]>;
@@ -107,6 +132,10 @@ export interface Repository {
     list(): Promise<FavoriteRow[]>;
     add(food_id: string): Promise<void>;
     remove(food_id: string): Promise<void>;
+  };
+  userProfile: {
+    get(): Promise<UserProfileRow | null>;
+    put(profile: UserProfileInsert): Promise<UserProfileRow>;
   };
 }
 

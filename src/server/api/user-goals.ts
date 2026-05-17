@@ -74,6 +74,24 @@ export async function handleUserGoals(req: Request, env: Env): Promise<Response>
         return jsonError(400, "INVALID_BODY", "dir must be 'min' or 'max'");
       }
 
+      const newEffectiveFrom =
+        (b.effective_from as string | undefined) ?? todayKST();
+
+      // 새 row의 effective_from 이전에 시작하고 아직 열려 있는 row를 닫는다.
+      // (effective_to IS NULL AND effective_from < newEffectiveFrom AND user_key = ?)
+      // effective_to = newEffectiveFrom 의 하루 전 날짜
+      const prevDate = new Date(newEffectiveFrom);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDateStr = prevDate.toISOString().slice(0, 10);
+
+      const { error: closeError } = await supabase
+        .from("user_goals")
+        .update({ effective_to: prevDateStr })
+        .eq("user_key", userKey)
+        .is("effective_to", null)
+        .lt("effective_from", newEffectiveFrom);
+      if (closeError) return jsonError(500, "DB_ERROR", closeError.message);
+
       const insert = {
         user_key: userKey,
         daily_kcal_value: Math.round(dailyKcal),
@@ -85,7 +103,7 @@ export async function handleUserGoals(req: Request, env: Env): Promise<Response>
         ...(b.carb_g_dir ? { carb_g_dir: b.carb_g_dir } : {}),
         fat_g_value: (b.fat_g_value as number | null | undefined) ?? null,
         ...(b.fat_g_dir ? { fat_g_dir: b.fat_g_dir } : {}),
-        effective_from: (b.effective_from as string | undefined) ?? todayKST(),
+        effective_from: newEffectiveFrom,
         effective_to: (b.effective_to as string | null | undefined) ?? null,
         notification_time:
           (b.notification_time as string | null | undefined) ?? null,

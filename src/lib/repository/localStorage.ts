@@ -40,4 +40,10 @@ export const localRepository: Repository = {
     add: async () => notImplemented("favorites.add"),
     remove: async () => notImplemented("favorites.remove"),
   },
+  userProfile: {
+    get: async () => null,
+    put: async () => {
+      throw new Error("[localRepository] userProfile.put 미구현");
+    },
+  },
 };

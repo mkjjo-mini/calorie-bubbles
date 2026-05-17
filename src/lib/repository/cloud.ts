@@ -12,6 +12,8 @@ import {
   type FoodRow,
   type Repository,
   type UserGoalInsert,
+  type UserProfileInsert,
+  type UserProfileRow,
 } from "./types";
 import type { ResolvedGoal } from "@/lib/goal";
 
@@ -100,6 +102,14 @@ export const cloudRepository: Repository = {
     remove: (food_id: string) =>
       api<void>(`/favorites?food_id=${encodeURIComponent(food_id)}`, {
         method: "DELETE",
+      }),
+  },
+  userProfile: {
+    get: () => api<UserProfileRow | null>("/user-profile"),
+    put: (profile: UserProfileInsert) =>
+      api<UserProfileRow>("/user-profile", {
+        method: "PUT",
+        body: JSON.stringify(profile),
       }),
   },
 };
