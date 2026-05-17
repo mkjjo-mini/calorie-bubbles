@@ -333,40 +333,33 @@ export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
     const { food } = sheet;
     pushRecent(food.id);
 
-    if (saveAsBase && food.source === "user" && food.serving_g > 0) {
+    // saveAsBase: source 무관하게 cloud foods.update (preset은 UI에서 체크박스 숨김)
+    if (saveAsBase && food.serving_g > 0) {
       const newServingG = mode === "gram" ? qty : qty * food.serving_g;
       if (newServingG > 0) {
         const ratio = newServingG / food.serving_g;
+        const updated = {
+          serving_g: newServingG,
+          serving_amount: newServingG,
+          serving_unit: "g",
+          kcal: Math.round(food.kcal * ratio),
+          carb_g: Math.round(food.carb_g * ratio * 10) / 10,
+          protein_g: Math.round(food.protein_g * ratio * 10) / 10,
+          fat_g: Math.round(food.fat_g * ratio * 10) / 10,
+        };
         try {
-          await cloudRepository.foods.update(food.id, {
-            serving_g: newServingG,
-            serving_amount: newServingG,
-            serving_unit: "g",
-            kcal: Math.round(food.kcal * ratio),
-            carb_g: Math.round(food.carb_g * ratio * 10) / 10,
-            protein_g: Math.round(food.protein_g * ratio * 10) / 10,
-            fat_g: Math.round(food.fat_g * ratio * 10) / 10,
-          });
-          // Reflect updated serving in local state
-          setFavFoods((prev) =>
-            prev.map((f) =>
-              f.id === food.id
-                ? {
-                    ...f,
-                    serving_g: newServingG,
-                    serving_amount: newServingG,
-                    serving_unit: "g",
-                    kcal: Math.round(food.kcal * ratio),
-                    carb_g: Math.round(food.carb_g * ratio * 10) / 10,
-                    protein_g: Math.round(food.protein_g * ratio * 10) / 10,
-                    fat_g: Math.round(food.fat_g * ratio * 10) / 10,
-                  }
-                : f,
-            ),
-          );
+          await cloudRepository.foods.update(food.id, updated);
+          // 두 state 모두 즉시 반영 — 다음 sheet/chip 렌더 시 새 값 사용
+          const apply = (f: FoodRow) =>
+            f.id === food.id ? { ...f, ...updated } : f;
+          setFavFoods((prev) => prev.map(apply));
+          setAllFoods((prev) => prev.map(apply));
           persistLastQty(food.name, 1, "serving");
-        } catch {
+          toast.success(`${newServingG}g을 1인분 기준으로 저장했어요`);
+        } catch (e) {
           persistLastQty(food.name, qty, mode);
+          if (e instanceof CloudAuthError) toast.error("로그인이 필요해요");
+          else toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
         }
       } else {
         persistLastQty(food.name, qty, mode);
