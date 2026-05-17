@@ -311,12 +311,14 @@ function RecommendWizard({
     };
   }
 
-  const rec = React.useMemo(() => {
-    if (step !== 5 || !step1Valid) return null;
+  const [rec, setRec] = React.useState<ReturnType<typeof recommendGoal> | null>(null);
+  // Step 5 진입 시 base 재계산. 사용자가 slider 조정한 값은 step 5 안에서 유지.
+  React.useEffect(() => {
+    if (step !== 5 || !step1Valid) return;
     try {
-      return recommendGoal(buildProfile());
+      setRec(recommendGoal(buildProfile()));
     } catch {
-      return null;
+      setRec(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
@@ -496,8 +498,17 @@ function RecommendWizard({
                   label="칼로리"
                   unit="kcal"
                   value={rec.daily_kcal.value}
-                  onChange={() => {}}
+                  onChange={(v) =>
+                    setRec((r) =>
+                      r ? { ...r, daily_kcal: { ...r.daily_kcal, value: v } } : r,
+                    )
+                  }
                   dir={rec.daily_kcal.dir}
+                  onDirChange={(d) =>
+                    setRec((r) =>
+                      r ? { ...r, daily_kcal: { ...r.daily_kcal, dir: d } } : r,
+                    )
+                  }
                   min={KCAL_RANGE.min}
                   max={KCAL_RANGE.max}
                   step={KCAL_RANGE.step}
@@ -509,8 +520,17 @@ function RecommendWizard({
                   label="단백질"
                   unit="g"
                   value={rec.protein_g.value}
-                  onChange={() => {}}
+                  onChange={(v) =>
+                    setRec((r) =>
+                      r ? { ...r, protein_g: { ...r.protein_g, value: v } } : r,
+                    )
+                  }
                   dir={rec.protein_g.dir}
+                  onDirChange={(d) =>
+                    setRec((r) =>
+                      r ? { ...r, protein_g: { ...r.protein_g, dir: d } } : r,
+                    )
+                  }
                   min={PROTEIN_RANGE.min}
                   max={PROTEIN_RANGE.max}
                   step={PROTEIN_RANGE.step}
