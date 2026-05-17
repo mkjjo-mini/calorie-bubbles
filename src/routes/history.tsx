@@ -335,10 +335,10 @@ function HistoryPage() {
               msOverflowStyle: "none",
               background:
                 "linear-gradient(180deg, #FFFDF5 0%, #FFFDF5 " +
-                ((WATER_TOP / TANK_H) * 100).toFixed(1) +
+                ((SURFACE_Y / TANK_H) * 100).toFixed(1) +
                 "%, #E6F4FB " +
-                ((WATER_TOP / TANK_H) * 100).toFixed(1) +
-                "%, #B6E0F2 100%)",
+                ((SURFACE_Y / TANK_H) * 100).toFixed(1) +
+                "%, #9FD2EA 100%)",
             }}
           >
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}`}</style>
