@@ -262,6 +262,7 @@ function customFoodToPickable(c: CustomFood): Pickable {
 
 function AddFoodPage() {
   const navigate = useNavigate();
+  const { date: loggedDate } = Route.useSearch();
   const [query, setQuery] = useState("");
 
   // Cloud-backed state
