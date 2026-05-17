@@ -579,6 +579,7 @@ function HistoryPage() {
 /* ---------- bubbles for one day ---------- */
 const WAVE_PERIOD_MS = 10000; // matches Wave.tsx first wave duration
 const WAVE_AMP_RATIO = 0.4; // matches Wave.tsx first wave amplitude (0.5 baseline → 0.1 crest)
+const BUBBLE_WAVE_FOLLOW_Y = WAVE_H * WAVE_AMP_RATIO * 0.22;
 
 function DayBubbles({
   bubbles,
@@ -620,8 +621,10 @@ function DayBubbles({
   const dayInset = 4;
   const leftBound = colStart + dayInset;
   const rightBound = colStart + colWidth - dayInset;
-  // Static stacking baseline = mean water level of the higher wave (wave1 baseline).
-  const waterSurfaceY = tankH - WAVE_H * 0.5;
+  // Stack from the bowl floor, not the wave surface, so bubbles feel settled
+  // instead of hovering mid-air in each day column.
+  const floorInset = 10;
+  const stackFloorY = tankH - BUBBLE_WAVE_FOLLOW_Y - floorInset;
 
   // Pre-compute size + stable horizontal jitter for each visible bubble
   const items = visible.map((b) => {
@@ -647,7 +650,7 @@ function DayBubbles({
   items.sort((a, b) => b.r - a.r);
   const placed: { x: number; y: number; r: number }[] = [];
   const positioned = items.map(({ b, size, r, xPos, seed }) => {
-    let yPos = waterSurfaceY - r;
+    let yPos = stackFloorY - r;
     for (const p of placed) {
       const dx = xPos - p.x;
       const minDist = (r + p.r) * OVERLAP;
@@ -657,8 +660,9 @@ function DayBubbles({
         if (stackedY < yPos) yPos = stackedY;
       }
     }
-    // Clamp so bubble bottom never dips past the tank, even at trough.
-    yPos = Math.min(yPos, tankH - WAVE_H * 0.55 - r);
+    // Clamp so the resting position stays near the bowl floor while leaving
+    // room for the subtle wave-follow offset below.
+    yPos = Math.min(yPos, stackFloorY - r);
     yPos = Math.max(r + 8, yPos);
     placed.push({ x: xPos, y: yPos, r });
     return { b, size, xPos, yPos, seed };
@@ -724,8 +728,8 @@ function Bubble({
     if (reduced || waveWidth <= 0) return 0;
     const phase =
       2 * Math.PI * (xPos / waveWidth + (t % WAVE_PERIOD_MS) / WAVE_PERIOD_MS);
-    // 버블 상하 sway는 물결 진폭의 40%만 따라가게 — 너무 커서 답답함 해소
-    return -WAVE_H * WAVE_AMP_RATIO * 0.4 * Math.sin(phase);
+    // 기록 탭은 수면을 따라가되, 과하게 뜨지 않도록 이동량을 더 줄인다.
+    return -BUBBLE_WAVE_FOLLOW_Y * Math.sin(phase);
   });
 
   // Gentle bob layered on top of the wave-follow translate.
