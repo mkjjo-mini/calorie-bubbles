@@ -25,10 +25,10 @@ export const Route = createFileRoute("/history")({
 /* ---------- layout constants ---------- */
 const DAY_COL_W = 88;
 const TANK_H = 460; // mobile-friendly height
-const WATER_TOP = 40; // surface line y
-const WATER_BOTTOM = TANK_H - 16;
-const BUBBLE_MIN = 22;
-const BUBBLE_MAX = 72;
+const SURFACE_Y = 300; // water surface line (bubbles float along this)
+const FLOAT_BAND = 56; // ± vertical range above the surface for bubble centers
+const BUBBLE_MIN = 24;
+const BUBBLE_MAX = 76;
 
 type MetricMode = "kcal" | Macro;
 
@@ -335,10 +335,10 @@ function HistoryPage() {
               msOverflowStyle: "none",
               background:
                 "linear-gradient(180deg, #FFFDF5 0%, #FFFDF5 " +
-                ((WATER_TOP / TANK_H) * 100).toFixed(1) +
+                ((SURFACE_Y / TANK_H) * 100).toFixed(1) +
                 "%, #E6F4FB " +
-                ((WATER_TOP / TANK_H) * 100).toFixed(1) +
-                "%, #B6E0F2 100%)",
+                ((SURFACE_Y / TANK_H) * 100).toFixed(1) +
+                "%, #9FD2EA 100%)",
             }}
           >
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}`}</style>
@@ -370,7 +370,7 @@ function HistoryPage() {
                 {/* Water surface line */}
                 <WaterSurface
                   width={totalWidth}
-                  y={WATER_TOP}
+                  y={SURFACE_Y}
                   reduced={reduced}
                 />
               </svg>
@@ -554,10 +554,12 @@ function DayBubbles({
         );
 
         // Stable jitter per (date, food, mode)
+        // Bubbles float above the water surface, bottom touching/dipping in.
         const seed = b.key + mode;
         const jitterX = (hash01(seed, 3) - 0.5) * (DAY_COL_W - size - 6);
-        const usableH = WATER_BOTTOM - (WATER_TOP + size / 2) - size / 2;
-        const yPos = WATER_TOP + size / 2 + hash01(seed, 5) * usableH;
+        // Center y so bubble bottom sits near the surface, with stable vertical scatter
+        const verticalScatter = hash01(seed, 5) * FLOAT_BAND;
+        const yPos = SURFACE_Y - size / 2 + 6 - verticalScatter;
         const xPos = colCenter + jitterX;
 
         const color =
