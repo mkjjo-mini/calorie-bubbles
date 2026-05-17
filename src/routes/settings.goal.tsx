@@ -262,8 +262,10 @@ function RecommendWizard({
 
   const step4Valid =
     skipTarget ||
-    (Number(data.targetWeight) > 0 &&
+    (Number(data.targetWeight) >= 30 &&
+      Number(data.targetWeight) <= 250 &&
       Number(data.targetWeeks) > 0 &&
+      Number(data.targetWeeks) <= 104 &&
       (data.goal === "loss"
         ? Number(data.targetWeight) < Number(data.weight)
         : Number(data.targetWeight) > Number(data.weight)));
@@ -488,22 +490,34 @@ function RecommendWizard({
                   onChange={(e) => setData((d) => ({ ...d, targetWeight: e.target.value }))}
                   placeholder="60"
                 />
-                {Number(data.targetWeight) > 0 && Number(data.weight) > 0 && (
-                  <>
-                    {data.goal === "loss" &&
-                      Number(data.targetWeight) >= Number(data.weight) && (
-                        <p className="mt-1 text-xs text-red-500">
-                          감량 목표는 현재 체중보다 낮아야 해요
-                        </p>
-                      )}
-                    {data.goal === "gain" &&
-                      Number(data.targetWeight) <= Number(data.weight) && (
-                        <p className="mt-1 text-xs text-red-500">
-                          증량 목표는 현재 체중보다 높아야 해요
-                        </p>
-                      )}
-                  </>
+                {Number(data.targetWeight) > 0 && Number(data.targetWeight) < 30 && (
+                  <p className="mt-1 text-xs text-red-500">
+                    목표 체중은 30kg 이상이어야 해요
+                  </p>
                 )}
+                {Number(data.targetWeight) > 250 && (
+                  <p className="mt-1 text-xs text-red-500">
+                    목표 체중은 250kg 이하로 입력해주세요
+                  </p>
+                )}
+                {Number(data.targetWeight) >= 30 &&
+                  Number(data.targetWeight) <= 250 &&
+                  Number(data.weight) > 0 && (
+                    <>
+                      {data.goal === "loss" &&
+                        Number(data.targetWeight) >= Number(data.weight) && (
+                          <p className="mt-1 text-xs text-red-500">
+                            감량 목표는 현재 체중보다 낮아야 해요
+                          </p>
+                        )}
+                      {data.goal === "gain" &&
+                        Number(data.targetWeight) <= Number(data.weight) && (
+                          <p className="mt-1 text-xs text-red-500">
+                            증량 목표는 현재 체중보다 높아야 해요
+                          </p>
+                        )}
+                    </>
+                  )}
               </div>
               <div>
                 <FieldLabel required>목표까지 기간 (주)</FieldLabel>
@@ -514,9 +528,14 @@ function RecommendWizard({
                   onChange={(e) => setData((d) => ({ ...d, targetWeeks: e.target.value }))}
                   placeholder="12"
                 />
-                {Number(data.targetWeeks) > 0 && (
+                {Number(data.targetWeeks) > 0 && Number(data.targetWeeks) <= 104 && (
                   <p className="mt-1 text-xs text-neutral-400">
                     약 {(Number(data.targetWeeks) / 4.345).toFixed(1)}개월
+                  </p>
+                )}
+                {Number(data.targetWeeks) > 104 && (
+                  <p className="mt-1 text-xs text-red-500">
+                    기간은 104주(2년) 이하로 입력해주세요
                   </p>
                 )}
               </div>
