@@ -737,7 +737,7 @@ function DayBubbles({
   return (
     <>
       {positioned.map(({ b, size, xPos, yPos, seed }) => {
-        const paletteEntry = mode === "kcal" ? kcalColorByKey.get(b.key) : undefined;
+        const paletteEntry = mode === "kcal" ? kcalColors.get(b.name) : undefined;
         const color =
           mode === "kcal"
             ? (paletteEntry?.color ?? kcalBubbleColor(b.name))
