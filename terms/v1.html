@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>탄단지버블 서비스 이용약관 (v1)</title>
-    <meta name="description" content="탄단지버블 서비스 이용약관 v1 — userKey만 활용, PII 미수집, localStorage 1차 저장" />
+    <meta name="description" content="탄단지버블 서비스 이용약관 v1 — userKey만 활용, PII 미수집, Supabase 아시아 리전 저장" />
     <style>
       :root {
         --fg: #1a1a1a;
@@ -76,7 +76,7 @@
     <main>
       <header>
         <h1><span class="brand-dot" aria-hidden="true"></span>탄단지버블 서비스 이용약관</h1>
-        <div class="meta">v1 · 2026-05-16 시행</div>
+        <div class="meta">v1 · 2026-05-17 시행</div>
       </header>
 
       <h2>1. 목적</h2>
@@ -86,7 +86,7 @@
       <p>서비스는 토스 간편 로그인을 통해 사용자 식별자(userKey)만을 활용하며, 그 외 별도의 개인정보를 수집하지 않습니다.</p>
 
       <h2>3. 데이터 저장</h2>
-      <p>사용자가 입력한 칼로리·식단·목표 정보는 디바이스 저장소(localStorage)에 1차 저장됩니다. 유료 구독자의 경우, 사용자 동의에 따라 Cloudflare 데이터베이스에 추가 동기화될 수 있습니다.</p>
+      <p>사용자가 입력한 칼로리·식단·목표 정보는 토스 인증 후 Supabase(아시아 리전) 데이터베이스에 저장됩니다. 로그인 세션은 HttpOnly 쿠키(14일)로 유지됩니다.</p>
 
       <h2>4. 책임 제한</h2>
       <p>본 서비스가 제공하는 영양·칼로리 정보는 일반적인 추정값이며, 의학적 자문이 아닙니다. 건강과 관련된 모든 결정은 전문가와 상의하시기 바랍니다.</p>
@@ -98,7 +98,7 @@
       <p>운영 이메일: <a href="mailto:mkjjo.mini@gmail.com">mkjjo.mini@gmail.com</a></p>
 
       <footer>
-        탄단지버블 · v1 2026-05-16
+        탄단지버블 · v1 2026-05-17
       </footer>
     </main>
   </body>
