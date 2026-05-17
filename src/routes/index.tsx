@@ -303,7 +303,7 @@ function Index() {
 
     try {
       await Promise.all(toDelete.map((l) => cloudRepository.foodLogs.remove(l.id)));
-      toast("오늘 기록을 지웠어요");
+      toast(isToday ? "오늘 기록을 지웠어요" : `${formatPastDate(selectedDate)} 기록을 지웠어요`);
     } catch (e) {
       // Revert
       setLogs(toDelete);
