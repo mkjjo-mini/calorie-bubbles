@@ -127,6 +127,8 @@ interface Props {
 
 export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
   const [favFoods, setFavFoods] = useState<FoodRow[]>([]);
+  // 모든 source의 cloud foods — recents chip 매칭에 필요 (즐겨찾기 아닌 음식도 포함)
+  const [allFoods, setAllFoods] = useState<FoodRow[]>([]);
   const [recents, setRecents] = useState<string[]>([]);
   const [lastQtyMap, setLastQtyMap] = useState<LastQtyMap>({});
   const [hydrated, setHydrated] = useState(false);
@@ -161,6 +163,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
         cloudRepository.favorites.list(),
       ]);
       const favFoodIdSet = new Set(favs.map((f) => f.food_id));
+      setAllFoods(foods);
       setFavFoods(foods.filter((f) => favFoodIdSet.has(f.id)));
     } catch (e) {
       if (e instanceof CloudAuthError) {
@@ -383,8 +386,9 @@ export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
 
   // Recent list: food_id 기반으로 매칭 (unified cloud UUID)
   const recentList = recents
+    // recents food_id → 모든 source(user/preset/api) 매칭
     .slice(0, 10)
-    .map((id) => favFoods.find((f) => f.id === id))
+    .map((id) => allFoods.find((f) => f.id === id))
     .filter((f): f is FoodRow => !!f);
 
   if (favFoods.length === 0 && recentList.length === 0) return null;
