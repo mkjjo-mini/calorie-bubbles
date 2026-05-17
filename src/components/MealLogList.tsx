@@ -377,7 +377,8 @@ function DraggableLogRow({
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0 : 1,
-    touchAction: "none",
+    // vertical scroll 양보 — dnd-kit은 long-press 250ms 후 preventDefault로 capture
+    touchAction: "pan-y",
   };
 
   // Compose with dnd-kit's listeners so drag activation still works.
