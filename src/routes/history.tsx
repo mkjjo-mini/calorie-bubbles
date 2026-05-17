@@ -439,18 +439,29 @@ function HistoryPage() {
                           onClick={() => scrollToDay(i)}
                           aria-label={`${d.date.getMonth() + 1}/${d.date.getDate()}로 이동`}
                           style={{
-                            display: "block",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                             flexShrink: 0,
                             padding: 0,
                             border: 0,
+                            background: "transparent",
                             width: dot,
-                            height: dot,
-                            borderRadius: "9999px",
-                            backgroundColor: color ?? "#CBD5E1",
-                            boxShadow: isToday ? "0 0 0 2px #FFD700" : undefined,
+                            height: 28,
                             cursor: "pointer",
                           }}
-                        />
+                        >
+                          <span
+                            style={{
+                              display: "block",
+                              width: dot,
+                              height: dot,
+                              borderRadius: "9999px",
+                              backgroundColor: color ?? "#CBD5E1",
+                              boxShadow: isToday ? "0 0 0 2px #FFD700" : undefined,
+                            }}
+                          />
+                        </button>
                       );
                     })}
                   </div>
