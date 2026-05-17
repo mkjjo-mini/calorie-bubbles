@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Wave } from "@/components/Wave";
 import {
   displayName,
   MACRO_COLORS,
@@ -22,11 +23,11 @@ export const Route = createFileRoute("/history")({
   component: HistoryPage,
 });
 
-/* ---------- layout constants ---------- */
+/* ---------- layout constants (mirrors home bowl) ---------- */
 const DAY_COL_W = 88;
-const TANK_H = 460; // mobile-friendly height
-const SURFACE_Y = 300; // water surface line (bubbles float along this)
-const FLOAT_BAND = 56; // ± vertical range above the surface for bubble centers
+const TANK_H = 440;
+const WAVE_H = 48; // matches home Wave height
+const FLOAT_BAND = 240; // vertical scatter range above the wave
 const BUBBLE_MIN = 24;
 const BUBBLE_MAX = 76;
 
@@ -226,7 +227,7 @@ function HistoryPage() {
   const hasAnyRecord = perDay.some((arr) => arr.length > 0);
 
   return (
-    <div className="min-h-screen w-full" style={{ background: "#FFFDF5" }}>
+    <div className="min-h-screen w-full bg-white">
       <main className="mx-auto flex w-full max-w-[420px] flex-col">
         {/* HEADER */}
         <header className="sticky top-0 z-30 border-b border-neutral-200/70 bg-white/95 backdrop-blur">
@@ -318,8 +319,8 @@ function HistoryPage() {
           </div>
         </header>
 
-        {/* WATER TANK */}
-        <div className="relative">
+        {/* WATER BOWL (mirrors home palette: cream gradient + yellow border + bottom wave) */}
+        <div className="relative px-3 pt-3 pb-2">
           {!hasAnyRecord && (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 text-center text-sm text-neutral-400">
               이 달은 기록이 없어요
@@ -328,24 +329,22 @@ function HistoryPage() {
 
           <div
             ref={scrollRef}
-            className="no-scrollbar overflow-x-auto overflow-y-hidden"
+            className="no-scrollbar relative overflow-x-auto overflow-y-hidden shadow-inner"
             style={{
               WebkitOverflowScrolling: "touch",
               scrollbarWidth: "none",
               msOverflowStyle: "none",
+              height: TANK_H,
+              borderRadius: 20,
               background:
-                "linear-gradient(180deg, #FFFDF5 0%, #FFFDF5 " +
-                ((SURFACE_Y / TANK_H) * 100).toFixed(1) +
-                "%, #E6F4FB " +
-                ((SURFACE_Y / TANK_H) * 100).toFixed(1) +
-                "%, #9FD2EA 100%)",
+                "radial-gradient(120% 80% at 50% 10%, #f8fafc 0%, #eef2f6 60%, #e5eaf0 100%)",
+              border: "1.5px solid rgba(255,193,7,0.65)",
+              boxShadow:
+                "0 0 22px rgba(255,193,7,0.25), inset 0 4px 12px rgba(0,0,0,0.04)",
             }}
           >
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}`}</style>
-            <div
-              className="relative"
-              style={{ width: totalWidth, height: TANK_H }}
-            >
+            <div className="relative" style={{ width: totalWidth, height: TANK_H }}>
               {/* Day column verticals (subtle) */}
               <svg
                 width={totalWidth}
@@ -361,31 +360,27 @@ function HistoryPage() {
                       x1={x}
                       x2={x}
                       y1={0}
-                      y2={TANK_H}
-                      stroke={isMonday ? "rgba(15,23,42,0.10)" : "rgba(15,23,42,0.04)"}
+                      y2={TANK_H - WAVE_H}
+                      stroke={
+                        isMonday ? "rgba(15,23,42,0.08)" : "rgba(15,23,42,0.035)"
+                      }
                       strokeWidth={1}
                     />
                   );
                 })}
-                {/* Water surface line */}
-                <WaterSurface
-                  width={totalWidth}
-                  y={SURFACE_Y}
-                  reduced={reduced}
-                />
               </svg>
 
-              {/* Today column highlight */}
+              {/* Today column highlight (yellow, matches brand) */}
               {isCurrentMonth && (
                 <div
                   className="pointer-events-none absolute rounded-md"
                   style={{
                     left: (today.getDate() - 1) * DAY_COL_W + 1,
                     width: DAY_COL_W - 2,
-                    top: 0,
-                    height: TANK_H,
-                    border: "1.5px solid rgba(59,130,246,0.35)",
-                    background: "rgba(59,130,246,0.05)",
+                    top: 4,
+                    height: TANK_H - 8,
+                    border: "1.5px solid rgba(255,193,7,0.7)",
+                    background: "rgba(255,215,0,0.08)",
                   }}
                 />
               )}
@@ -404,6 +399,9 @@ function HistoryPage() {
                   date={month[dayIdx].date}
                 />
               ))}
+
+              {/* Wave at bottom — same component as home */}
+              <Wave width={totalWidth} height={WAVE_H} />
             </div>
           </div>
 
@@ -460,53 +458,6 @@ function HistoryPage() {
   );
 }
 
-/* ---------- water surface (animated wave) ---------- */
-function WaterSurface({
-  width,
-  y,
-  reduced,
-}: {
-  width: number;
-  y: number;
-  reduced: boolean;
-}) {
-  const [phase, setPhase] = useState(0);
-  useEffect(() => {
-    if (reduced) return;
-    let raf = 0;
-    let last = performance.now();
-    const tick = (t: number) => {
-      const dt = (t - last) / 1000;
-      last = t;
-      setPhase((p) => (p + dt * 0.6) % (Math.PI * 2));
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [reduced]);
-
-  const path = useMemo(() => {
-    const amp = 4;
-    const period = 140;
-    const step = 12;
-    let d = `M 0 ${y}`;
-    for (let x = step; x <= width; x += step) {
-      const yy = y + Math.sin((x / period) * Math.PI * 2 + phase) * amp;
-      d += ` L ${x.toFixed(1)} ${yy.toFixed(2)}`;
-    }
-    return d;
-  }, [width, y, phase]);
-
-  return (
-    <path
-      d={path}
-      fill="none"
-      stroke="rgba(59,130,246,0.45)"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-    />
-  );
-}
 
 /* ---------- bubbles for one day ---------- */
 function DayBubbles({
@@ -554,12 +505,13 @@ function DayBubbles({
         );
 
         // Stable jitter per (date, food, mode)
-        // Bubbles float above the water surface, bottom touching/dipping in.
+        // Bubbles bob just above the wave (like the home bowl).
         const seed = b.key + mode;
         const jitterX = (hash01(seed, 3) - 0.5) * (DAY_COL_W - size - 6);
-        // Center y so bubble bottom sits near the surface, with stable vertical scatter
+        // Anchor the bubble bottom near the wave top, with stable vertical scatter upward.
+        const waterTop = TANK_H - WAVE_H - 6;
         const verticalScatter = hash01(seed, 5) * FLOAT_BAND;
-        const yPos = SURFACE_Y - size / 2 + 6 - verticalScatter;
+        const yPos = waterTop - size / 2 - verticalScatter;
         const xPos = colCenter + jitterX;
 
         const color =
