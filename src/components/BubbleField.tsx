@@ -51,12 +51,14 @@ export function BubbleField({
 }: Props) {
   const nodesRef = useRef<Map<string, Node>>(new Map());
   const simRef = useRef<Simulation<Node, undefined> | null>(null);
+  const prevCountRef = useRef<number>(0);
   const [, setTick] = useState(0);
 
   const cx = width / 2;
-  // Always sink to bottom — strong constant gravity.
+  // Always sink to bottom — gravity strength softens when packed so removing
+  // a bubble in a crowded bowl doesn't cause the whole pile to snap downward.
   const anchorY = height - 4;
-  const yStrength = 0.18;
+  const yStrength = 0.18 * compression; // compression<1 → gentler gravity
 
   const bowlArea = width * height;
   const maxR = height * 0.45;
@@ -148,8 +150,14 @@ export function BubbleField({
     const sim = simRef.current;
     if (!sim || !changed) return;
     sim.nodes(Array.from(map.values()));
-    sim.alpha(0.9).restart();
-  }, [bubbles, cx, bowlArea, goalKcal, maxR]);
+    const prev = prevCountRef.current;
+    const curr = map.size;
+    prevCountRef.current = curr;
+    // Removal: gentle resettle, gentler still when packed. Addition: stronger kick.
+    const isRemoval = curr < prev;
+    const alpha = isRemoval ? Math.max(0.15, 0.35 * compression) : 0.9;
+    sim.alpha(alpha).restart();
+  }, [bubbles, cx, bowlArea, goalKcal, maxR, compression]);
 
   const nodes = Array.from(nodesRef.current.values());
 
