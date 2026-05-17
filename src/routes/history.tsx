@@ -622,6 +622,31 @@ function DayBubbles({
 
   if (visible.length === 0) return null;
 
+  // Assign distinct palette colors per day until the palette is exhausted.
+  // Preferred index comes from the name hash (stable across renders);
+  // collisions probe forward to the next free slot.
+  const kcalColorByKey = new Map<string, { color: string; text: string }>();
+  if (mode === "kcal") {
+    const N = KCAL_PALETTE.length;
+    const used = new Set<number>();
+    const ordered = [...visible].sort((a, b) => a.key.localeCompare(b.key));
+    for (const b of ordered) {
+      const preferred = Math.floor(hash01(b.name, 1) * N) % N;
+      let idx = preferred;
+      if (used.size < N) {
+        for (let step = 0; step < N; step++) {
+          const candidate = (preferred + step) % N;
+          if (!used.has(candidate)) {
+            idx = candidate;
+            break;
+          }
+        }
+        used.add(idx);
+      }
+      kcalColorByKey.set(b.key, KCAL_PALETTE[idx]);
+    }
+  }
+
   const dayInset = 4;
   const leftBound = colStart + dayInset;
   const rightBound = colStart + colWidth - dayInset;
@@ -700,8 +725,17 @@ function DayBubbles({
   return (
     <>
       {positioned.map(({ b, size, xPos, yPos, seed }) => {
+        const paletteEntry = mode === "kcal" ? kcalColorByKey.get(b.key) : undefined;
         const color =
-          mode === "kcal" ? kcalBubbleColor(b.name) : MACRO_COLORS[mode];
+          mode === "kcal"
+            ? (paletteEntry?.color ?? kcalBubbleColor(b.name))
+            : MACRO_COLORS[mode];
+        const textColor =
+          mode === "kcal"
+            ? (paletteEntry?.text ?? kcalBubbleText(b.name))
+            : mode === "carbs"
+              ? "#3F2A00"
+              : "#FFFFFF";
         return (
           <Bubble
             key={b.key}
@@ -711,6 +745,7 @@ function DayBubbles({
             yPos={yPos}
             seed={seed}
             color={color}
+            textColor={textColor}
             waveWidth={waveWidth}
             mode={mode}
             reduced={reduced}
@@ -731,6 +766,7 @@ function Bubble({
   yPos,
   seed,
   color,
+  textColor,
   waveWidth,
   mode,
   reduced,
@@ -744,6 +780,7 @@ function Bubble({
   yPos: number;
   seed: string;
   color: string;
+  textColor: string;
   waveWidth: number;
   mode: MetricMode;
   reduced: boolean;
@@ -832,7 +869,7 @@ function Bubble({
                 fontSize: size >= 28 ? 10 : 8,
                 color:
                   mode === "kcal"
-                    ? kcalBubbleText(b.name)
+                    ? textColor
                     : mode === "carbs"
                       ? "#3F2A00"
                       : "#FFFFFF",
