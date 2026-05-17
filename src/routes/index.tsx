@@ -107,19 +107,29 @@ function logsToBubbles(logs: FoodLogRow[]): BubbleEntry[] {
 }
 
 function Index() {
-  // Cloud food logs for today
+  // Cloud food logs for the selected date (defaults to today via search param)
   const [logs, setLogs] = useState<FoodLogRow[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const navigate = useNavigate();
+  const { date: selectedDate } = Route.useSearch();
+  const today = todayKST();
+  const isToday = selectedDate === today;
+  const isFutureDate = selectedDate > today;
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  function setSelectedDate(next: string) {
+    void navigate({ to: "/", search: { date: next } });
+  }
 
   useEffect(() => {
-    void loadTodayLogs();
-  }, []);
+    setHydrated(false);
+    void loadLogsForDate(selectedDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
-  async function loadTodayLogs() {
+  async function loadLogsForDate(date: string) {
     try {
-      const today = todayKST();
-      const fetched = await cloudRepository.foodLogs.listByDate(today);
+      const fetched = await cloudRepository.foodLogs.listByDate(date);
       setLogs(fetched);
     } catch (e) {
       if (e instanceof CloudAuthError) {
