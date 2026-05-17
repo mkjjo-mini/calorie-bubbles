@@ -78,21 +78,20 @@ interface FoodBubbleData {
   protein: number;
   fat: number;
   kcal: number;
-  count: number; // 합산된 섭취 횟수 (foodLogId 기준 unique)
+  count: number; // 같은 이름 음식 합산 횟수
 }
 
 function buildDayBubbles(day: DayData): FoodBubbleData[] {
   const map = new Map<string, FoodBubbleData>();
-  const seenLogs = new Map<string, Set<string>>();
-  for (const e of day.entries) {
-    const name = displayName(e.foodName);
-    const key = normalizeFoodKey(e.foodName);
+  for (const f of day.foods) {
+    const name = displayName(f.foodName);
+    const key = normalizeFoodKey(f.foodName);
     let b = map.get(key);
     if (!b) {
       b = {
         key: `${day.dateKey}-${name}`,
         name,
-        ts: e.addedAt,
+        ts: f.ts,
         carbs: 0,
         protein: 0,
         fat: 0,
@@ -100,22 +99,13 @@ function buildDayBubbles(day: DayData): FoodBubbleData[] {
         count: 0,
       };
       map.set(key, b);
-      seenLogs.set(key, new Set());
     }
-    b[e.macro] += e.grams;
-    b.ts = Math.min(b.ts, e.addedAt);
-    const logs = seenLogs.get(key)!;
-    if (!logs.has(e.foodLogId)) {
-      logs.add(e.foodLogId);
-      b.count += 1;
-    }
-  }
-  for (const b of map.values()) {
-    b.kcal = Math.round(
-      b.carbs * MACRO_KCAL.carbs +
-        b.protein * MACRO_KCAL.protein +
-        b.fat * MACRO_KCAL.fat,
-    );
+    b.carbs += f.carbs;
+    b.protein += f.protein;
+    b.fat += f.fat;
+    b.kcal += f.kcal;
+    b.ts = Math.min(b.ts, f.ts);
+    b.count += 1;
   }
   return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
 }
@@ -137,11 +127,20 @@ function HistoryPage() {
 
   useEffect(() => setFavorites(loadFavorites()), []);
 
-  const month = useMemo(
-    () => loadMonth(cursor.getFullYear(), cursor.getMonth()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cursor, version],
-  );
+  const [month, setMonth] = useState<DayData[]>([]);
+  useEffect(() => {
+    let alive = true;
+    loadMonth(cursor.getFullYear(), cursor.getMonth())
+      .then((m) => {
+        if (alive) setMonth(m);
+      })
+      .catch(() => {
+        if (alive) setMonth([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [cursor, version]);
 
   useEffect(() => {
     const onVis = () => {
@@ -317,7 +316,7 @@ function HistoryPage() {
             <div ref={minimapRef} className="relative h-3 w-full" role="presentation">
               <div className="absolute inset-0 flex items-center gap-[1px]">
                 {month.map((d, i) => {
-                  const color = progressColor(d);
+                  const color = progressColor(d, mode);
                   const isToday =
                     isCurrentMonth && d.date.getDate() === today.getDate();
                   return (
@@ -498,7 +497,7 @@ function HistoryPage() {
             >
               <div className="relative flex" style={{ width: totalWidth, height: 36 }}>
                 {month.map((d, i) => {
-                  const color = progressColor(d);
+                  const color = progressColor(d, mode);
                   const wd = ["일", "월", "화", "수", "목", "금", "토"][d.date.getDay()];
                   const isWknd = d.date.getDay() === 0 || d.date.getDay() === 6;
                   return (
