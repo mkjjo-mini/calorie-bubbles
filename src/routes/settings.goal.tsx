@@ -262,7 +262,11 @@ function RecommendWizard({
 
   const step4Valid =
     skipTarget ||
-    (Number(data.targetWeight) > 0 && Number(data.targetWeeks) > 0);
+    (Number(data.targetWeight) > 0 &&
+      Number(data.targetWeeks) > 0 &&
+      (data.goal === "loss"
+        ? Number(data.targetWeight) < Number(data.weight)
+        : Number(data.targetWeight) > Number(data.weight)));
 
   function getDisplayStep(): number {
     if (skipTarget && step >= 4) return step - 1;
@@ -275,6 +279,18 @@ function RecommendWizard({
       return;
     }
     if (step === 4 && !skipTarget && !step4Valid) {
+      const tw = Number(data.targetWeight);
+      const cw = Number(data.weight);
+      if (tw > 0 && cw > 0) {
+        if (data.goal === "loss" && tw >= cw) {
+          toast.error("감량 목표 체중은 현재보다 낮아야 해요");
+          return;
+        }
+        if (data.goal === "gain" && tw <= cw) {
+          toast.error("증량 목표 체중은 현재보다 높아야 해요");
+          return;
+        }
+      }
       toast.error("목표 체중과 기간을 입력해주세요");
       return;
     }
