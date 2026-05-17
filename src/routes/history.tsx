@@ -28,7 +28,7 @@ export const Route = createFileRoute("/history")({
 const MIN_COL_W = 88;
 const MAX_COL_W = 176;
 const PER_FOOD_W = 18; // extra width per merged food bubble on a day
-const TANK_H = 440;
+const TANK_H_DEFAULT = 440;
 const WAVE_H = 140; // higher water level
 const BUBBLE_MIN = 20;
 const BUBBLE_MAX = 96;
@@ -193,6 +193,21 @@ function HistoryPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollX, setScrollX] = useState(0);
   const [viewportW, setViewportW] = useState(0);
+  const [TANK_H, setTankH] = useState(TANK_H_DEFAULT);
+
+  useEffect(() => {
+    function recalc() {
+      const el = scrollRef.current;
+      if (!el || typeof window === "undefined") return;
+      const top = el.getBoundingClientRect().top;
+      // 하단 탭바(고정) + 루트 pb-20 (80px) 영역 제외, 약간 여유
+      const next = Math.max(320, Math.floor(window.innerHeight - top - 16));
+      setTankH(next);
+    }
+    recalc();
+    window.addEventListener("resize", recalc);
+    return () => window.removeEventListener("resize", recalc);
+  }, []);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -503,6 +518,7 @@ function HistoryPage() {
                   onToggleFavorite={toggleFavorite}
                   reduced={reduced}
                   date={month[dayIdx].date}
+                  tankH={TANK_H}
                 />
               ))}
 
@@ -534,6 +550,7 @@ function DayBubbles({
   onToggleFavorite,
   reduced,
   date,
+  tankH,
 }: {
   bubbles: FoodBubbleData[];
   dayIdx: number;
@@ -546,6 +563,7 @@ function DayBubbles({
   onToggleFavorite: (name: string) => void;
   reduced: boolean;
   date: Date;
+  tankH: number;
 }) {
   if (bubbles.length === 0) return null;
 
@@ -561,7 +579,7 @@ function DayBubbles({
   const leftBound = colStart + dayInset;
   const rightBound = colStart + colWidth - dayInset;
   // Static stacking baseline = mean water level of the higher wave (wave1 baseline).
-  const waterSurfaceY = TANK_H - WAVE_H * 0.5;
+  const waterSurfaceY = tankH - WAVE_H * 0.5;
 
   // Pre-compute size + stable horizontal jitter for each visible bubble
   const items = visible.map((b) => {
@@ -598,7 +616,7 @@ function DayBubbles({
       }
     }
     // Clamp so bubble bottom never dips past the tank, even at trough.
-    yPos = Math.min(yPos, TANK_H - WAVE_H * 0.55 - r);
+    yPos = Math.min(yPos, tankH - WAVE_H * 0.55 - r);
     yPos = Math.max(r + 8, yPos);
     placed.push({ x: xPos, y: yPos, r });
     return { b, size, xPos, yPos, seed };
