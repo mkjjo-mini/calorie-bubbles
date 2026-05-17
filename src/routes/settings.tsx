@@ -1,5 +1,5 @@
 import * as React from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
@@ -31,28 +31,23 @@ const MENU_ITEMS: MenuItem[] = [
 ];
 
 function SettingsMenuPage() {
-  const navigate = useNavigate();
-
   return (
-    <div className="min-h-screen w-full bg-white flex justify-center">
+    <div className="w-full bg-white flex justify-center">
       <main className="w-full max-w-[375px] flex flex-col">
-        <header className="sticky top-0 z-10 border-b border-neutral-100 bg-white/95 px-5 pt-6 pb-3 backdrop-blur">
+        <header className="border-b border-neutral-100 bg-white px-5 pt-6 pb-3">
           <h1 className="text-lg font-semibold text-neutral-900">Settings</h1>
         </header>
 
-        <div className="flex-1 px-5 pt-4 pb-12">
+        <div className="px-5 pt-4 pb-4">
           <div className="rounded-2xl border border-neutral-100 bg-white overflow-hidden">
             {MENU_ITEMS.map((item, idx) => (
               <React.Fragment key={item.to}>
                 {idx !== 0 && (
                   <div className="h-px bg-neutral-100 mx-4" />
                 )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    void navigate({ to: item.to });
-                  }}
-                  className="flex w-full items-center justify-between px-4 py-4 text-left active:bg-neutral-50 transition-colors cursor-pointer"
+                <Link
+                  to={item.to}
+                  className="flex w-full items-center justify-between px-4 py-4 text-left active:bg-neutral-50 transition-colors"
                 >
                   <div>
                     <p className="text-sm font-semibold text-neutral-900">
@@ -63,7 +58,7 @@ function SettingsMenuPage() {
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0 ml-2" />
-                </button>
+                </Link>
               </React.Fragment>
             ))}
           </div>
