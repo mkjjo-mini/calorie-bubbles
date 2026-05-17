@@ -405,6 +405,39 @@ function HistoryPage() {
                 />
               )}
 
+              {/* Date watermarks at top of each column */}
+              {month.map((d, i) => {
+                const col = colLayouts[i];
+                const isWknd = d.date.getDay() === 0 || d.date.getDay() === 6;
+                const isToday =
+                  isCurrentMonth && d.date.getDate() === today.getDate();
+                return (
+                  <div
+                    key={`wm-${d.dateKey}`}
+                    className="pointer-events-none absolute flex flex-col items-center"
+                    style={{
+                      left: col.start,
+                      width: col.width,
+                      top: 6,
+                    }}
+                  >
+                    <span
+                      className="font-mono text-[10px] tabular-nums leading-none"
+                      style={{
+                        color: isToday
+                          ? "rgba(180,130,0,0.85)"
+                          : isWknd
+                            ? "rgba(15,23,42,0.22)"
+                            : "rgba(15,23,42,0.28)",
+                        fontWeight: isToday ? 700 : 500,
+                      }}
+                    >
+                      {d.date.getDate()}
+                    </span>
+                  </div>
+                );
+              })}
+
               {/* Bubbles */}
               {perDay.map((bubbles, dayIdx) => (
                 <DayBubbles
