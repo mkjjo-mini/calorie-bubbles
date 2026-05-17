@@ -529,21 +529,34 @@ function AddFoodPage() {
         // saveAsBase: update serving_g in cloud
         if (saveAsBase) {
           const target = userFoods.find((f) => f.id === food.id);
-          if (target && target.serving_g > 0) {
+          if (!target) {
+            toast.error("기준 저장 실패: 음식을 찾지 못했어요");
+          } else if (target.serving_g <= 0) {
+            toast.error("기준 저장 실패: 현재 1인분 값이 비정상이에요");
+          } else {
             const newServingG = mode === "gram" ? qty : qty * target.serving_g;
             if (newServingG > 0) {
               const ratio = newServingG / target.serving_g;
-              await cloudRepository.foods.update(food.id, {
-                serving_g: newServingG,
-                serving_amount: newServingG,
-                serving_unit: "g",
-                kcal: Math.round(target.kcal * ratio),
-                carb_g: Math.round(target.carb_g * ratio * 10) / 10,
-                protein_g: Math.round(target.protein_g * ratio * 10) / 10,
-                fat_g: Math.round(target.fat_g * ratio * 10) / 10,
-              });
-              // Refresh user foods
-              void loadCloudData();
+              try {
+                await cloudRepository.foods.update(food.id, {
+                  serving_g: newServingG,
+                  serving_amount: newServingG,
+                  serving_unit: "g",
+                  kcal: Math.round(target.kcal * ratio),
+                  carb_g: Math.round(target.carb_g * ratio * 10) / 10,
+                  protein_g: Math.round(target.protein_g * ratio * 10) / 10,
+                  fat_g: Math.round(target.fat_g * ratio * 10) / 10,
+                });
+                // await로 변경 — UI 갱신 보장 (이후 foodLogs.create 전에 완료)
+                await loadCloudData();
+                toast.success(`${newServingG}g을 1인분 기준으로 저장했어요`);
+              } catch (e) {
+                if (e instanceof CloudAuthError) {
+                  toast.error("로그인이 필요해요");
+                } else {
+                  toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
+                }
+              }
             }
           }
         }
