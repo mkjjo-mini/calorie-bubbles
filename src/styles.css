@@ -141,4 +141,14 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+
+  /* iOS WebView가 input font-size < 16px일 때 자동 zoom-in 트리거 → 모바일 한정 16px 강제.
+   * Tailwind `text-sm` (14px) utility를 override해야 하므로 !important 필수. */
+  @media (max-width: 600px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
 }

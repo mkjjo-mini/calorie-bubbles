@@ -10,11 +10,18 @@ export default defineConfig({
     icon: "https://placeholder.example.com/tandanji-bubble-icon.png",
   },
   web: {
-    host: "localhost",
-    port: 3000,
+    // 샌드박스앱이 폰에서 접근하므로 PC LAN IP 사용 (localhost는 폰이 자기 자신 찾음).
+    // 같은 Wi-Fi 망에 있는 폰만 접근 가능. 다른 망이면 cloudflared tunnel 권장.
+    // 라이브 배포 시엔 production 도메인으로 교체.
+    host: "192.168.45.115",
+    // ⚠️ 8081은 metro(RN) 전용 포트. vite는 5173 등 다른 포트로 분리해야 함
+    // (가이드: tutorials/webview.md 트러블슈팅 §"PC웹에서 Not Found")
+    port: 5173,
     commands: {
-      dev: "npm run dev",
-      build: "npm run build",
+      // --host: 0.0.0.0 binding (LAN IP 접근), --port 5173: metro(8081)와 충돌 회피
+      // 명시적 --port 없으면 lovable의 sandbox detection이 8080→8081 fallback 시도
+      dev: "vite --host --port 5173",
+      build: "vite build",
     },
   },
   webViewProps: {
