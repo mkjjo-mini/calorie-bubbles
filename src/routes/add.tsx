@@ -829,7 +829,7 @@ function AddFoodPage() {
         <header className="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 pt-4 pb-3 border-b border-neutral-100">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate({ to: "/" })}
+              onClick={() => navigate({ to: "/", search: { date: loggedDate } })}
               className="p-2 -ml-2 rounded-full hover:bg-neutral-100"
               aria-label="뒤로"
             >
