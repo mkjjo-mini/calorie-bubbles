@@ -114,7 +114,7 @@ function Index() {
   const { date: selectedDate } = Route.useSearch();
   const today = todayKST();
   const isToday = selectedDate === today;
-  const isFutureDate = selectedDate > today;
+  
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   function setSelectedDate(next: string) {
