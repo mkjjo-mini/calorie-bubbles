@@ -621,10 +621,9 @@ function DayBubbles({
   const dayInset = 4;
   const leftBound = colStart + dayInset;
   const rightBound = colStart + colWidth - dayInset;
-  // Stack from the bowl floor, not the wave surface, so bubbles feel settled
-  // instead of hovering mid-air in each day column.
-  const floorInset = 10;
-  const stackFloorY = tankH - BUBBLE_WAVE_FOLLOW_Y - floorInset;
+  // Bubbles rest on top of the upper wave crest — a clear "water surface" floor.
+  // wave1 baseline = height*0.5, crest reaches height*0.1, so crest line = tankH - WAVE_H*0.9.
+  const stackFloorY = tankH - WAVE_H * 0.9;
 
   // Pre-compute size + stable horizontal jitter for each visible bubble
   const items = visible.map((b) => {
