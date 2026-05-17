@@ -313,6 +313,34 @@ function ProfilePage() {
                       onChange={(e) => setTargetWeight(e.target.value)}
                       placeholder="60"
                     />
+                    {Number(targetWeight) > 0 && Number(targetWeight) < 30 && (
+                      <p className="mt-1 text-xs text-red-500">
+                        목표 체중은 30kg 이상이어야 해요
+                      </p>
+                    )}
+                    {Number(targetWeight) > 250 && (
+                      <p className="mt-1 text-xs text-red-500">
+                        목표 체중은 250kg 이하로 입력해주세요
+                      </p>
+                    )}
+                    {Number(targetWeight) >= 30 &&
+                      Number(targetWeight) <= 250 &&
+                      Number(weight) > 0 && (
+                        <>
+                          {goal === "loss" &&
+                            Number(targetWeight) >= Number(weight) && (
+                              <p className="mt-1 text-xs text-red-500">
+                                감량 목표는 현재 체중보다 낮아야 해요
+                              </p>
+                            )}
+                          {goal === "gain" &&
+                            Number(targetWeight) <= Number(weight) && (
+                              <p className="mt-1 text-xs text-red-500">
+                                증량 목표는 현재 체중보다 높아야 해요
+                              </p>
+                            )}
+                        </>
+                      )}
                   </div>
                   <div>
                     <FieldLabel required>목표까지 기간 (주)</FieldLabel>
@@ -323,18 +351,41 @@ function ProfilePage() {
                       onChange={(e) => setTargetWeeks(e.target.value)}
                       placeholder="12"
                     />
+                    {Number(targetWeeks) > 0 && Number(targetWeeks) <= 104 && (
+                      <p className="mt-1 text-xs text-neutral-400">
+                        약 {(Number(targetWeeks) / 4.345).toFixed(1)}개월
+                      </p>
+                    )}
+                    {Number(targetWeeks) > 104 && (
+                      <p className="mt-1 text-xs text-red-500">
+                        기간은 104주(2년) 이하로 입력해주세요
+                      </p>
+                    )}
                   </div>
                 </>
               )}
             </div>
 
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="h-12 w-full rounded-2xl bg-neutral-900 text-base font-semibold text-white hover:bg-neutral-800"
-            >
-              {saving ? "저장 중…" : "저장"}
-            </Button>
+            {(() => {
+              const targetValid =
+                goal === "maintain" ||
+                (Number(targetWeight) >= 30 &&
+                  Number(targetWeight) <= 250 &&
+                  Number(targetWeeks) > 0 &&
+                  Number(targetWeeks) <= 104 &&
+                  (goal === "loss"
+                    ? Number(targetWeight) < Number(weight)
+                    : Number(targetWeight) > Number(weight)));
+              return (
+                <Button
+                  onClick={handleSave}
+                  disabled={saving || !targetValid}
+                  className="h-12 w-full rounded-2xl bg-neutral-900 text-base font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+                >
+                  {saving ? "저장 중…" : "저장"}
+                </Button>
+              );
+            })()}
           </div>
         )}
       </main>
