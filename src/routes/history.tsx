@@ -742,15 +742,12 @@ function Bubble({
             width: size,
             height: size,
             y: waveY,
-            background:
-              mode === "kcal"
-                ? `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.12) 18%, ${color}55 45%, ${color}40 100%)`
-                : `radial-gradient(circle at 32% 28%, ${color}ee, ${color}bb 58%, ${color}77)`,
+            background: `radial-gradient(circle at 30% 30%, ${color}ee, ${color}aa 60%, ${color}66)`,
             boxShadow:
               mode === "kcal"
-                ? `inset 0 0 0 0.5px ${color}33, 0 2px 6px rgba(15,23,42,0.10)`
-                : `inset -5px -7px 12px ${color}55, 0 4px 10px rgba(15,23,42,0.18)`,
-            border: mode === "kcal" ? `1.5px solid ${color}cc` : `1px solid ${color}`,
+                ? `inset -6px -8px 14px ${color}55, inset 0 -10px 14px ${color}88, inset 2px 2px 0 rgba(255,255,255,0.35), 0 0 0 1px rgba(255,255,255,0.28), 0 4px 10px ${color}44`
+                : `inset -6px -8px 14px ${color}55, 0 4px 10px ${color}44`,
+            border: `1px solid ${color}`,
             willChange: "transform",
           }}
           aria-label={`${date.getMonth() + 1}/${date.getDate()} ${b.name}`}
