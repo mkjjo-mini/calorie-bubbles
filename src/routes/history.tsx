@@ -578,8 +578,12 @@ function HistoryPage() {
 
 /* ---------- bubbles for one day ---------- */
 const WAVE_PERIOD_MS = 10000; // matches Wave.tsx first wave duration
-const WAVE_AMP_RATIO = 0.4; // matches Wave.tsx first wave amplitude (0.5 baseline → 0.1 crest)
-const BUBBLE_WAVE_FOLLOW_Y = WAVE_H * WAVE_AMP_RATIO * 0.22;
+const WAVE_BASELINE_RATIO = 0.5; // Wave.tsx first path baseline
+const WAVE_SURFACE_AMPLITUDE_RATIO = 0.2; // quadratic crest/trough is half the control-point delta
+
+function waveSurfaceOffset(phase: number) {
+  return -Math.sin(phase) * WAVE_H * WAVE_SURFACE_AMPLITUDE_RATIO;
+}
 
 function DayBubbles({
   bubbles,
@@ -621,9 +625,12 @@ function DayBubbles({
   const dayInset = 4;
   const leftBound = colStart + dayInset;
   const rightBound = colStart + colWidth - dayInset;
-  // Bubbles rest on top of the upper wave crest — a clear "water surface" floor.
-  // wave1 baseline = height*0.5, crest reaches height*0.1, so crest line = tankH - WAVE_H*0.9.
-  const stackFloorY = tankH - WAVE_H * 0.9;
+  const waveBaselineY = tankH - WAVE_H * WAVE_BASELINE_RATIO;
+  const surfaceYAtX = (x: number) => {
+    if (waveWidth <= 0) return waveBaselineY;
+    const phase = 2 * Math.PI * (x / waveWidth);
+    return waveBaselineY + waveSurfaceOffset(phase);
+  };
 
   // Pre-compute size + stable horizontal jitter for each visible bubble
   const items = visible.map((b) => {
@@ -640,31 +647,54 @@ function DayBubbles({
     const seed = b.key + mode;
     const r = size / 2;
     const usableWidth = Math.max(0, rightBound - leftBound - size);
-    const xPos = leftBound + r + hash01(seed, 3) * usableWidth;
-    return { b, size, r, xPos, seed };
+    const preferredX = leftBound + r + hash01(seed, 3) * usableWidth;
+    return { b, size, r, preferredX, seed };
   });
 
-  // Gravity stacking inside each day boundary. Slight overlap is allowed.
+  // Let bubbles "roll" to the lowest available spot on the wave instead of
+  // pinning x and only stacking upward.
   const OVERLAP = 0.92;
   items.sort((a, b) => b.r - a.r);
   const placed: { x: number; y: number; r: number }[] = [];
-  const positioned = items.map(({ b, size, r, xPos, seed }) => {
-    let yPos = stackFloorY - r;
-    for (const p of placed) {
-      const dx = xPos - p.x;
-      const minDist = (r + p.r) * OVERLAP;
-      if (Math.abs(dx) < minDist) {
-        const dy = Math.sqrt(minDist * minDist - dx * dx);
-        const stackedY = p.y - dy;
-        if (stackedY < yPos) yPos = stackedY;
+  const positioned = items.map(({ b, size, r, preferredX, seed }) => {
+    const minX = leftBound + r;
+    const maxX = rightBound - r;
+    const step = Math.max(6, Math.min(16, Math.round(size * 0.2)));
+
+    const restingYAtX = (candidateX: number) => {
+      let candidateY = surfaceYAtX(candidateX) - r;
+      for (const p of placed) {
+        const dx = candidateX - p.x;
+        const minDist = (r + p.r) * OVERLAP;
+        if (Math.abs(dx) < minDist) {
+          const dy = Math.sqrt(minDist * minDist - dx * dx);
+          candidateY = Math.min(candidateY, p.y - dy);
+        }
+      }
+      return Math.max(r + 8, candidateY);
+    };
+
+    const candidates: number[] = [preferredX, minX, maxX];
+    for (let x = minX; x <= maxX; x += step) candidates.push(x);
+
+    let bestX = preferredX;
+    let bestY = restingYAtX(preferredX);
+    for (const candidateX of candidates) {
+      const clampedX = Math.max(minX, Math.min(maxX, candidateX));
+      const candidateY = restingYAtX(clampedX);
+      const isLower = candidateY > bestY + 0.5;
+      const isSimilarHeight = Math.abs(candidateY - bestY) <= 0.5;
+      const isCloserToPreferred =
+        Math.abs(clampedX - preferredX) < Math.abs(bestX - preferredX);
+
+      if (isLower || (isSimilarHeight && isCloserToPreferred)) {
+        bestX = clampedX;
+        bestY = candidateY;
       }
     }
-    // Clamp so the resting position stays near the bowl floor while leaving
-    // room for the subtle wave-follow offset below.
-    yPos = Math.min(yPos, stackFloorY - r);
-    yPos = Math.max(r + 8, yPos);
-    placed.push({ x: xPos, y: yPos, r });
-    return { b, size, xPos, yPos, seed };
+
+    placed.push({ x: bestX, y: bestY, r });
+    return { b, size, xPos: bestX, yPos: bestY, seed };
   });
 
   return (
@@ -721,14 +751,16 @@ function Bubble({
   favorite: boolean;
   onToggleFavorite: (name: string) => void;
 }) {
+  const initialPhase = waveWidth > 0 ? 2 * Math.PI * (xPos / waveWidth) : 0;
+  const initialSurfaceOffset = waveSurfaceOffset(initialPhase);
+
   // Y offset that follows the higher wave's surface at this bubble's x.
   const time = useTime();
   const waveY = useTransform(time, (t) => {
     if (reduced || waveWidth <= 0) return 0;
     const phase =
       2 * Math.PI * (xPos / waveWidth + (t % WAVE_PERIOD_MS) / WAVE_PERIOD_MS);
-    // 기록 탭은 수면을 따라가되, 과하게 뜨지 않도록 이동량을 더 줄인다.
-    return -BUBBLE_WAVE_FOLLOW_Y * Math.sin(phase);
+    return waveSurfaceOffset(phase) - initialSurfaceOffset;
   });
 
   // Gentle bob layered on top of the wave-follow translate.
