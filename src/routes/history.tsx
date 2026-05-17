@@ -26,8 +26,7 @@ export const Route = createFileRoute("/history")({
 /* ---------- layout constants (mirrors home bowl) ---------- */
 const DAY_COL_W = 88;
 const TANK_H = 440;
-const WAVE_H = 48; // matches home Wave height
-const FLOAT_BAND = 240; // vertical scatter range above the wave
+const WAVE_H = 140; // higher water level
 const BUBBLE_MIN = 24;
 const BUBBLE_MAX = 76;
 
