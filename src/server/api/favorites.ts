@@ -17,13 +17,19 @@ export async function handleFavorites(req: Request, env: Env): Promise<Response>
     const url = new URL(req.url);
 
     if (req.method === "GET") {
+      // foods JOIN에 deleted_at 같이 가져와 클라이언트 측에서 필터.
+      // (soft delete된 음식의 즐겨찾기는 UI에서 숨김 — 음식 복구 시 자동 부활)
       const { data, error } = await supabase
         .from("favorites")
-        .select("*, food:foods(name, food_code, source)")
+        .select("*, food:foods(name, food_code, source, deleted_at)")
         .eq("user_key", userKey)
         .order("added_at", { ascending: false });
       if (error) return jsonError(500, "DB_ERROR", error.message);
-      return Response.json(data ?? []);
+      const filtered = (data ?? []).filter(
+        (row: { food?: { deleted_at?: string | null } | null }) =>
+          row.food?.deleted_at == null,
+      );
+      return Response.json(filtered);
     }
 
     if (req.method === "POST") {

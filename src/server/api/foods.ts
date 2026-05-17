@@ -19,10 +19,12 @@ export async function handleFoods(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
 
     if (req.method === "GET") {
+      // 활성 음식만 (deleted_at IS NULL). soft delete된 음식은 라이브러리에서 숨김.
       const { data, error } = await supabase
         .from("foods")
         .select("*")
         .eq("user_key", userKey)
+        .is("deleted_at", null)
         .order("updated_at", { ascending: false });
       if (error) return jsonError(500, "DB_ERROR", error.message);
       return Response.json(data ?? []);
@@ -79,24 +81,17 @@ export async function handleFoods(req: Request, env: Env): Promise<Response> {
     }
 
     if (req.method === "DELETE") {
+      // Soft delete: UPDATE deleted_at. 과거 food_logs는 그대로 보존 (FK 유지).
+      // favorites는 그대로 두되 favorites.list가 deleted 음식 필터링.
       const id = url.searchParams.get("id");
       if (!id) return jsonError(400, "INVALID_BODY", "missing id");
       const { error } = await supabase
         .from("foods")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("user_key", userKey)
-        .eq("id", id);
-      if (error) {
-        // FK ON DELETE RESTRICT — food_logs에 참조 중이면 23503 (foreign_key_violation)
-        if (error.code === "23503") {
-          return jsonError(
-            409,
-            "FOOD_IN_USE",
-            "이 음식을 사용한 식사 기록이 있어서 삭제할 수 없습니다",
-          );
-        }
-        return jsonError(500, "DB_ERROR", error.message);
-      }
+        .eq("id", id)
+        .is("deleted_at", null); // 이미 삭제된 거 또 삭제 안 함 (멱등)
+      if (error) return jsonError(500, "DB_ERROR", error.message);
       return new Response(null, { status: 204 });
     }
 
