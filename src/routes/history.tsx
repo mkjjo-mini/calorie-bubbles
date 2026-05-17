@@ -778,9 +778,11 @@ function Bubble({
               style={{
                 fontSize: size >= 28 ? 10 : 8,
                 color:
-                  mode === "carbs" || (mode === "kcal" && isLight(color))
-                    ? "#3F2A00"
-                    : "#FFFFFF",
+                  mode === "kcal"
+                    ? "#1f2937"
+                    : mode === "carbs"
+                      ? "#3F2A00"
+                      : "#FFFFFF",
                 maxWidth: size - 4,
                 wordBreak: "keep-all",
                 overflow: "hidden",
