@@ -478,7 +478,7 @@ function HistoryPage() {
         </header>
 
         {/* WATER BOWL (mirrors home palette: cream gradient + yellow border + bottom wave) */}
-        <div className="relative px-3 pt-3 pb-2">
+        <div className="relative px-3 pt-4 pb-2">
           {!hasAnyRecord && (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 text-center text-sm text-neutral-400">
               이 달은 기록이 없어요
