@@ -24,7 +24,7 @@ const MENU_ITEMS: MenuItem[] = [
     to: "/settings/goal",
   },
   {
-    title: "알림 등록",
+    title: "알림 설정",
     subtitle: "매일 알림 받을 시간",
     to: "/settings/notifications",
   },
@@ -35,12 +35,12 @@ function SettingsMenuPage() {
 
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
-      <main className="w-full max-w-[390px] flex flex-col">
+      <main className="w-full max-w-[375px] flex flex-col">
         <header className="sticky top-0 z-10 border-b border-neutral-100 bg-white/95 px-5 pt-6 pb-3 backdrop-blur">
           <h1 className="text-lg font-semibold text-neutral-900">Settings</h1>
         </header>
 
-        <div className="flex-1 px-4 pt-4 pb-12">
+        <div className="flex-1 px-5 pt-4 pb-12">
           <div className="rounded-2xl border border-neutral-100 bg-white overflow-hidden">
             {MENU_ITEMS.map((item, idx) => (
               <React.Fragment key={item.to}>
@@ -49,8 +49,10 @@ function SettingsMenuPage() {
                 )}
                 <button
                   type="button"
-                  onClick={() => navigate({ to: item.to as "/settings/profile" | "/settings/goal" | "/settings/notifications" })}
-                  className="flex w-full items-center justify-between px-4 py-4 text-left active:bg-neutral-50 transition-colors"
+                  onClick={() => {
+                    void navigate({ to: item.to });
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-4 text-left active:bg-neutral-50 transition-colors cursor-pointer"
                 >
                   <div>
                     <p className="text-sm font-semibold text-neutral-900">

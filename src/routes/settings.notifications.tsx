@@ -97,7 +97,7 @@ function NotificationsPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-base font-semibold text-neutral-900">알림 등록</h1>
+          <h1 className="text-base font-semibold text-neutral-900">알림 설정</h1>
         </header>
 
         {loading ? (
