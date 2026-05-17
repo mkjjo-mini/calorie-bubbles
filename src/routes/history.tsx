@@ -766,6 +766,7 @@ function Bubble({
   yPos,
   seed,
   color,
+  textColor,
   waveWidth,
   mode,
   reduced,
@@ -779,6 +780,7 @@ function Bubble({
   yPos: number;
   seed: string;
   color: string;
+  textColor: string;
   waveWidth: number;
   mode: MetricMode;
   reduced: boolean;
