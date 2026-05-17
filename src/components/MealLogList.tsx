@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useMotionValue, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useMotionValue } from "framer-motion";
 import { toast } from "sonner";
-import { MoreVertical, Trash2 } from "lucide-react";
+import { MoreVertical } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -370,8 +370,8 @@ function DraggableLogRow({
 
   // framer-motion motion value for swipe x offset
   const x = useMotionValue(0);
-  const trashOpacity = useTransform(x, [-120, -60, 0], [1, 0.6, 0]);
-  const trashScale = useTransform(x, [-120, -60, 0], [1.1, 0.9, 0.7]);
+  // 가벼운 터치로 안 움직이게 — 12px horizontal + horizontal-dominant 일 때만 활성화
+  const swipingRef = useRef(false);
 
   const clearTimer = () => {
     if (timerRef.current !== null) {
@@ -426,13 +426,39 @@ function DraggableLogRow({
     onKeyDown: dndListeners.onKeyDown as React.KeyboardEventHandler<HTMLDivElement> | undefined,
   };
 
-  function handleDragEnd() {
+  // PanInfo handlers — drag activation threshold + axis lock
+  function handlePanStart() {
+    swipingRef.current = false;
+  }
+  function handlePan(
+    _e: PointerEvent | MouseEvent | TouchEvent,
+    info: { offset: { x: number; y: number } },
+  ) {
+    if (isDndActive) return;
+    const dx = info.offset.x;
+    const dy = info.offset.y;
+    if (!swipingRef.current) {
+      // 활성화 조건: |dx| > 12 AND horizontal 우세
+      if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
+        swipingRef.current = true;
+      } else {
+        return;
+      }
+    }
+    // 좌 swipe만 (right=0, left=-120), 12px offset 보정으로 jump 방지
+    const adjusted = dx + (dx < 0 ? 12 : -12);
+    x.set(Math.max(SWIPE_DRAG_CONSTRAINT_LEFT, Math.min(0, adjusted)));
+  }
+  function handlePanEnd(
+    _e: PointerEvent | MouseEvent | TouchEvent,
+    _info: { offset: { x: number; y: number } },
+  ) {
+    if (!swipingRef.current) return;
+    swipingRef.current = false;
     if (x.get() < SWIPE_DELETE_THRESHOLD) {
-      // Crossed threshold — trigger delete
       setDeleted(true);
       onDelete(item.foodLogId, item.foodName);
     } else {
-      // Spring back to origin
       x.set(0);
     }
   }
@@ -454,24 +480,16 @@ function DraggableLogRow({
       {...attributes}
       {...composed}
       onContextMenu={(e) => e.preventDefault()}
-      className={`select-none rounded-xl transition-shadow relative overflow-hidden ${
+      className={`select-none rounded-xl transition-shadow ${
         primed ? "bg-white shadow-lg ring-1 ring-neutral-200" : ""
       }`}
     >
-      {/* Delete background revealed on swipe */}
-      <div className="absolute inset-0 flex items-center justify-end pr-5 bg-red-500 rounded-xl">
-        <motion.div style={{ opacity: trashOpacity, scale: trashScale }}>
-          <Trash2 size={20} className="text-white" />
-        </motion.div>
-      </div>
-
-      {/* Swipeable content — framer drag only when dnd is not active */}
+      {/* 좌 swipe로 즉시 삭제 — 휴지통 UI 없음. 12px threshold 후 활성화 */}
       <motion.div
-        drag={isDndActive ? false : "x"}
-        dragConstraints={{ left: SWIPE_DRAG_CONSTRAINT_LEFT, right: 0 }}
-        dragElastic={0.2}
+        onPanStart={handlePanStart}
+        onPan={handlePan}
+        onPanEnd={handlePanEnd}
         style={{ x, position: "relative", backgroundColor: "white", borderRadius: 12 }}
-        onDragEnd={handleDragEnd}
       >
         <LogRowVisual item={item} onOpenActions={onOpenActions} />
       </motion.div>
