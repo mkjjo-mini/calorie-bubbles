@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as HistoryRouteImport } from './routes/history'
-import { Route as CloudTestRouteImport } from './routes/cloud-test'
 import { Route as AddRouteImport } from './routes/add'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -23,11 +22,6 @@ const SettingsRoute = SettingsRouteImport.update({
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CloudTestRoute = CloudTestRouteImport.update({
-  id: '/cloud-test',
-  path: '/cloud-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AddRoute = AddRouteImport.update({
@@ -44,14 +38,12 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
-  '/cloud-test': typeof CloudTestRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
-  '/cloud-test': typeof CloudTestRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRoute
 }
@@ -59,22 +51,20 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/add': typeof AddRoute
-  '/cloud-test': typeof CloudTestRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/add' | '/cloud-test' | '/history' | '/settings'
+  fullPaths: '/' | '/add' | '/history' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/add' | '/cloud-test' | '/history' | '/settings'
-  id: '__root__' | '/' | '/add' | '/cloud-test' | '/history' | '/settings'
+  to: '/' | '/add' | '/history' | '/settings'
+  id: '__root__' | '/' | '/add' | '/history' | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AddRoute: typeof AddRoute
-  CloudTestRoute: typeof CloudTestRoute
   HistoryRoute: typeof HistoryRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -93,13 +83,6 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cloud-test': {
-      id: '/cloud-test'
-      path: '/cloud-test'
-      fullPath: '/cloud-test'
-      preLoaderRoute: typeof CloudTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/add': {
@@ -122,10 +105,19 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AddRoute: AddRoute,
-  CloudTestRoute: CloudTestRoute,
   HistoryRoute: HistoryRoute,
   SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
