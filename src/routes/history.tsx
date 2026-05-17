@@ -617,6 +617,23 @@ function HistoryPage() {
                 );
               })}
 
+              {/* Long press hit areas per day column */}
+              {month.map((d, i) => (
+                <div
+                  key={`lp-${d.dateKey}`}
+                  className="absolute top-0"
+                  style={{
+                    left: colLayouts[i].start,
+                    width: colLayouts[i].width,
+                    height: TANK_H,
+                    touchAction: "pan-x",
+                  }}
+                  onPointerDown={startLongPress(d.dateKey)}
+                  onPointerUp={cancelLongPress}
+                  onPointerCancel={cancelLongPress}
+                />
+              ))}
+
               {/* Bubbles */}
               {perDay.map((bubbles, dayIdx) => (
                 <DayBubbles
