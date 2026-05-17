@@ -58,12 +58,25 @@ function hash01(str: string, salt = 0) {
   return ((h >>> 0) % 10000) / 10000;
 }
 
-// Color from food name — playful HSL palette, stable for same name across timeline
-function foodColor(name: string): string {
-  const hue = Math.floor(hash01(name, 1) * 360);
-  const sat = 65 + Math.floor(hash01(name, 7) * 15); // 65-80
-  const lit = 60 + Math.floor(hash01(name, 13) * 8); // 60-68
-  return `hsl(${hue} ${sat}% ${lit}%)`;
+// Curated palette for kcal-mode bubbles — distinct from macro RGB identity.
+// Mid-tone, jewel-ish colors that read well at 25% alpha over the tank.
+const KCAL_PALETTE = [
+  "#5EC4B6", // mint
+  "#9B8CE0", // lavender
+  "#F2A57C", // peach
+  "#4FB3C9", // teal
+  "#E8B86E", // apricot
+  "#C29BD8", // light purple
+  "#A8B86C", // olive
+  "#E58CA8", // rose
+  "#7B95B5", // slate blue
+  "#8FB08A", // sage
+];
+
+// Deterministic: same food name always picks same color across months.
+function kcalBubbleColor(name: string): string {
+  const idx = Math.floor(hash01(name, 1) * KCAL_PALETTE.length);
+  return KCAL_PALETTE[idx] ?? KCAL_PALETTE[0];
 }
 
 function normalizeFoodKey(name: string): string {
@@ -649,7 +662,7 @@ function DayBubbles({
     <>
       {positioned.map(({ b, size, xPos, yPos, seed }) => {
         const color =
-          mode === "kcal" ? foodColor(b.name) : MACRO_COLORS[mode];
+          mode === "kcal" ? kcalBubbleColor(b.name) : MACRO_COLORS[mode];
         return (
           <Bubble
             key={b.key}
@@ -729,9 +742,15 @@ function Bubble({
             width: size,
             height: size,
             y: waveY,
-            background: `radial-gradient(circle at 32% 28%, ${color}ee, ${color}bb 58%, ${color}77)`,
-            boxShadow: `inset -5px -7px 12px ${color}55, 0 4px 10px rgba(15,23,42,0.18)`,
-            border: `1px solid ${color}`,
+            background:
+              mode === "kcal"
+                ? `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.12) 18%, ${color}55 45%, ${color}40 100%)`
+                : `radial-gradient(circle at 32% 28%, ${color}ee, ${color}bb 58%, ${color}77)`,
+            boxShadow:
+              mode === "kcal"
+                ? `inset 0 0 0 0.5px ${color}33, 0 2px 6px rgba(15,23,42,0.10)`
+                : `inset -5px -7px 12px ${color}55, 0 4px 10px rgba(15,23,42,0.18)`,
+            border: mode === "kcal" ? `1.5px solid ${color}cc` : `1px solid ${color}`,
             willChange: "transform",
           }}
           aria-label={`${date.getMonth() + 1}/${date.getDate()} ${b.name}`}
@@ -759,9 +778,11 @@ function Bubble({
               style={{
                 fontSize: size >= 28 ? 10 : 8,
                 color:
-                  mode === "carbs" || (mode === "kcal" && isLight(color))
-                    ? "#3F2A00"
-                    : "#FFFFFF",
+                  mode === "kcal"
+                    ? "#1f2937"
+                    : mode === "carbs"
+                      ? "#3F2A00"
+                      : "#FFFFFF",
                 maxWidth: size - 4,
                 wordBreak: "keep-all",
                 overflow: "hidden",
@@ -789,15 +810,6 @@ function Bubble({
   );
 }
 
-// Light HSL detection so we pick dark text on yellowish bubbles in kcal mode
-function isLight(hsl: string): boolean {
-  const m = hsl.match(/hsl\((\d+)\s+\d+%\s+(\d+)%\)/);
-  if (!m) return false;
-  const h = +m[1];
-  const l = +m[2];
-  // yellows/greens with high lightness are "light"
-  return l >= 62 && h >= 40 && h <= 200;
-}
 
 /* ---------- popover content ---------- */
 function PopoverBody({
