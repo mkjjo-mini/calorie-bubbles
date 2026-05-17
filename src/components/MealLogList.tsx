@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { MoreVertical, Pencil, ArrowLeftRight, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, ArrowLeftRight, Trash2, GripVertical } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -428,13 +428,16 @@ function DraggableLogRow({
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
       style={style}
       {...attributes}
-      {...composed}
       onContextMenu={(e) => e.preventDefault()}
       className={`select-none rounded-xl transition-shadow ${
         primed ? "bg-white shadow-lg ring-1 ring-neutral-200" : ""
       }`}
     >
-      <LogRowVisual item={item} onOpenActions={onOpenActions} />
+      <LogRowVisual
+        item={item}
+        onOpenActions={onOpenActions}
+        dragHandle={composed}
+      />
     </motion.div>
   );
 }
@@ -443,18 +446,31 @@ function LogRowVisual({
   item,
   dragging = false,
   onOpenActions,
+  dragHandle,
 }: {
   item: LogItem;
   dragging?: boolean;
   onOpenActions?: () => void;
+  dragHandle?: React.HTMLAttributes<HTMLElement>;
 }) {
   const dot = MACRO_COLORS[dominantMacro(item)];
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-2 ${
+      className={`flex items-center gap-2 px-2 py-2 ${
         dragging ? "bg-white rounded-xl shadow-xl scale-[1.03]" : "active:bg-neutral-50"
       }`}
     >
+      {dragHandle && (
+        <button
+          type="button"
+          aria-label="순서 변경"
+          {...dragHandle}
+          style={{ touchAction: "none", cursor: "grab" }}
+          className="flex h-8 w-6 items-center justify-center text-neutral-300 hover:text-neutral-500"
+        >
+          <GripVertical size={16} />
+        </button>
+      )}
       <span
         className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
         style={{ background: dot }}
