@@ -42,5 +42,10 @@ export interface Env {
   TOSS_MTLS_KEY_PATH?: string;
   /** AES-256 base64. PII 복호화 키. v1엔 미사용. */
   TOSS_DECRYPT_KEY?: string;
+  /** Step 07 — Supabase. service_role로 Worker만 접근. 클라이언트 노출 X */
+  SUPABASE_URL?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
+  /** v1 mock — isPaidUser 강제 토글. BM 확정 후 실제 구독 조회로 교체 */
+  FORCE_PAID?: string;
   ENVIRONMENT?: "development" | "production";
 }

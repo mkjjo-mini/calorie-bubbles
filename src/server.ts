@@ -68,18 +68,48 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   return brandedErrorResponse();
 }
 
+async function resolveEnv(env: unknown): Promise<Env | null> {
+  if (env) return env as Env;
+  // dev (vite + cloudflare plugin is build-only) — Node process.env + in-memory KV fallback.
+  // prod 빌드에선 import.meta.env.DEV가 false라 dynamic import가 dead code로 제거됨.
+  if (import.meta.env?.DEV) {
+    const { getDevEnv } = await import("./server/auth/dev-env");
+    return getDevEnv();
+  }
+  return null;
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      // 1. /api/auth/* — cookie 발급/검증이 필요해 createServerFn(RPC)로는 불충분.
-      //    Worker fetch handler에서 직접 처리. Step 07의 /api/food-logs 등도 같은 패턴 확장.
       const url = new URL(request.url);
-      if (url.pathname.startsWith("/api/auth/")) {
-        const authResponse = await handleAuth(request, env as Env);
-        if (authResponse) return authResponse;
+
+      // /api/* — Worker fetch handler에서 직접 처리 (createServerFn RPC는 cookie 발급 불충분).
+      // env fallback (dev only)를 중앙화 — auth router와 api router 모두 effectiveEnv 사용.
+      if (url.pathname.startsWith("/api/")) {
+        const effectiveEnv = await resolveEnv(env);
+        if (!effectiveEnv) {
+          return new Response(
+            JSON.stringify({
+              code: "ENV_MISSING",
+              message: "Worker bindings 누락",
+            }),
+            { status: 500, headers: { "content-type": "application/json" } },
+          );
+        }
+        // 1) /api/auth/*
+        if (url.pathname.startsWith("/api/auth/")) {
+          const res = await handleAuth(request, effectiveEnv);
+          if (res) return res;
+        } else {
+          // 2) /api/* (foods, food-logs, user-goals, favorites, subscription-status)
+          const { handleApi } = await import("./server/api/router");
+          const res = await handleApi(request, effectiveEnv);
+          if (res) return res;
+        }
       }
 
-      // 2. 그 외는 TanStack Start server-entry로 위임
+      // 3) 그 외 — TanStack Start로 위임
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

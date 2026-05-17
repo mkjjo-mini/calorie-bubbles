@@ -1,0 +1,33 @@
+/**
+ * /api/* 라우터 (auth 제외).
+ *
+ * Returns a Response if the URL matches an api route, else null
+ * (caller should fall through to TanStack Start).
+ */
+import type { Env } from "../auth/env";
+import { handleFavorites } from "./favorites";
+import { handleFoodLogs } from "./food-logs";
+import { handleFoods } from "./foods";
+import { handleSubscriptionStatus } from "./subscription-status";
+import { handleUserGoals } from "./user-goals";
+
+export async function handleApi(
+  req: Request,
+  env: Env,
+): Promise<Response | null> {
+  const url = new URL(req.url);
+  switch (url.pathname) {
+    case "/api/foods":
+      return handleFoods(req, env);
+    case "/api/food-logs":
+      return handleFoodLogs(req, env);
+    case "/api/user-goals":
+      return handleUserGoals(req, env);
+    case "/api/favorites":
+      return handleFavorites(req, env);
+    case "/api/subscription-status":
+      return handleSubscriptionStatus(req, env);
+    default:
+      return null;
+  }
+}

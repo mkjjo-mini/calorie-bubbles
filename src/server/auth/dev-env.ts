@@ -47,6 +47,9 @@ export function getDevEnv(): Env {
     TOSS_MTLS_CERT_PATH: process.env.TOSS_MTLS_CERT_PATH,
     TOSS_MTLS_KEY_PATH: process.env.TOSS_MTLS_KEY_PATH,
     TOSS_DECRYPT_KEY: process.env.TOSS_DECRYPT_KEY,
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    FORCE_PAID: process.env.FORCE_PAID,
     ENVIRONMENT:
       (process.env.ENVIRONMENT as "development" | "production") ?? "development",
   };
