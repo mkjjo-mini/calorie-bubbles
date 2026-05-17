@@ -480,6 +480,8 @@ function HistoryPage() {
 function DayBubbles({
   bubbles,
   dayIdx,
+  colStart,
+  colWidth,
   mode,
   maxMetric,
   favorites,
@@ -489,6 +491,8 @@ function DayBubbles({
 }: {
   bubbles: FoodBubbleData[];
   dayIdx: number;
+  colStart: number;
+  colWidth: number;
   mode: MetricMode;
   maxMetric: number;
   favorites: Set<string>;
@@ -506,7 +510,7 @@ function DayBubbles({
 
   if (visible.length === 0) return null;
 
-  const colCenter = dayIdx * DAY_COL_W + DAY_COL_W / 2;
+  const colCenter = colStart + colWidth / 2;
   // Water surface line — bubbles rest with their bottom at this y, then stack upward.
   const waterTop = TANK_H - WAVE_H + 4;
 
@@ -523,21 +527,23 @@ function DayBubbles({
     );
     const seed = b.key + mode;
     const r = size / 2;
-    const maxJitter = Math.max(0, (DAY_COL_W - size - 4) / 2);
+    const maxJitter = Math.max(0, (colWidth - size - 4) / 2);
     const xPos = colCenter + (hash01(seed, 3) - 0.5) * 2 * maxJitter;
     return { b, size, r, xPos, seed };
   });
 
-  // Gravity stacking: place largest first at the surface, smaller stack on top.
+  // Gravity stacking: largest first at the surface, smaller stack on top.
+  // Allow a bit of overlap (OVERLAP=0.78) so bubbles cluster nicely.
+  const OVERLAP = 0.78;
   items.sort((a, b) => b.r - a.r);
   const placed: { x: number; y: number; r: number }[] = [];
   const positioned = items.map(({ b, size, r, xPos, seed }) => {
     let yPos = waterTop - r; // resting on water surface
     for (const p of placed) {
       const dx = xPos - p.x;
-      const sumR = r + p.r + 1;
-      if (Math.abs(dx) < sumR) {
-        const dy = Math.sqrt(sumR * sumR - dx * dx);
+      const minDist = (r + p.r) * OVERLAP;
+      if (Math.abs(dx) < minDist) {
+        const dy = Math.sqrt(minDist * minDist - dx * dx);
         const stackedY = p.y - dy;
         if (stackedY < yPos) yPos = stackedY;
       }
