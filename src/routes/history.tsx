@@ -413,8 +413,8 @@ function HistoryPage() {
           </div>
 
           {/* Minimap */}
-          <div className="px-3 pb-2">
-            <div ref={minimapRef} className="relative h-4 w-full" role="presentation">
+          <div className="px-3 pb-3">
+            <div ref={minimapRef} className="relative h-7 w-full" role="presentation">
               {(() => {
                 const n = month.length;
                 const gap = mmW > 0 && n > 1
