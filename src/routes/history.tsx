@@ -458,53 +458,6 @@ function HistoryPage() {
   );
 }
 
-/* ---------- water surface (animated wave) ---------- */
-function WaterSurface({
-  width,
-  y,
-  reduced,
-}: {
-  width: number;
-  y: number;
-  reduced: boolean;
-}) {
-  const [phase, setPhase] = useState(0);
-  useEffect(() => {
-    if (reduced) return;
-    let raf = 0;
-    let last = performance.now();
-    const tick = (t: number) => {
-      const dt = (t - last) / 1000;
-      last = t;
-      setPhase((p) => (p + dt * 0.6) % (Math.PI * 2));
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [reduced]);
-
-  const path = useMemo(() => {
-    const amp = 4;
-    const period = 140;
-    const step = 12;
-    let d = `M 0 ${y}`;
-    for (let x = step; x <= width; x += step) {
-      const yy = y + Math.sin((x / period) * Math.PI * 2 + phase) * amp;
-      d += ` L ${x.toFixed(1)} ${yy.toFixed(2)}`;
-    }
-    return d;
-  }, [width, y, phase]);
-
-  return (
-    <path
-      d={path}
-      fill="none"
-      stroke="rgba(59,130,246,0.45)"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-    />
-  );
-}
 
 /* ---------- bubbles for one day ---------- */
 function DayBubbles({
