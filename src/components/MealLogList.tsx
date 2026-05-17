@@ -127,7 +127,10 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    // 가벼운 터치/스크롤로 drag 오발동 방지 — 꾹 눌러야 활성화
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 250, tolerance: 8 },
+    }),
   );
 
   const grouped = useMemo(() => {
