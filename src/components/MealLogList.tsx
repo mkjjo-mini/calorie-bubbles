@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Pencil, ArrowLeftRight, Trash2 } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -504,21 +504,24 @@ function ActionSheet({
       <button
         disabled={!canEdit}
         onClick={() => onPick("edit")}
-        className="w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium text-neutral-800 hover:bg-neutral-50 active:scale-[0.98] transition disabled:opacity-40"
+        className="w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium text-neutral-800 hover:bg-neutral-50 active:scale-[0.98] transition disabled:opacity-40 flex items-center gap-3"
       >
-        ✏️ 수량 편집
+        <Pencil className="h-[18px] w-[18px] text-neutral-600" strokeWidth={2} />
+        수량 편집
       </button>
       <button
         onClick={() => onPick("slot")}
-        className="w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium text-neutral-800 hover:bg-neutral-50 active:scale-[0.98] transition"
+        className="w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium text-neutral-800 hover:bg-neutral-50 active:scale-[0.98] transition flex items-center gap-3"
       >
-        🔁 슬롯 변경
+        <ArrowLeftRight className="h-[18px] w-[18px] text-neutral-600" strokeWidth={2} />
+        슬롯 변경
       </button>
       <button
         onClick={() => onPick("delete")}
-        className="w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium text-red-600 hover:bg-red-50 active:scale-[0.98] transition"
+        className="w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium text-red-600 hover:bg-red-50 active:scale-[0.98] transition flex items-center gap-3"
       >
-        🗑️ 삭제
+        <Trash2 className="h-[18px] w-[18px] text-red-600" strokeWidth={2} />
+        삭제
       </button>
       <button
         onClick={onClose}
