@@ -212,6 +212,40 @@ function HistoryPage() {
     return { perDay: _perDay, maxMetric: max || 1, colLayouts: _colLayouts, totalWidth: cursorX };
   }, [month, mode]);
 
+  // Month-level kcal color assignment: distinct palette slots until exhausted.
+  // Same food name keeps the same color across all days of the month.
+  const monthKcalColors = useMemo(() => {
+    const map = new Map<string, { color: string; text: string }>();
+    const N = KCAL_PALETTE.length;
+    const used = new Set<number>();
+    const seenNames: string[] = [];
+    perDay.forEach((arr) => {
+      for (const b of arr) {
+        if (!map.has(b.name)) {
+          seenNames.push(b.name);
+          map.set(b.name, KCAL_PALETTE[0]); // placeholder, overwritten below
+        }
+      }
+    });
+    // Stable order by first appearance, then greedy preferred-index probing.
+    for (const name of seenNames) {
+      const preferred = Math.floor(hash01(name, 1) * N) % N;
+      let idx = preferred;
+      if (used.size < N) {
+        for (let step = 0; step < N; step++) {
+          const candidate = (preferred + step) % N;
+          if (!used.has(candidate)) {
+            idx = candidate;
+            break;
+          }
+        }
+        used.add(idx);
+      }
+      map.set(name, KCAL_PALETTE[idx]);
+    }
+    return map;
+  }, [perDay]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollX, setScrollX] = useState(0);
   const [viewportW, setViewportW] = useState(0);
@@ -561,6 +595,7 @@ function HistoryPage() {
                   reduced={reduced}
                   date={month[dayIdx].date}
                   tankH={TANK_H}
+                  kcalColors={monthKcalColors}
                 />
               ))}
 
@@ -598,6 +633,7 @@ function DayBubbles({
   reduced,
   date,
   tankH,
+  kcalColors,
 }: {
   bubbles: FoodBubbleData[];
   dayIdx: number;
@@ -611,6 +647,7 @@ function DayBubbles({
   reduced: boolean;
   date: Date;
   tankH: number;
+  kcalColors: Map<string, { color: string; text: string }>;
 }) {
   if (bubbles.length === 0) return null;
 
@@ -621,31 +658,6 @@ function DayBubbles({
       : bubbles.filter((b) => b[mode] > 0);
 
   if (visible.length === 0) return null;
-
-  // Assign distinct palette colors per day until the palette is exhausted.
-  // Preferred index comes from the name hash (stable across renders);
-  // collisions probe forward to the next free slot.
-  const kcalColorByKey = new Map<string, { color: string; text: string }>();
-  if (mode === "kcal") {
-    const N = KCAL_PALETTE.length;
-    const used = new Set<number>();
-    const ordered = [...visible].sort((a, b) => a.key.localeCompare(b.key));
-    for (const b of ordered) {
-      const preferred = Math.floor(hash01(b.name, 1) * N) % N;
-      let idx = preferred;
-      if (used.size < N) {
-        for (let step = 0; step < N; step++) {
-          const candidate = (preferred + step) % N;
-          if (!used.has(candidate)) {
-            idx = candidate;
-            break;
-          }
-        }
-        used.add(idx);
-      }
-      kcalColorByKey.set(b.key, KCAL_PALETTE[idx]);
-    }
-  }
 
   const dayInset = 4;
   const leftBound = colStart + dayInset;
@@ -725,7 +737,7 @@ function DayBubbles({
   return (
     <>
       {positioned.map(({ b, size, xPos, yPos, seed }) => {
-        const paletteEntry = mode === "kcal" ? kcalColorByKey.get(b.key) : undefined;
+        const paletteEntry = mode === "kcal" ? kcalColors.get(b.name) : undefined;
         const color =
           mode === "kcal"
             ? (paletteEntry?.color ?? kcalBubbleColor(b.name))
