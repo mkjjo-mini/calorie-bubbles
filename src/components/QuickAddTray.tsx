@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useRouterState } from "@tanstack/react-router";
 import { Star, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { displayName, inferMealSlot, MACRO_COLORS, type BubbleEntry, type Macro } from "@/lib/foods";
@@ -146,7 +147,8 @@ export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
     void loadCloudData();
   }, []);
 
-  // 다른 탭(add.tsx 등)에서 즐겨찾기 변경 후 홈으로 돌아오면 최신화
+  // 다른 탭(add.tsx 등)에서 즐겨찾기/음식 변경 후 홈으로 돌아오면 최신화
+  // SPA 내 navigation은 visibilitychange가 발동하지 않으므로 라우터 path 변경도 함께 감지
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === "visible") void loadCloudData();
@@ -155,6 +157,11 @@ export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
     return () => document.removeEventListener("visibilitychange", onVis);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  useEffect(() => {
+    if (pathname === "/") void loadCloudData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   async function loadCloudData() {
     try {
