@@ -758,6 +758,21 @@ function Bubble({
           }}
           aria-label={`${date.getMonth() + 1}/${date.getDate()} ${b.name}`}
         >
+          {mode === "kcal" && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute rounded-full"
+              style={{
+                top: `${size * 0.1}px`,
+                left: `${size * 0.16}px`,
+                width: `${size * 0.26}px`,
+                height: `${size * 0.22}px`,
+                background:
+                  "radial-gradient(ellipse at center, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.45) 38%, rgba(255,255,255,0) 75%)",
+                filter: "blur(0.4px)",
+              }}
+            />
+          )}
           <motion.span
             className="flex h-full w-full items-center justify-center rounded-full"
             animate={
@@ -782,7 +797,7 @@ function Bubble({
                 fontSize: size >= 28 ? 10 : 8,
                 color:
                   mode === "kcal"
-                    ? "#1f2937"
+                    ? kcalBubbleText(b.name)
                     : mode === "carbs"
                       ? "#3F2A00"
                       : "#FFFFFF",
