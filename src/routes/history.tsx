@@ -3,6 +3,16 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion, useTime, useTransform } from "framer-motion";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Wave } from "@/components/Wave";
 import {
   displayName,
