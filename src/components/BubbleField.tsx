@@ -66,8 +66,8 @@ export function BubbleField({
   // Initialize simulation once
   useEffect(() => {
     const sim = forceSimulation<Node>([])
-      .alphaDecay(0.02)
-      .velocityDecay(0.35)
+      .alphaDecay(0.03)
+      .velocityDecay(0.55)
       .force("x", forceX(cx).strength(0.05))
       .force("y", forceY(anchorY).strength(yStrength))
       .force(
