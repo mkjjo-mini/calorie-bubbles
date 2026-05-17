@@ -120,6 +120,78 @@ function apiToPickable(a: FoodApiResult): Pickable {
     serving_g: a.serving_g,
     serving_label: `${a.serving_g}g`,
     food_code: a.code,
+    raw_category: a.category,
+  };
+}
+
+/**
+ * 식약처 GROUP_NAME (FOOD_CAT1_NM) 한국어 텍스트를 우리 FoodCategory enum으로 매핑.
+ * 매치 안 되면 "other". 음식 이름까지 fallback으로 검사.
+ */
+function inferCategory(
+  rawCategory: string | undefined,
+  foodName: string,
+): FoodCategory {
+  const blob = `${rawCategory ?? ""} ${foodName}`.toLowerCase();
+  if (/도넛|과자|디저트|초콜릿|쿠키|케이크|아이스크림|시리얼바|머핀|와플|파이|빵/.test(blob))
+    return "snack_dessert";
+  if (/밥|면|국수|쌀|떡|곡류/.test(blob)) return "rice_grain_noodle";
+  if (/고기|생선|계란|닭|돼지|소고기|어류|해산물|새우|오징어|참치/.test(blob))
+    return "meat_fish_egg";
+  if (/우유|요거트|요구르트|치즈|버터|유제품/.test(blob)) return "dairy";
+  if (/채소|야채|해조류|김|미역|버섯|샐러드/.test(blob)) return "vegetable_seaweed";
+  if (/과일|사과|바나나|딸기|포도|오렌지|배|복숭아/.test(blob)) return "fruit";
+  if (/음료|주류|커피|차|맥주|소주|와인|쥬스|콜라|사이다/.test(blob))
+    return "drink_alcohol";
+  return "other";
+}
+
+/**
+ * 식약처 API 음식 데이터의 매크로 합 vs 라벨 kcal 일관성 검증.
+ * 차이가 20%+ 이거나 매크로 모두 0인데 kcal>0이면 카테고리 기반으로 자동 보정.
+ *
+ * 케이스 발견 (2026-05-17): "도넛_바나나크림도넛(1개입)" — 식약처 raw에 탄/지 누락.
+ * 라벨 225 kcal인데 매크로 합 3g (12 kcal). 보정 안 하면 12g 미니 버블만 떠서 직관 위반.
+ */
+function reconcileApiMacros(food: Pickable): {
+  carb: number;
+  protein: number;
+  fat: number;
+  is_estimated: boolean;
+  category: FoodCategory;
+} {
+  const category = inferCategory(food.raw_category, food.name);
+  if (food.source !== "api" || food.kcal <= 0) {
+    return {
+      carb: food.carb,
+      protein: food.protein,
+      fat: food.fat,
+      is_estimated: false,
+      category,
+    };
+  }
+  const atwater = kcalFromMacros({
+    carbs: food.carb,
+    protein: food.protein,
+    fat: food.fat,
+  });
+  const diffRatio = Math.abs(atwater - food.kcal) / food.kcal;
+  if (diffRatio < 0.2) {
+    return {
+      carb: food.carb,
+      protein: food.protein,
+      fat: food.fat,
+      is_estimated: false,
+      category,
+    };
+  }
+  const est = estimateMacrosFromKcal(food.kcal, category);
+  return {
+    carb: est.carbs,
+    protein: est.protein,
+    fat: est.fat,
+    is_estimated: true,
+    category,
   };
 }
 
@@ -344,6 +416,9 @@ function AddFoodPage() {
     qty: number,
     saveAsBase: boolean = false,
   ) {
+    // 식약처 데이터 일관성 보정 — 라벨 kcal vs 매크로 합 차이 20%+면 카테고리 기반 추정
+    const reconciled = reconcileApiMacros(food);
+
     // API food → customFoods로 자동 저장 (다음 빠른 추가 트레이·검색에 노출되도록)
     let effectiveId = food.id;
     if (food.source === "api") {
@@ -360,10 +435,11 @@ function AddFoodPage() {
           serving_amount: food.serving_g,
           serving_g: food.serving_g,
           kcal: food.kcal,
-          carb_g: food.carb,
-          protein_g: food.protein,
-          fat_g: food.fat,
-          is_estimated: false,
+          carb_g: reconciled.carb,
+          protein_g: reconciled.protein,
+          fat_g: reconciled.fat,
+          is_estimated: reconciled.is_estimated,
+          category: reconciled.category,
           source: "api",
           food_code: food.food_code,
           created_at: Date.now(),
@@ -372,6 +448,11 @@ function AddFoodPage() {
         const next = prependCustomFood(customFoods, newCustom);
         persistCustom(next);
         effectiveId = newCustom.id;
+        if (reconciled.is_estimated) {
+          toast(`${displayName(food.name)} 탄단지 자동 추정`, {
+            description: "라벨 칼로리와 매크로 합이 안 맞아 카테고리 기준으로 보정했어요",
+          });
+        }
         // 자동 즐겨찾기 없음 — 직접 등록과 동일하게 별표는 사용자 명시 토글로만.
         // 최근 사용 트레이에는 아래 recents push로 자연 노출됨.
       }
@@ -379,9 +460,9 @@ function AddFoodPage() {
 
     const mult = mode === "serving" ? qty : qty / food.serving_g;
     const macros: Record<Macro, number> = {
-      carbs: food.carb * mult,
-      protein: food.protein * mult,
-      fat: food.fat * mult,
+      carbs: reconciled.carb * mult,
+      protein: reconciled.protein * mult,
+      fat: reconciled.fat * mult,
     };
     const now = Date.now();
     const foodLogId = `${now}-${Math.random().toString(36).slice(2, 9)}`;

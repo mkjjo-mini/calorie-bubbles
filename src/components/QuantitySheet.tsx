@@ -22,6 +22,8 @@ export interface Pickable {
   is_estimated?: boolean;
   /** 식약처 FOOD_CD (source="api"용, v2 D1 lookup 키) */
   food_code?: string;
+  /** 식약처 GROUP_NAME / FOOD_CAT1_NM (atwater 보정 시 카테고리 추정 입력) */
+  raw_category?: string;
 }
 
 export interface LastQty {
