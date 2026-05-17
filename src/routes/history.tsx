@@ -725,10 +725,17 @@ function DayBubbles({
   return (
     <>
       {positioned.map(({ b, size, xPos, yPos, seed }) => {
+        const paletteEntry = mode === "kcal" ? kcalColorByKey.get(b.key) : undefined;
         const color =
           mode === "kcal"
-            ? (kcalColorByKey.get(b.key)?.color ?? kcalBubbleColor(b.name))
+            ? (paletteEntry?.color ?? kcalBubbleColor(b.name))
             : MACRO_COLORS[mode];
+        const textColor =
+          mode === "kcal"
+            ? (paletteEntry?.text ?? kcalBubbleText(b.name))
+            : mode === "carbs"
+              ? "#3F2A00"
+              : "#FFFFFF";
         return (
           <Bubble
             key={b.key}
@@ -738,6 +745,7 @@ function DayBubbles({
             yPos={yPos}
             seed={seed}
             color={color}
+            textColor={textColor}
             waveWidth={waveWidth}
             mode={mode}
             reduced={reduced}
