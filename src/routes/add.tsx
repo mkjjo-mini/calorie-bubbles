@@ -30,7 +30,15 @@ import { resolveFoodId } from "@/lib/foods-resolve";
 import { todayKST } from "@/lib/time";
 import { inferMealSlot } from "@/lib/foods";
 
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
+
+const addSearchSchema = z.object({
+  date: fallback(z.string(), todayKST()).default(todayKST()),
+});
+
 export const Route = createFileRoute("/add")({
+  validateSearch: zodValidator(addSearchSchema),
   component: AddFoodPage,
 });
 
