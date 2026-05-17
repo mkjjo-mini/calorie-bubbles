@@ -441,7 +441,7 @@ function HistoryPage() {
                     <div
                       key={d.dateKey}
                       className="flex flex-col items-center justify-center"
-                      style={{ width: DAY_COL_W }}
+                      style={{ width: colLayouts[i].width }}
                     >
                       <div
                         className="font-mono text-[11px] tabular-nums"
