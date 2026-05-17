@@ -508,53 +508,6 @@ function HistoryPage() {
             </div>
           </div>
 
-          {/* DAY LABELS — synced with scroll */}
-          <div className="overflow-hidden border-t border-neutral-200/70 bg-white/95">
-            <div
-              className="no-scrollbar overflow-x-auto"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-                transform: `translateX(${-scrollX}px)`,
-              }}
-            >
-              <div className="relative flex" style={{ width: totalWidth, height: 36 }}>
-                {month.map((d, i) => {
-                  const color = progressColor(d, mode);
-                  const wd = ["일", "월", "화", "수", "목", "금", "토"][d.date.getDay()];
-                  const isWknd = d.date.getDay() === 0 || d.date.getDay() === 6;
-                  return (
-                    <div
-                      key={d.dateKey}
-                      className="flex flex-col items-center justify-center"
-                      style={{ width: colLayouts[i].width }}
-                    >
-                      <div
-                        className="font-mono text-[11px] tabular-nums"
-                        style={{ color: isWknd ? "#A1A1AA" : "#525252" }}
-                      >
-                        {d.date.getMonth() + 1}/{d.date.getDate()}
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-1">
-                        <span
-                          className="text-[9px] leading-none"
-                          style={{ color: isWknd ? "#A1A1AA" : "#737373" }}
-                        >
-                          {wd}
-                        </span>
-                        {color && (
-                          <span
-                            className="inline-block h-1.5 w-1.5 rounded-full"
-                            style={{ background: color }}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
         </div>
       </main>
     </div>
