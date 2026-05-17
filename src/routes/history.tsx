@@ -1,28 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MACRO_COLORS, MACRO_LABELS, MEAL_SLOT_META } from "@/lib/foods";
+import {
+  displayName,
+  MACRO_COLORS,
+  MACRO_KCAL,
+  MACRO_LABELS,
+  MEAL_SLOT_META,
+  type Macro,
+} from "@/lib/foods";
 import {
   loadFavorites,
   loadMonth,
-  metricValue,
   progressColor,
   saveFavorites,
   type DayData,
-  type FoodAgg,
-  type MetricMode,
 } from "@/lib/history";
 
 export const Route = createFileRoute("/history")({
   component: HistoryPage,
 });
 
-const DAY_COL_W = 64;
-const FLOW_H = 150;
-const BUBBLE_MIN = 16;
-const BUBBLE_MAX = 64;
-const MAX_BUBBLES_PER_SLOT = 5;
+/* ---------- layout constants ---------- */
+const DAY_COL_W = 88;
+const TANK_H = 460; // mobile-friendly height
+const WATER_TOP = 40; // surface line y
+const WATER_BOTTOM = TANK_H - 16;
+const BUBBLE_MIN = 22;
+const BUBBLE_MAX = 72;
+
+type MetricMode = "kcal" | Macro;
 
 const METRICS: { id: MetricMode; label: string }[] = [
   { id: "kcal", label: "kcal" },
@@ -31,11 +40,77 @@ const METRICS: { id: MetricMode; label: string }[] = [
   { id: "fat", label: "지방" },
 ];
 
+/* ---------- helpers ---------- */
 function prefersReducedMotion() {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+// Deterministic small hash → [0,1)
+function hash01(str: string, salt = 0) {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 10000) / 10000;
+}
+
+// Color from food name — playful HSL palette, stable for same name across timeline
+function foodColor(name: string): string {
+  const hue = Math.floor(hash01(name, 1) * 360);
+  const sat = 65 + Math.floor(hash01(name, 7) * 15); // 65-80
+  const lit = 60 + Math.floor(hash01(name, 13) * 8); // 60-68
+  return `hsl(${hue} ${sat}% ${lit}%)`;
+}
+
+// Build per-day bubbles aggregated by food name
+interface FoodBubbleData {
+  key: string;
+  name: string;
+  ts: number;
+  carbs: number;
+  protein: number;
+  fat: number;
+  kcal: number;
+}
+
+function buildDayBubbles(day: DayData): FoodBubbleData[] {
+  const map = new Map<string, FoodBubbleData>();
+  for (const e of day.entries) {
+    const name = displayName(e.foodName);
+    let b = map.get(name);
+    if (!b) {
+      b = {
+        key: `${day.dateKey}-${name}`,
+        name,
+        ts: e.addedAt,
+        carbs: 0,
+        protein: 0,
+        fat: 0,
+        kcal: 0,
+      };
+      map.set(name, b);
+    }
+    b[e.macro] += e.grams;
+    b.ts = Math.min(b.ts, e.addedAt);
+  }
+  for (const b of map.values()) {
+    b.kcal = Math.round(
+      b.carbs * MACRO_KCAL.carbs +
+        b.protein * MACRO_KCAL.protein +
+        b.fat * MACRO_KCAL.fat,
+    );
+  }
+  return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
+}
+
+function metricValue(b: FoodBubbleData, mode: MetricMode): number {
+  if (mode === "kcal") return b.kcal;
+  return b[mode];
+}
+
+/* ---------- page ---------- */
 function HistoryPage() {
   const today = useMemo(() => new Date(), []);
   const [cursor, setCursor] = useState(
@@ -45,18 +120,14 @@ function HistoryPage() {
   const [version, setVersion] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(() => new Set());
 
-  useEffect(() => {
-    setFavorites(loadFavorites());
-  }, []);
+  useEffect(() => setFavorites(loadFavorites()), []);
 
-  // re-read when month changes / on mount
   const month = useMemo(
     () => loadMonth(cursor.getFullYear(), cursor.getMonth()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [cursor, version],
   );
 
-  // Refresh when tab regains focus (entries may have changed on home page)
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === "visible") setVersion((v) => v + 1);
@@ -69,20 +140,20 @@ function HistoryPage() {
     cursor.getFullYear() === today.getFullYear() &&
     cursor.getMonth() === today.getMonth();
 
-  // Determine bubble scaling based on monthly max
-  const maxMetric = useMemo(() => {
-    let m = 0;
-    for (const d of month) {
-      for (const f of d.foods) {
-        const v = metricValue(f, mode);
-        if (v > m) m = v;
+  // Pre-compute bubbles for each day + scale
+  const { perDay, maxMetric } = useMemo(() => {
+    const perDay = month.map(buildDayBubbles);
+    let max = 0;
+    perDay.forEach((arr) => {
+      for (const b of arr) {
+        const v = mode === "kcal" ? b.kcal : b[mode];
+        if (v > max) max = v;
       }
-    }
-    return m || 1;
+    });
+    return { perDay, maxMetric: max || 1 };
   }, [month, mode]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const minimapRef = useRef<HTMLDivElement>(null);
   const [scrollX, setScrollX] = useState(0);
   const [viewportW, setViewportW] = useState(0);
 
@@ -110,25 +181,19 @@ function HistoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursor, isCurrentMonth]);
 
-  function scrollToDay(dayIdx: number, behavior: ScrollBehavior = "smooth") {
+  function scrollToDay(idx: number, behavior: ScrollBehavior = "smooth") {
     const el = scrollRef.current;
     if (!el) return;
-    const x = dayIdx * DAY_COL_W - el.clientWidth / 2 + DAY_COL_W / 2;
+    const x = idx * DAY_COL_W - el.clientWidth / 2 + DAY_COL_W / 2;
     el.scrollTo({ left: Math.max(0, x), behavior });
   }
-
   function goToToday() {
-    if (!isCurrentMonth) {
-      setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
-    } else {
-      scrollToDay(today.getDate() - 1);
-    }
+    if (!isCurrentMonth) setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
+    else scrollToDay(today.getDate() - 1);
   }
-
   function navMonth(delta: number) {
     setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
   }
-
   function toggleFavorite(name: string) {
     setFavorites((prev) => {
       const next = new Set(prev);
@@ -140,10 +205,10 @@ function HistoryPage() {
   }
 
   const totalWidth = month.length * DAY_COL_W;
-  const hasAnyRecord = month.some((d) => d.foods.length > 0);
   const reduced = prefersReducedMotion();
 
-  // Minimap geometry
+  // Minimap
+  const minimapRef = useRef<HTMLDivElement>(null);
   const [mmW, setMmW] = useState(0);
   useEffect(() => {
     const el = minimapRef.current;
@@ -153,12 +218,13 @@ function HistoryPage() {
     setMmW(el.clientWidth);
     return () => ro.disconnect();
   }, []);
-  const mmSquareW = mmW > 0 ? mmW / month.length : 0;
   const mmViewportLeft = totalWidth > 0 ? (scrollX / totalWidth) * mmW : 0;
   const mmViewportW =
     totalWidth > 0 && viewportW > 0
       ? Math.min(mmW, (viewportW / totalWidth) * mmW)
       : 0;
+
+  const hasAnyRecord = perDay.some((arr) => arr.length > 0);
 
   return (
     <div className="min-h-screen w-full" style={{ background: "#FFFDF5" }}>
@@ -174,7 +240,7 @@ function HistoryPage() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <div className="min-w-[88px] text-center text-[13px] font-semibold text-neutral-900 tabular-nums">
+              <div className="min-w-[92px] text-center text-[13px] font-semibold text-neutral-900 tabular-nums">
                 {cursor.getFullYear()}년 {cursor.getMonth() + 1}월
               </div>
               <button
@@ -185,7 +251,6 @@ function HistoryPage() {
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-
             {isCurrentMonth && (
               <button
                 onClick={goToToday}
@@ -218,13 +283,9 @@ function HistoryPage() {
             </div>
           </div>
 
-          {/* MINIMAP */}
+          {/* Minimap */}
           <div className="px-3 pb-2">
-            <div
-              ref={minimapRef}
-              className="relative h-3 w-full"
-              role="presentation"
-            >
+            <div ref={minimapRef} className="relative h-3 w-full" role="presentation">
               <div className="absolute inset-0 flex items-center gap-[1px]">
                 {month.map((d, i) => {
                   const color = progressColor(d);
@@ -248,46 +309,48 @@ function HistoryPage() {
                   );
                 })}
               </div>
-              {/* Viewport overlay */}
               {mmViewportW > 0 && (
                 <div
                   className="pointer-events-none absolute top-1/2 -translate-y-1/2 rounded-[3px] border border-neutral-900/30 bg-neutral-900/10"
-                  style={{
-                    left: mmViewportLeft,
-                    width: mmViewportW,
-                    height: 14,
-                  }}
+                  style={{ left: mmViewportLeft, width: mmViewportW, height: 14 }}
                 />
               )}
             </div>
           </div>
         </header>
 
-        {/* MAIN FLOW (horizontal scroll) */}
+        {/* WATER TANK */}
         <div className="relative">
           {!hasAnyRecord && (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 text-center text-sm text-neutral-400">
               이 달은 기록이 없어요
             </div>
           )}
+
           <div
             ref={scrollRef}
-            className="overflow-x-auto overflow-y-visible"
+            className="no-scrollbar overflow-x-auto overflow-y-hidden"
             style={{
               WebkitOverflowScrolling: "touch",
               scrollbarWidth: "none",
               msOverflowStyle: "none",
+              background:
+                "linear-gradient(180deg, #FFFDF5 0%, #FFFDF5 " +
+                ((WATER_TOP / TANK_H) * 100).toFixed(1) +
+                "%, #E6F4FB " +
+                ((WATER_TOP / TANK_H) * 100).toFixed(1) +
+                "%, #B6E0F2 100%)",
             }}
           >
             <style>{`.no-scrollbar::-webkit-scrollbar{display:none}`}</style>
             <div
-              className="no-scrollbar relative"
-              style={{ width: totalWidth, height: FLOW_H }}
+              className="relative"
+              style={{ width: totalWidth, height: TANK_H }}
             >
-              {/* Day boundary verticals */}
+              {/* Day column verticals (subtle) */}
               <svg
                 width={totalWidth}
-                height={FLOW_H}
+                height={TANK_H}
                 className="absolute inset-0 pointer-events-none"
               >
                 {month.map((d, i) => {
@@ -299,42 +362,54 @@ function HistoryPage() {
                       x1={x}
                       x2={x}
                       y1={0}
-                      y2={FLOW_H}
-                      stroke={isMonday ? "#CBD5E1" : "#F1F5F9"}
-                      strokeWidth={isMonday ? 1.5 : 1}
+                      y2={TANK_H}
+                      stroke={isMonday ? "rgba(15,23,42,0.10)" : "rgba(15,23,42,0.04)"}
+                      strokeWidth={1}
                     />
                   );
                 })}
-                {/* Flow line — sin curve */}
-                <FlowPath width={totalWidth} height={FLOW_H} reduced={reduced} />
+                {/* Water surface line */}
+                <WaterSurface
+                  width={totalWidth}
+                  y={WATER_TOP}
+                  reduced={reduced}
+                />
               </svg>
 
               {/* Today column highlight */}
               {isCurrentMonth && (
                 <div
-                  className="pointer-events-none absolute top-0 rounded-md"
+                  className="pointer-events-none absolute rounded-md"
                   style={{
                     left: (today.getDate() - 1) * DAY_COL_W + 1,
                     width: DAY_COL_W - 2,
-                    height: FLOW_H,
-                    border: "1.5px solid rgba(59,130,246,0.45)",
-                    background: "rgba(59,130,246,0.04)",
+                    top: 0,
+                    height: TANK_H,
+                    border: "1.5px solid rgba(59,130,246,0.35)",
+                    background: "rgba(59,130,246,0.05)",
                   }}
                 />
               )}
 
-              {/* Bubbles per day */}
-              {month.map((day, dayIdx) =>
-                renderDayBubbles(day, dayIdx, mode, maxMetric, favorites, toggleFavorite, reduced),
-              )}
+              {/* Bubbles */}
+              {perDay.map((bubbles, dayIdx) => (
+                <DayBubbles
+                  key={month[dayIdx].dateKey}
+                  bubbles={bubbles}
+                  dayIdx={dayIdx}
+                  mode={mode}
+                  maxMetric={maxMetric}
+                  favorites={favorites}
+                  onToggleFavorite={toggleFavorite}
+                  reduced={reduced}
+                  date={month[dayIdx].date}
+                />
+              ))}
             </div>
           </div>
 
-          {/* DAY LABELS */}
-          <div
-            className="overflow-hidden border-t border-neutral-200/70 bg-white/95"
-            style={{ marginTop: 0 }}
-          >
+          {/* DAY LABELS — synced with scroll */}
+          <div className="overflow-hidden border-t border-neutral-200/70 bg-white/95">
             <div
               className="no-scrollbar overflow-x-auto"
               style={{
@@ -343,15 +418,10 @@ function HistoryPage() {
                 transform: `translateX(${-scrollX}px)`,
               }}
             >
-              <div
-                className="relative flex"
-                style={{ width: totalWidth, height: 36 }}
-              >
+              <div className="relative flex" style={{ width: totalWidth, height: 36 }}>
                 {month.map((d) => {
                   const color = progressColor(d);
-                  const wd = ["일", "월", "화", "수", "목", "금", "토"][
-                    d.date.getDay()
-                  ];
+                  const wd = ["일", "월", "화", "수", "목", "금", "토"][d.date.getDay()];
                   const isWknd = d.date.getDay() === 0 || d.date.getDay() === 6;
                   return (
                     <div
@@ -365,7 +435,7 @@ function HistoryPage() {
                       >
                         {d.date.getMonth() + 1}/{d.date.getDate()}
                       </div>
-                      <div className="flex items-center gap-1 mt-0.5">
+                      <div className="mt-0.5 flex items-center gap-1">
                         <span
                           className="text-[9px] leading-none"
                           style={{ color: isWknd ? "#A1A1AA" : "#737373" }}
@@ -391,243 +461,228 @@ function HistoryPage() {
   );
 }
 
-function FlowPath({
+/* ---------- water surface (animated wave) ---------- */
+function WaterSurface({
   width,
-  height,
+  y,
   reduced,
 }: {
   width: number;
-  height: number;
+  y: number;
   reduced: boolean;
 }) {
-  const path = useMemo(() => {
-    const cy = height / 2;
-    const amp = 18;
-    const period = 220;
-    const step = 8;
-    let d = `M 0 ${cy}`;
-    for (let x = step; x <= width; x += step) {
-      const y = cy + Math.sin((x / period) * Math.PI * 2) * amp;
-      d += ` L ${x.toFixed(1)} ${y.toFixed(2)}`;
-    }
-    return d;
-  }, [width, height]);
-
-  const ref = useRef<SVGPathElement>(null);
+  const [phase, setPhase] = useState(0);
   useEffect(() => {
     if (reduced) return;
-    const el = ref.current;
-    if (!el) return;
-    const len = el.getTotalLength();
-    el.style.strokeDasharray = `${len}`;
-    el.style.strokeDashoffset = `${len}`;
-    el.getBoundingClientRect();
-    el.style.transition = "stroke-dashoffset 1s ease-out";
-    el.style.strokeDashoffset = "0";
-  }, [path, reduced]);
+    let raf = 0;
+    let last = performance.now();
+    const tick = (t: number) => {
+      const dt = (t - last) / 1000;
+      last = t;
+      setPhase((p) => (p + dt * 0.6) % (Math.PI * 2));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [reduced]);
+
+  const path = useMemo(() => {
+    const amp = 4;
+    const period = 140;
+    const step = 12;
+    let d = `M 0 ${y}`;
+    for (let x = step; x <= width; x += step) {
+      const yy = y + Math.sin((x / period) * Math.PI * 2 + phase) * amp;
+      d += ` L ${x.toFixed(1)} ${yy.toFixed(2)}`;
+    }
+    return d;
+  }, [width, y, phase]);
 
   return (
     <path
-      ref={ref}
       d={path}
       fill="none"
-      stroke="#E5E7EB"
-      strokeWidth={2}
+      stroke="rgba(59,130,246,0.45)"
+      strokeWidth={1.5}
       strokeLinecap="round"
     />
   );
 }
 
-function renderDayBubbles(
-  day: DayData,
-  dayIdx: number,
-  mode: MetricMode,
-  maxMetric: number,
-  favorites: Set<string>,
-  toggleFavorite: (name: string) => void,
-  reduced: boolean,
-) {
-  if (day.foods.length === 0) return null;
-
-  // Group by meal_slot
-  const slots = new Map<string, FoodAgg[]>();
-  for (const f of day.foods) {
-    const arr = slots.get(f.meal_slot) ?? [];
-    arr.push(f);
-    slots.set(f.meal_slot, arr);
-  }
-
-  const nodes: React.ReactNode[] = [];
-  const colX = dayIdx * DAY_COL_W;
-  const cy = FLOW_H / 2;
-  const amp = 18;
-  const period = 220;
-
-  // Position bubbles distributed across the day column
-  // Collect a flat list with overflow handling per slot
-  const visible: FoodAgg[] = [];
-  const overflow: { x: number; foods: FoodAgg[] }[] = [];
-  let slotIdx = 0;
-  const slotCount = slots.size;
-
-  for (const [, foods] of slots) {
-    const sorted = [...foods].sort(
-      (a, b) => metricValue(b, mode) - metricValue(a, mode),
-    );
-    const show = sorted.slice(0, MAX_BUBBLES_PER_SLOT);
-    const rest = sorted.slice(MAX_BUBBLES_PER_SLOT);
-    // anchor x within the day column for this slot
-    const slotAnchor =
-      colX + ((slotIdx + 0.5) / Math.max(slotCount, 1)) * DAY_COL_W;
-    show.forEach((f, i) => {
-      // place each food slightly offset from the slot anchor
-      const offset = (i - (show.length - 1) / 2) * 6;
-      (f as FoodAgg & { _x: number; _slotIdx: number; _idxInSlot: number })._x =
-        slotAnchor + offset;
-      visible.push(f);
-    });
-    if (rest.length > 0) {
-      overflow.push({ x: slotAnchor, foods: rest });
-    }
-    slotIdx++;
-  }
-
-  const totalBubbles = visible.length;
-
-  visible.forEach((f, i) => {
-    const value = metricValue(f, mode);
-    const ratio = maxMetric > 0 ? value / maxMetric : 0;
-    const size = Math.max(
-      BUBBLE_MIN,
-      Math.min(BUBBLE_MAX, BUBBLE_MIN + Math.sqrt(ratio) * (BUBBLE_MAX - BUBBLE_MIN)),
-    );
-    const color = MACRO_COLORS[f.dominantMacro];
-    const x = (f as FoodAgg & { _x: number })._x;
-    const above = i % 2 === 0;
-    const flowY = cy + Math.sin((x / period) * Math.PI * 2) * amp;
-    const y = flowY + (above ? -1 : 1) * (size / 2 + 4);
-    const animDelay = reduced ? 0 : Math.min(800, (dayIdx * 3 + i * 2) * 20);
-
-    nodes.push(
-      <FoodBubble
-        key={f.foodLogId}
-        food={f}
-        x={x}
-        y={y}
-        size={size}
-        color={color}
-        favorite={favorites.has(f.foodName)}
-        onToggleFavorite={() => toggleFavorite(f.foodName)}
-        animDelay={animDelay}
-        reduced={reduced}
-      />,
-    );
-  });
-
-  overflow.forEach((o, i) => {
-    const flowY = cy + Math.sin((o.x / period) * Math.PI * 2) * amp;
-    nodes.push(
-      <OverflowBubble
-        key={`ov-${dayIdx}-${i}`}
-        x={o.x}
-        y={flowY + 28}
-        foods={o.foods}
-        mode={mode}
-        favorites={favorites}
-        onToggleFavorite={toggleFavorite}
-      />,
-    );
-  });
-
-  // Suppress unused warning
-  void totalBubbles;
-
-  return <div key={`day-${dayIdx}`}>{nodes}</div>;
-}
-
-function FoodBubble({
-  food,
-  x,
-  y,
-  size,
-  color,
-  favorite,
+/* ---------- bubbles for one day ---------- */
+function DayBubbles({
+  bubbles,
+  dayIdx,
+  mode,
+  maxMetric,
+  favorites,
   onToggleFavorite,
-  animDelay,
   reduced,
+  date,
 }: {
-  food: FoodAgg;
-  x: number;
-  y: number;
-  size: number;
-  color: string;
-  favorite: boolean;
-  onToggleFavorite: () => void;
-  animDelay: number;
+  bubbles: FoodBubbleData[];
+  dayIdx: number;
+  mode: MetricMode;
+  maxMetric: number;
+  favorites: Set<string>;
+  onToggleFavorite: (name: string) => void;
   reduced: boolean;
+  date: Date;
 }) {
+  if (bubbles.length === 0) return null;
+
+  // Filter by macro mode
+  const visible =
+    mode === "kcal"
+      ? bubbles
+      : bubbles.filter((b) => b[mode] > 0);
+
+  if (visible.length === 0) return null;
+
+  const colCenter = dayIdx * DAY_COL_W + DAY_COL_W / 2;
+
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          className="absolute flex items-center justify-center rounded-full active:scale-95"
-          style={{
-            left: x - size / 2,
-            top: y - size / 2,
-            width: size,
-            height: size,
-            background: color,
-            boxShadow: "0 2px 4px rgba(0,0,0,0.10)",
-            transition: "width 200ms ease, height 200ms ease, left 200ms ease, top 200ms ease",
-            animation: reduced
-              ? undefined
-              : `bubblePop 240ms ease-out ${animDelay}ms both`,
-          }}
-          aria-label={food.foodName}
-        >
-          {size >= 28 && (
-            <span
-              className="px-1 text-[10px] font-semibold leading-tight text-center break-words"
-              style={{
-                color: food.dominantMacro === "carbs" ? "#3F2A00" : "#FFFFFF",
-                maxWidth: size - 4,
-              }}
-            >
-              {food.foodName}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent side="top" align="center" className="w-56 p-3">
-        <FoodPopoverBody
-          food={food}
-          favorite={favorite}
-          onToggleFavorite={onToggleFavorite}
-        />
-      </PopoverContent>
-      <style>{`@keyframes bubblePop{0%{transform:scale(0);opacity:0}60%{transform:scale(1.06);opacity:1}100%{transform:scale(1);opacity:1}}`}</style>
-    </Popover>
+    <>
+      {visible.map((b, i) => {
+        const value = metricValue(b, mode);
+        const ratio = maxMetric > 0 ? value / maxMetric : 0;
+        const size = Math.max(
+          BUBBLE_MIN,
+          Math.min(
+            BUBBLE_MAX,
+            BUBBLE_MIN + Math.sqrt(ratio) * (BUBBLE_MAX - BUBBLE_MIN),
+          ),
+        );
+
+        // Stable jitter per (date, food, mode)
+        const seed = b.key + mode;
+        const jitterX = (hash01(seed, 3) - 0.5) * (DAY_COL_W - size - 6);
+        const usableH = WATER_BOTTOM - (WATER_TOP + size / 2) - size / 2;
+        const yPos = WATER_TOP + size / 2 + hash01(seed, 5) * usableH;
+        const xPos = colCenter + jitterX;
+
+        const color =
+          mode === "kcal" ? foodColor(b.name) : MACRO_COLORS[mode];
+
+        const swayDur = 3.4 + hash01(seed, 9) * 2.2;
+        const swayAmp = 4 + hash01(seed, 11) * 5;
+        const bobAmp = 3 + hash01(seed, 17) * 4;
+        const delay = -hash01(seed, 19) * swayDur;
+
+        const enterDelay = reduced
+          ? 0
+          : Math.min(900, dayIdx * 25 + i * 30);
+
+        return (
+          <Popover key={b.key}>
+            <PopoverTrigger asChild>
+              <motion.button
+                className="absolute flex items-center justify-center rounded-full"
+                initial={
+                  reduced ? false : { opacity: 0, scale: 0.4, y: -8 }
+                }
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{
+                  delay: enterDelay / 1000,
+                  duration: 0.35,
+                  ease: "easeOut",
+                }}
+                style={{
+                  left: xPos - size / 2,
+                  top: yPos - size / 2,
+                  width: size,
+                  height: size,
+                  background: `radial-gradient(circle at 32% 28%, ${color}ee, ${color}bb 58%, ${color}77)`,
+                  boxShadow: `inset -5px -7px 12px ${color}55, 0 4px 10px rgba(15,23,42,0.18)`,
+                  border: `1px solid ${color}`,
+                  willChange: "transform",
+                }}
+                aria-label={`${date.getMonth() + 1}/${date.getDate()} ${b.name}`}
+              >
+                <motion.span
+                  className="flex h-full w-full items-center justify-center rounded-full"
+                  animate={
+                    reduced
+                      ? undefined
+                      : {
+                          y: [0, -bobAmp, 0, bobAmp * 0.7, 0],
+                          x: [0, swayAmp * 0.5, 0, -swayAmp * 0.5, 0],
+                          rotate: [0, swayAmp * 0.25, 0, -swayAmp * 0.25, 0],
+                        }
+                  }
+                  transition={{
+                    duration: swayDur,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay,
+                  }}
+                >
+                  {size >= 28 && (
+                    <span
+                      className="px-1 text-center text-[10px] font-semibold leading-tight"
+                      style={{
+                        color:
+                          mode === "carbs" || (mode === "kcal" && isLight(color))
+                            ? "#3F2A00"
+                            : "#FFFFFF",
+                        maxWidth: size - 6,
+                        wordBreak: "keep-all",
+                      }}
+                    >
+                      {b.name}
+                    </span>
+                  )}
+                </motion.span>
+              </motion.button>
+            </PopoverTrigger>
+            <PopoverContent side="top" align="center" className="w-56 p-3">
+              <PopoverBody
+                bubble={b}
+                date={date}
+                mode={mode}
+                favorite={favorites.has(b.name)}
+                onToggle={() => onToggleFavorite(b.name)}
+              />
+            </PopoverContent>
+          </Popover>
+        );
+      })}
+    </>
   );
 }
 
-function FoodPopoverBody({
-  food,
+// Light HSL detection so we pick dark text on yellowish bubbles in kcal mode
+function isLight(hsl: string): boolean {
+  const m = hsl.match(/hsl\((\d+)\s+\d+%\s+(\d+)%\)/);
+  if (!m) return false;
+  const h = +m[1];
+  const l = +m[2];
+  // yellows/greens with high lightness are "light"
+  return l >= 62 && h >= 40 && h <= 200;
+}
+
+/* ---------- popover content ---------- */
+function PopoverBody({
+  bubble,
+  date,
+  mode,
   favorite,
-  onToggleFavorite,
+  onToggle,
 }: {
-  food: FoodAgg;
+  bubble: FoodBubbleData;
+  date: Date;
+  mode: MetricMode;
   favorite: boolean;
-  onToggleFavorite: () => void;
+  onToggle: () => void;
 }) {
-  const slotLabel = MEAL_SLOT_META[food.meal_slot].label;
   return (
     <div className="text-[12px]">
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-neutral-900 text-[13px]">
-          {food.foodName}
+        <span className="text-[13px] font-semibold text-neutral-900">
+          {bubble.name}
         </span>
         <button
-          onClick={onToggleFavorite}
+          onClick={onToggle}
           aria-label={favorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
           className="rounded-full p-1 hover:bg-neutral-100"
         >
@@ -640,90 +695,17 @@ function FoodPopoverBody({
         </button>
       </div>
       <div className="mt-1 text-neutral-500">
-        {slotLabel} · {food.kcal} kcal
+        {date.getMonth() + 1}/{date.getDate()} · {bubble.kcal} kcal
       </div>
       <div className="mt-1 text-neutral-600">
-        탄 {Math.round(food.carbs)}g · 단 {Math.round(food.protein)}g · 지{" "}
-        {Math.round(food.fat)}g
+        탄 {Math.round(bubble.carbs)}g · 단 {Math.round(bubble.protein)}g · 지{" "}
+        {Math.round(bubble.fat)}g
       </div>
+      {mode !== "kcal" && (
+        <div className="mt-1 text-[11px] font-medium" style={{ color: MACRO_COLORS[mode] }}>
+          {MACRO_LABELS[mode]} {Math.round(bubble[mode])}g
+        </div>
+      )}
     </div>
   );
-}
-
-function OverflowBubble({
-  x,
-  y,
-  foods,
-  mode,
-  favorites,
-  onToggleFavorite,
-}: {
-  x: number;
-  y: number;
-  foods: FoodAgg[];
-  mode: MetricMode;
-  favorites: Set<string>;
-  onToggleFavorite: (name: string) => void;
-}) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          className="absolute flex items-center justify-center rounded-full bg-neutral-700 text-white"
-          style={{
-            left: x - 6,
-            top: y - 6,
-            width: 14,
-            height: 14,
-            fontSize: 8,
-            fontWeight: 700,
-            boxShadow: "0 2px 4px rgba(0,0,0,0.10)",
-          }}
-          aria-label={`그 외 ${foods.length}개`}
-        >
-          +{foods.length}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent side="top" align="center" className="w-60 p-2">
-        <div className="px-1 pb-1 text-[11px] font-semibold text-neutral-500">
-          {MEAL_SLOT_META[foods[0].meal_slot].label} · 그 외 {foods.length}개
-        </div>
-        <ul className="max-h-56 space-y-1 overflow-y-auto">
-          {foods.map((f) => (
-            <li
-              key={f.foodLogId}
-              className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-neutral-50"
-            >
-              <div className="min-w-0">
-                <div className="truncate text-[12px] font-medium text-neutral-900">
-                  {f.foodName}
-                </div>
-                <div className="text-[10px] text-neutral-500">
-                  {metricLabel(mode)} {Math.round(metricValue(f, mode))}
-                  {mode === "kcal" ? " kcal" : "g"}
-                </div>
-              </div>
-              <button
-                onClick={() => onToggleFavorite(f.foodName)}
-                aria-label="즐겨찾기"
-                className="ml-2 rounded-full p-1 hover:bg-neutral-100"
-              >
-                <Star
-                  className="h-3.5 w-3.5"
-                  fill={favorites.has(f.foodName) ? "#FFD700" : "transparent"}
-                  stroke={favorites.has(f.foodName) ? "#D4A300" : "#9CA3AF"}
-                  strokeWidth={2}
-                />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function metricLabel(mode: MetricMode): string {
-  if (mode === "kcal") return "";
-  return MACRO_LABELS[mode];
 }
