@@ -1,5 +1,5 @@
 import * as React from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
@@ -31,6 +31,9 @@ const MENU_ITEMS: MenuItem[] = [
 ];
 
 function SettingsMenuPage() {
+  // /settings 자식 라우트(/settings/profile 등)는 Outlet으로 위임
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  if (pathname !== "/settings") return <Outlet />;
   return (
     <div className="w-full bg-white flex justify-center">
       <main className="w-full max-w-[375px] flex flex-col">
