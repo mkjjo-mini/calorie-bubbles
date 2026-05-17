@@ -705,7 +705,8 @@ function Bubble({
     if (reduced || waveWidth <= 0) return 0;
     const phase =
       2 * Math.PI * (xPos / waveWidth + (t % WAVE_PERIOD_MS) / WAVE_PERIOD_MS);
-    return -WAVE_H * WAVE_AMP_RATIO * Math.sin(phase);
+    // 버블 상하 sway는 물결 진폭의 40%만 따라가게 — 너무 커서 답답함 해소
+    return -WAVE_H * WAVE_AMP_RATIO * 0.4 * Math.sin(phase);
   });
 
   // Gentle bob layered on top of the wave-follow translate.
