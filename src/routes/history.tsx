@@ -391,7 +391,7 @@ function HistoryPage() {
           </div>
 
           {/* Segmented metric control */}
-          <div className="px-3 pb-2">
+          <div className="px-3 pb-3">
             <div className="flex w-full items-center gap-1 rounded-full bg-neutral-100 p-1">
               {METRICS.map((m) => {
                 const active = mode === m.id;
@@ -413,8 +413,8 @@ function HistoryPage() {
           </div>
 
           {/* Minimap */}
-          <div className="px-3 pb-2">
-            <div ref={minimapRef} className="relative h-4 w-full" role="presentation">
+          <div className="px-3 pb-3">
+            <div ref={minimapRef} className="relative h-7 w-full" role="presentation">
               {(() => {
                 const n = month.length;
                 const gap = mmW > 0 && n > 1
@@ -439,18 +439,29 @@ function HistoryPage() {
                           onClick={() => scrollToDay(i)}
                           aria-label={`${d.date.getMonth() + 1}/${d.date.getDate()}로 이동`}
                           style={{
-                            display: "block",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                             flexShrink: 0,
                             padding: 0,
                             border: 0,
+                            background: "transparent",
                             width: dot,
-                            height: dot,
-                            borderRadius: "9999px",
-                            backgroundColor: color ?? "#CBD5E1",
-                            boxShadow: isToday ? "0 0 0 2px #FFD700" : undefined,
+                            height: 28,
                             cursor: "pointer",
                           }}
-                        />
+                        >
+                          <span
+                            style={{
+                              display: "block",
+                              width: dot,
+                              height: dot,
+                              borderRadius: "9999px",
+                              backgroundColor: color ?? "#CBD5E1",
+                              boxShadow: isToday ? "0 0 0 2px #FFD700" : undefined,
+                            }}
+                          />
+                        </button>
                       );
                     })}
                   </div>
@@ -467,7 +478,7 @@ function HistoryPage() {
         </header>
 
         {/* WATER BOWL (mirrors home palette: cream gradient + yellow border + bottom wave) */}
-        <div className="relative px-3 pt-3 pb-2">
+        <div className="relative px-3 pt-4 pb-2">
           {!hasAnyRecord && (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 text-center text-sm text-neutral-400">
               이 달은 기록이 없어요
