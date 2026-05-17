@@ -472,21 +472,27 @@ function Index() {
             )}
           </motion.div>
 
-          {/* Stage warning */}
-          <AnimatePresence>
-            {stage >= 3 && (
-              <motion.p
-                key={stage}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                className={`mt-2 text-center text-xs font-medium ${
-                  stage === 4 ? "text-red-500" : "text-amber-600"
-                }`}
-              >
-                {stage === 4 ? "배 터질 것 같아요 😵" : "목표를 초과했어요"}
-              </motion.p>
-            )}
+          {/* Stage warning — 평소엔 안내 문구, stage>=3엔 경고로 대체 */}
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={stage >= 3 ? `warn-${stage}` : "hint"}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className={`mt-2 text-center text-xs font-medium ${
+                stage === 4
+                  ? "text-red-500"
+                  : stage === 3
+                    ? "text-amber-600"
+                    : "text-neutral-400"
+              }`}
+            >
+              {stage === 4
+                ? "배 터질 것 같아요 😵"
+                : stage === 3
+                  ? "목표를 초과했어요"
+                  : "버블을 탭하면 제거됩니다"}
+            </motion.p>
           </AnimatePresence>
         </section>
 
@@ -507,10 +513,6 @@ function Index() {
             onReplaceQty={replaceQty}
           />
         )}
-
-        <p className="px-5 pt-2 pb-6 text-[11px] text-neutral-400 text-center">
-          버블을 탭하면 제거됩니다
-        </p>
 
         <AlertDialog open={openResetDialog} onOpenChange={setOpenResetDialog}>
           <AlertDialogContent>
