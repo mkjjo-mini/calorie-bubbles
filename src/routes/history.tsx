@@ -454,8 +454,9 @@ function HistoryPage() {
                       y1={0}
                       y2={TANK_H - WAVE_H}
                       stroke={
-                        isMonday ? "rgba(15,23,42,0.08)" : "rgba(15,23,42,0.035)"
+                        isMonday ? "rgba(59,130,246,0.55)" : "rgba(15,23,42,0.035)"
                       }
+                      strokeDasharray={isMonday ? "4 3" : undefined}
                       strokeWidth={1}
                     />
                   );
