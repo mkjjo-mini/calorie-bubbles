@@ -323,14 +323,67 @@ function Index() {
       <main className="w-full max-w-[375px] flex flex-col">
         {/* Header */}
         <header className="px-5 pt-6 pb-3">
-          <div className="flex items-baseline justify-between">
-            <h1 className="text-lg font-semibold text-neutral-900">오늘의 칼로리</h1>
-            <button
-              onClick={reset}
-              className="text-xs text-neutral-400 hover:text-neutral-600"
-            >
-              비우기
-            </button>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 min-w-0">
+              <button
+                type="button"
+                onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+                aria-label="이전 날짜"
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="rounded-md px-1 text-lg font-semibold text-neutral-900 hover:bg-neutral-100 tabular-nums"
+                  >
+                    {isToday ? "오늘의 칼로리" : formatPastDate(selectedDate)}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={parseYmd(selectedDate)}
+                    onSelect={(d) => {
+                      if (d) {
+                        setSelectedDate(toYmd(d));
+                        setCalendarOpen(false);
+                      }
+                    }}
+                    disabled={(d) => toYmd(d) > today}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+              <button
+                type="button"
+                onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+                aria-label="다음 날짜"
+                disabled={isToday}
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              {!isToday && (
+                <button
+                  onClick={() => setSelectedDate(today)}
+                  className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
+                >
+                  오늘
+                </button>
+              )}
+              <button
+                onClick={reset}
+                className="text-xs text-neutral-400 hover:text-neutral-600"
+              >
+                비우기
+              </button>
+            </div>
           </div>
 
           <div className="mt-3 flex items-baseline gap-1">
