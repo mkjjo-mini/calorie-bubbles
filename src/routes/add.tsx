@@ -3,14 +3,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Search, Star, Clock, Plus, Pencil, Trash2, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import foodPresets from "@/data/food-presets.json";
-import { displayName, type BubbleEntry, type Macro } from "@/lib/foods";
+import { displayName, type Macro } from "@/lib/foods";
 import {
   type CustomFood,
   type FoodCategory,
   kcalFromMacros,
   estimateMacrosFromKcal,
   estimateGramsFromKcal,
-  prependCustomFood,
 } from "@/lib/customFoods";
 import { type FoodApiResult } from "@/lib/food-search";
 import { useFoodSearch } from "@/hooks/use-food-search";
@@ -25,6 +24,11 @@ import {
   type Pickable,
   type LastQty,
 } from "@/components/QuantitySheet";
+import { cloudRepository } from "@/lib/repository/cloud";
+import { CloudAuthError, type FoodInsert, type FavoriteRow, type FoodRow } from "@/lib/repository/types";
+import { resolveFoodId } from "@/lib/foods-resolve";
+import { todayKST } from "@/lib/time";
+import { inferMealSlot } from "@/lib/foods";
 
 export const Route = createFileRoute("/add")({
   component: AddFoodPage,
@@ -44,12 +48,11 @@ interface FoodPreset {
 
 const PRESETS = foodPresets as FoodPreset[];
 
-const FAV_KEY = "favorites";
+// UX-only localStorage keys (device-local, no cloud)
 const RECENT_KEY = "recentFoods";
-const CUSTOM_KEY = "customFoods";
 const SEARCH_HISTORY_KEY = "searchHistory";
 const SEARCH_HISTORY_MAX = 8;
-const LAST_QTY_KEY = "lastQtyByName"; // name-keyed { qty, mode } map
+const LAST_QTY_KEY = "lastQtyByName";
 
 const CATEGORY_LABELS: { value: FoodCategory; label: string }[] = [
   { value: "rice_grain_noodle", label: "밥·곡류·면 (밥·면·떡·빵)" },
@@ -78,11 +81,6 @@ function safeRandomId(): string {
     }
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-}
-
-function todayKey() {
-  const d = new Date();
-  return `cal-tracker-${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
 function readArr<T = string>(key: string): T[] {
@@ -149,9 +147,6 @@ function inferCategory(
 /**
  * 식약처 API 음식 데이터의 매크로 합 vs 라벨 kcal 일관성 검증.
  * 차이가 20%+ 이거나 매크로 모두 0인데 kcal>0이면 카테고리 기반으로 자동 보정.
- *
- * 케이스 발견 (2026-05-17): "도넛_바나나크림도넛(1개입)" — 식약처 raw에 탄/지 누락.
- * 라벨 225 kcal인데 매크로 합 3g (12 kcal). 보정 안 하면 12g 미니 버블만 떠서 직관 위반.
  */
 function reconcileApiMacros(food: Pickable): {
   carb: number;
@@ -195,7 +190,48 @@ function reconcileApiMacros(food: Pickable): {
   };
 }
 
-function customToPickable(c: CustomFood): Pickable {
+function cloudFoodToPickable(f: FoodRow): Pickable {
+  const isWeight = f.serving_unit === "g" || f.serving_unit === "ml";
+  const label = isWeight
+    ? `${f.serving_g}${f.serving_unit}`
+    : `${f.serving_amount}${f.serving_unit} (${f.serving_g}g)`;
+  return {
+    source: f.source === "user" ? "custom" : f.source,
+    id: f.id,
+    name: f.name,
+    kcal: f.kcal,
+    carb: f.carb_g,
+    protein: f.protein_g,
+    fat: f.fat_g,
+    serving_g: f.serving_g,
+    serving_label: label,
+    is_estimated: f.is_estimated,
+    food_code: f.food_code ?? undefined,
+  };
+}
+
+/** FoodRow → CustomFood shape for UI components that expect CustomFood */
+function foodRowToCustomFood(f: FoodRow): CustomFood {
+  return {
+    id: f.id,
+    name: f.name,
+    serving_unit: (f.serving_unit as CustomFood["serving_unit"]) ?? "g",
+    serving_amount: f.serving_amount,
+    serving_g: f.serving_g,
+    kcal: f.kcal,
+    carb_g: f.carb_g,
+    protein_g: f.protein_g,
+    fat_g: f.fat_g,
+    is_estimated: f.is_estimated,
+    category: (f.category as FoodCategory) ?? undefined,
+    source: f.source === "preset" ? "user" : f.source,
+    food_code: f.food_code ?? undefined,
+    created_at: new Date(f.created_at).getTime(),
+    updated_at: new Date(f.updated_at).getTime(),
+  };
+}
+
+function customFoodToPickable(c: CustomFood): Pickable {
   const isWeight = c.serving_unit === "g" || c.serving_unit === "ml";
   const label = isWeight
     ? `${c.serving_g}${c.serving_unit}`
@@ -219,11 +255,19 @@ function customToPickable(c: CustomFood): Pickable {
 function AddFoodPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [favorites, setFavorites] = useState<string[]>([]);
+
+  // Cloud-backed state
+  // favorites: Set of food_id (UUID) for O(1) lookup
+  const [favFoodIds, setFavFoodIds] = useState<Set<string>>(new Set());
+  // user foods from cloud (source='user')
+  const [userFoods, setUserFoods] = useState<FoodRow[]>([]);
+  // cloud loading state
+  const [cloudLoading, setCloudLoading] = useState(false);
+
+  // UX-only (localStorage) state
   const [recents, setRecents] = useState<string[]>([]);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [showAllFavs, setShowAllFavs] = useState(false);
-  const [customFoods, setCustomFoods] = useState<CustomFood[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [activeFood, setActiveFood] = useState<Pickable | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -231,10 +275,9 @@ function AddFoodPage() {
   const [actionTarget, setActionTarget] = useState<CustomFood | null>(null);
   const [lastQtyMap, setLastQtyMap] = useState<Record<string, LastQty>>({});
 
+  // Load UX-only localStorage data + cloud data on mount
   useEffect(() => {
-    setFavorites(readArr<string>(FAV_KEY));
     setRecents(readArr<string>(RECENT_KEY));
-    setCustomFoods(readArr<CustomFood>(CUSTOM_KEY));
     setSearchHistory(readArr<string>(SEARCH_HISTORY_KEY));
     try {
       setLastQtyMap(
@@ -247,31 +290,31 @@ function AddFoodPage() {
       /* ignore */
     }
     setHydrated(true);
+
+    // Load cloud data
+    void loadCloudData();
   }, []);
 
-  function persistCustom(next: CustomFood[]) {
-    setCustomFoods(next);
-    localStorage.setItem(CUSTOM_KEY, JSON.stringify(next));
-  }
-
-  function persistFavs(next: string[]) {
-    setFavorites(next);
-    localStorage.setItem(FAV_KEY, JSON.stringify(next));
-  }
-
-  // favorites 정규화: customFood id로 들어온 항목 → name으로 변환 (호환·중복 제거)
-  useEffect(() => {
-    if (!hydrated) return;
-    const cleaned = favorites.map((key) => {
-      const c = customFoods.find((x) => x.id === key);
-      return c ? c.name : key;
-    });
-    const unique = Array.from(new Set(cleaned));
-    if (JSON.stringify(unique) !== JSON.stringify(favorites)) {
-      setFavorites(unique);
-      localStorage.setItem(FAV_KEY, JSON.stringify(unique));
+  async function loadCloudData() {
+    setCloudLoading(true);
+    try {
+      const [foods, favs] = await Promise.all([
+        cloudRepository.foods.list(),
+        cloudRepository.favorites.list(),
+      ]);
+      // user-registered foods only (not api-auto-saved presets shown in search)
+      setUserFoods(foods.filter((f) => f.source === "user"));
+      setFavFoodIds(new Set(favs.map((f: FavoriteRow) => f.food_id)));
+    } catch (e) {
+      if (e instanceof CloudAuthError) {
+        toast.error("로그인이 필요해요");
+      } else {
+        toast.error(`데이터 로드 실패: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    } finally {
+      setCloudLoading(false);
     }
-  }, [hydrated, customFoods, favorites]);
+  }
 
   // 검색어 1초 이상 유지되면 최근 검색에 push (디바운스, dedupe, 최대 8개)
   useEffect(() => {
@@ -294,29 +337,84 @@ function AddFoodPage() {
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
   }
 
-  function toggleFav(id: string) {
-    const next = favorites.includes(id)
-      ? favorites.filter((x) => x !== id)
-      : [...favorites, id];
-    persistFavs(next);
+  async function toggleFav(foodId: string) {
+    const isFav = favFoodIds.has(foodId);
+    // Optimistic update
+    const next = new Set(favFoodIds);
+    if (isFav) next.delete(foodId);
+    else next.add(foodId);
+    setFavFoodIds(next);
+
+    try {
+      if (isFav) {
+        await cloudRepository.favorites.remove(foodId);
+      } else {
+        await cloudRepository.favorites.add(foodId);
+      }
+    } catch (e) {
+      // Revert optimistic update
+      setFavFoodIds(favFoodIds);
+      if (e instanceof CloudAuthError) {
+        toast.error("로그인이 필요해요");
+      } else {
+        toast.error("즐겨찾기 변경 실패");
+      }
+    }
   }
 
-  function toggleFavByName(name: string) {
-    const next = favorites.includes(name)
-      ? favorites.filter((x) => x !== name)
-      : [...favorites, name];
-    persistFavs(next);
+  /**
+   * preset/api 음식의 즐겨찾기 토글: food_code로 cloud에서 food_id 확보 후 토글
+   */
+  async function toggleFavForPickable(food: Pickable) {
+    if (food.source === "custom") {
+      // cloud food_id = food.id (UUID)
+      await toggleFav(food.id);
+      return;
+    }
+
+    // preset or api: food_code로 cloud에서 food row 확보
+    const food_code = food.food_code ?? food.id;
+    const insert: FoodInsert = {
+      source: food.source === "api" ? "api" : "preset",
+      food_code,
+      name: food.name,
+      serving_unit: "g",
+      serving_amount: food.serving_g,
+      serving_g: food.serving_g,
+      kcal: food.kcal,
+      carb_g: food.carb,
+      protein_g: food.protein,
+      fat_g: food.fat,
+      category: null,
+      is_estimated: false,
+    };
+    try {
+      const resolvedId = await resolveFoodId({
+        source: food.source as "preset" | "api",
+        food_code,
+        insert,
+      });
+      await toggleFav(resolvedId);
+    } catch (e) {
+      if (e instanceof CloudAuthError) {
+        toast.error("로그인이 필요해요");
+      } else {
+        toast.error("즐겨찾기 변경 실패");
+      }
+    }
   }
 
   const q = query.trim().toLowerCase();
 
-  // search-results mode = 1+ chars (한글 1글자 음식: 김·밥·닭·면·떡 등)
+  // search-results mode = 1+ chars
   const inSearch = q.length >= 1;
 
   const customMatches = useMemo(() => {
     if (!inSearch) return [];
-    return customFoods.filter((c) => c.name.toLowerCase().includes(q));
-  }, [customFoods, q, inSearch]);
+    return userFoods
+      .filter((f) => f.name.toLowerCase().includes(q))
+      .map(foodRowToCustomFood);
+  }, [userFoods, q, inSearch]);
 
   const presetMatches = useMemo(() => {
     if (!inSearch) return PRESETS;
@@ -352,84 +450,112 @@ function AddFoodPage() {
     return out;
   }, [apiResults, customMatches, presetMatches, inSearch]);
 
-  // favorites array는 preset id 또는 customFood id/name 혼재 가능
-  function lookupForFavOrRecent(key: string): FoodPreset | undefined {
-    const p = PRESETS.find((x) => x.id === key);
-    if (p) return p;
-    const byId = customFoods.find((c) => c.id === key);
-    const c = byId ?? customFoods.find((c) => c.name.toLowerCase() === key.toLowerCase());
-    if (!c) return undefined;
-    return {
-      id: c.id,
-      name: c.name,
-      kcal: c.kcal,
-      carb: c.carb_g,
-      protein: c.protein_g,
-      fat: c.fat_g,
-      serving_g: c.serving_g,
-    } as FoodPreset;
-  }
+  // Favorites list: cloud food rows whose id is in favFoodIds
+  // We build from userFoods + presets (for preset favs, look up by food_code)
+  // For simplicity, fav list = userFoods that are favorited
+  const favUserFoods = useMemo(
+    () => userFoods.filter((f) => favFoodIds.has(f.id)),
+    [userFoods, favFoodIds],
+  );
 
-  const favList = hydrated
-    ? favorites
-        .map((key) => lookupForFavOrRecent(key))
-        .filter((x): x is FoodPreset => !!x)
-    : [];
-  const recentList = hydrated
-    ? recents
-        .slice(0, 10)
-        .map((id) => {
-          const p = PRESETS.find((x) => x.id === id);
-          if (p) return p;
-          const c = customFoods.find((x) => x.id === id);
-          if (c) {
-            // Adapt CustomFood to FoodPreset shape so it renders in FoodGrid
-            return {
-              id: c.id,
-              name: c.name,
-              kcal: c.kcal,
-              carb: c.carb_g,
-              protein: c.protein_g,
-              fat: c.fat_g,
-              serving_g: c.serving_g,
-            } as FoodPreset;
-          }
-          return undefined;
-        })
-        .filter((x): x is FoodPreset => !!x)
-    : [];
+  // Recent list from localStorage (UX-only, preset ids or cloud food UUIDs)
+  const recentList = useMemo(() => {
+    if (!hydrated) return [];
+    return recents
+      .slice(0, 10)
+      .map((id) => {
+        // Check presets first
+        const p = PRESETS.find((x) => x.id === id);
+        if (p) return { type: "preset" as const, data: p };
+        // Check user foods
+        const f = userFoods.find((x) => x.id === id);
+        if (f) return { type: "user" as const, data: f };
+        return null;
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+  }, [recents, hydrated, userFoods]);
 
-  // "내가 등록한 음식" 섹션은 사용자가 직접 등록한 것만 (식약처 자동 저장 제외)
-  const sortedCustom = useMemo(
+  // "내가 등록한 음식" — user source only, sorted by created_at desc
+  const sortedUserFoods = useMemo(
     () =>
-      customFoods
-        .filter((c) => c.source !== "api")
-        .sort((a, b) => b.created_at - a.created_at),
-    [customFoods],
+      [...userFoods].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    [userFoods],
   );
 
   /* ---------------- add to today ---------------- */
 
-  function handleAdd(
+  async function handleAdd(
     food: Pickable,
     mode: "serving" | "gram",
     qty: number,
     saveAsBase: boolean = false,
   ) {
-    // 식약처 데이터 일관성 보정 — 라벨 kcal vs 매크로 합 차이 20%+면 카테고리 기반 추정
     const reconciled = reconcileApiMacros(food);
 
-    // API food → customFoods로 자동 저장 (다음 빠른 추가 트레이·검색에 노출되도록)
-    let effectiveId = food.id;
-    if (food.source === "api") {
-      const existingByName = customFoods.find(
-        (c) => c.name.toLowerCase() === food.name.toLowerCase(),
-      );
-      if (existingByName) {
-        effectiveId = existingByName.id;
+    const mult = mode === "serving" ? qty : qty / food.serving_g;
+    const carbG = Math.round(reconciled.carb * mult * 10) / 10;
+    const proteinG = Math.round(reconciled.protein * mult * 10) / 10;
+    const fatG = Math.round(reconciled.fat * mult * 10) / 10;
+    const kcal = Math.round(
+      carbG * 4 + proteinG * 4 + fatG * 9,
+    );
+    const grams = mode === "gram" ? qty : Math.round(food.serving_g * qty);
+    const now = Date.now();
+    const loggedDate = todayKST();
+    const mealSlot = inferMealSlot(now);
+
+    try {
+      let foodId: string;
+
+      if (food.source === "custom") {
+        // Already a cloud UUID
+        foodId = food.id;
+
+        // saveAsBase: update serving_g in cloud
+        if (saveAsBase) {
+          const target = userFoods.find((f) => f.id === food.id);
+          if (target && target.serving_g > 0) {
+            const newServingG = mode === "gram" ? qty : qty * target.serving_g;
+            if (newServingG > 0) {
+              const ratio = newServingG / target.serving_g;
+              await cloudRepository.foods.update(food.id, {
+                serving_g: newServingG,
+                serving_amount: newServingG,
+                serving_unit: "g",
+                kcal: Math.round(target.kcal * ratio),
+                carb_g: Math.round(target.carb_g * ratio * 10) / 10,
+                protein_g: Math.round(target.protein_g * ratio * 10) / 10,
+                fat_g: Math.round(target.fat_g * ratio * 10) / 10,
+              });
+              // Refresh user foods
+              void loadCloudData();
+            }
+          }
+        }
+      } else if (food.source === "preset") {
+        const insert: FoodInsert = {
+          source: "preset",
+          food_code: food.id,
+          name: food.name,
+          serving_unit: "g",
+          serving_amount: food.serving_g,
+          serving_g: food.serving_g,
+          kcal: food.kcal,
+          carb_g: food.carb,
+          protein_g: food.protein,
+          fat_g: food.fat,
+          category: null,
+          is_estimated: false,
+        };
+        foodId = await resolveFoodId({ source: "preset", food_code: food.id, insert });
       } else {
-        const newCustom: CustomFood = {
-          id: safeRandomId(),
+        // api source
+        const food_code = food.food_code ?? food.id;
+        const insert: FoodInsert = {
+          source: "api",
+          food_code,
           name: food.name,
           serving_unit: "g",
           serving_amount: food.serving_g,
@@ -438,155 +564,189 @@ function AddFoodPage() {
           carb_g: reconciled.carb,
           protein_g: reconciled.protein,
           fat_g: reconciled.fat,
-          is_estimated: reconciled.is_estimated,
           category: reconciled.category,
-          source: "api",
-          food_code: food.food_code,
-          created_at: Date.now(),
-          updated_at: Date.now(),
+          is_estimated: reconciled.is_estimated,
         };
-        const next = prependCustomFood(customFoods, newCustom);
-        persistCustom(next);
-        effectiveId = newCustom.id;
+        foodId = await resolveFoodId({ source: "api", food_code, insert });
         if (reconciled.is_estimated) {
           toast(`${displayName(food.name)} 탄단지 자동 추정`, {
             description: "라벨 칼로리와 매크로 합이 안 맞아 카테고리 기준으로 보정했어요",
           });
         }
-        // 자동 즐겨찾기 없음 — 직접 등록과 동일하게 별표는 사용자 명시 토글로만.
-        // 최근 사용 트레이에는 아래 recents push로 자연 노출됨.
+      }
+
+      await cloudRepository.foodLogs.create({
+        food_id: foodId,
+        logged_date: loggedDate,
+        meal_slot: mealSlot,
+        grams,
+        kcal,
+        carb_g: carbG,
+        protein_g: proteinG,
+        fat_g: fatG,
+      });
+
+      // Update recents (UX-only localStorage)
+      const effectiveId = food.source === "custom" ? food.id : food.id;
+      const nextRecent = [effectiveId, ...recents.filter((x) => x !== effectiveId)].slice(0, 10);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
+      setRecents(nextRecent);
+
+      // Persist lastQty (UX-only localStorage)
+      const lastQtyToPersist =
+        saveAsBase && food.source === "custom"
+          ? { qty: 1, mode: "serving" as const }
+          : { qty, mode };
+      try {
+        const raw = JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}");
+        const next = { ...raw, [food.name]: lastQtyToPersist };
+        localStorage.setItem(LAST_QTY_KEY, JSON.stringify(next));
+      } catch {
+        localStorage.setItem(LAST_QTY_KEY, JSON.stringify({ [food.name]: lastQtyToPersist }));
+      }
+
+      toast(`${displayName(food.name)} 추가됨`);
+      navigate({ to: "/" });
+    } catch (e) {
+      if (e instanceof CloudAuthError) {
+        toast.error("로그인이 필요해요");
+      } else {
+        toast.error(`추가 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
-
-    const mult = mode === "serving" ? qty : qty / food.serving_g;
-    const macros: Record<Macro, number> = {
-      carbs: reconciled.carb * mult,
-      protein: reconciled.protein * mult,
-      fat: reconciled.fat * mult,
-    };
-    const now = Date.now();
-    const foodLogId = `${now}-${Math.random().toString(36).slice(2, 9)}`;
-    const additions: BubbleEntry[] = [];
-    (["carbs", "protein", "fat"] as Macro[]).forEach((m, i) => {
-      const grams = Math.round(macros[m] * 10) / 10;
-      if (grams > 0) {
-        additions.push({
-          id: `${foodLogId}-${i}`,
-          foodLogId,
-          macro: m,
-          grams,
-          foodName: displayName(food.name),
-          addedAt: now,
-        });
-      }
-    });
-    const key = todayKey();
-    let existing: BubbleEntry[] = [];
-    try {
-      existing = JSON.parse(localStorage.getItem(key) || "[]");
-    } catch {
-      existing = [];
-    }
-    localStorage.setItem(key, JSON.stringify([...existing, ...additions]));
-
-    const nextRecent = [effectiveId, ...recents.filter((x) => x !== effectiveId)].slice(0, 10);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
-    setRecents(nextRecent);
-
-    // saveAsBase: customFood의 기준 단위 자체를 이 양으로 갱신 (비례 환산)
-    let lastQtyToPersist: { qty: number; mode: "serving" | "gram" } = {
-      qty,
-      mode,
-    };
-    if (saveAsBase) {
-      const target = customFoods.find((c) => c.id === effectiveId);
-      if (target && target.serving_g > 0) {
-        const newServingG = mode === "gram" ? qty : qty * target.serving_g;
-        if (newServingG > 0) {
-          const ratio = newServingG / target.serving_g;
-          const updated: CustomFood = {
-            ...target,
-            serving_g: newServingG,
-            serving_amount: newServingG,
-            serving_unit: "g",
-            kcal: Math.round(target.kcal * ratio),
-            carb_g: Math.round(target.carb_g * ratio * 10) / 10,
-            protein_g: Math.round(target.protein_g * ratio * 10) / 10,
-            fat_g: Math.round(target.fat_g * ratio * 10) / 10,
-            updated_at: Date.now(),
-          };
-          const nextCustoms = customFoods.map((c) =>
-            c.id === updated.id ? updated : c,
-          );
-          persistCustom(nextCustoms);
-          // 새 기준에서 1인분 = newServingG
-          lastQtyToPersist = { qty: 1, mode: "serving" };
-        }
-      }
-    }
-
-    // 마지막 사용 수량/모드 기억 (name 키, 트레이 칩이 그대로 사용)
-    try {
-      const raw = JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}");
-      const next = { ...raw, [food.name]: lastQtyToPersist };
-      localStorage.setItem(LAST_QTY_KEY, JSON.stringify(next));
-    } catch {
-      localStorage.setItem(
-        LAST_QTY_KEY,
-        JSON.stringify({ [food.name]: lastQtyToPersist }),
-      );
-    }
-
-    toast(`${displayName(food.name)} 추가됨`);
-    navigate({ to: "/" });
   }
 
   /* ---------------- form save ---------------- */
 
-  function handleFormSave(food: CustomFood) {
-    // 직접 등록 폼에서 들어온 음식은 명시적으로 source="user"
-    // (편집 케이스에선 기존 source 유지)
-    const existingIdx = customFoods.findIndex((c) => c.id === food.id);
-    const saved: CustomFood = {
-      ...food,
-      source: food.source ?? customFoods[existingIdx]?.source ?? "user",
-    };
-    let next: CustomFood[];
-    if (existingIdx >= 0) {
-      next = customFoods.map((c) => (c.id === saved.id ? saved : c));
-    } else {
-      next = prependCustomFood(customFoods, saved);
+  async function handleFormSave(food: CustomFood) {
+    try {
+      const existingRow = userFoods.find((f) => f.id === food.id);
+
+      if (existingRow) {
+        // Edit: update in cloud
+        await cloudRepository.foods.update(food.id, {
+          name: food.name,
+          serving_unit: food.serving_unit,
+          serving_amount: food.serving_amount,
+          serving_g: food.serving_g,
+          kcal: food.kcal,
+          carb_g: food.carb_g,
+          protein_g: food.protein_g,
+          fat_g: food.fat_g,
+          is_estimated: food.is_estimated,
+          category: food.category ?? null,
+        });
+        setUserFoods((prev) =>
+          prev.map((f) =>
+            f.id === food.id
+              ? {
+                  ...f,
+                  name: food.name,
+                  serving_unit: food.serving_unit,
+                  serving_amount: food.serving_amount,
+                  serving_g: food.serving_g,
+                  kcal: food.kcal,
+                  carb_g: food.carb_g,
+                  protein_g: food.protein_g,
+                  fat_g: food.fat_g,
+                  is_estimated: food.is_estimated,
+                  category: food.category ?? null,
+                }
+              : f,
+          ),
+        );
+      } else {
+        // New: insert into cloud
+        const insert: FoodInsert = {
+          source: "user",
+          food_code: null,
+          name: food.name,
+          serving_unit: food.serving_unit,
+          serving_amount: food.serving_amount,
+          serving_g: food.serving_g,
+          kcal: food.kcal,
+          carb_g: food.carb_g,
+          protein_g: food.protein_g,
+          fat_g: food.fat_g,
+          is_estimated: food.is_estimated,
+          category: food.category ?? null,
+        };
+        const created = await cloudRepository.foods.create(insert);
+        setUserFoods((prev) => [created, ...prev]);
+        // Update food.id to cloud UUID for the quantity sheet below
+        food = { ...food, id: created.id };
+      }
+
+      setFormOpen(false);
+      setFormInitial(null);
+      // Continuous flow: open quantity sheet right after
+      setActiveFood(customFoodToPickable(food));
+    } catch (e) {
+      if (e instanceof CloudAuthError) {
+        toast.error("로그인이 필요해요");
+      } else {
+        toast.error(`저장 실패: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
-    persistCustom(next);
-    // Do not auto-favorite — the star is a user-controlled favorite toggle only.
-    setFormOpen(false);
-    setFormInitial(null);
-    // Continuous flow: open quantity sheet right after
-    setActiveFood(customToPickable(food));
   }
 
   /* ---------------- delete with undo ---------------- */
 
-  function handleDelete(food: CustomFood) {
-    const idx = customFoods.findIndex((c) => c.id === food.id);
-    if (idx < 0) return;
-    const wasFav = favorites.includes(food.name);
-    const nextList = customFoods.filter((c) => c.id !== food.id);
-    persistCustom(nextList);
-    if (wasFav) persistFavs(favorites.filter((f) => f !== food.name));
+  async function handleDelete(food: CustomFood) {
+    const prevFoods = [...userFoods];
+    // Optimistic remove
+    setUserFoods((prev) => prev.filter((f) => f.id !== food.id));
+    const wasFav = favFoodIds.has(food.id);
+    if (wasFav) {
+      const next = new Set(favFoodIds);
+      next.delete(food.id);
+      setFavFoodIds(next);
+    }
     setActionTarget(null);
+
+    try {
+      await cloudRepository.foods.remove(food.id);
+    } catch (e) {
+      // Revert
+      setUserFoods(prevFoods);
+      if (wasFav) setFavFoodIds((prev) => new Set([...prev, food.id]));
+      if (e instanceof CloudAuthError) {
+        toast.error("로그인이 필요해요");
+      } else {
+        toast.error(`삭제 실패: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      return;
+    }
 
     toast("삭제했어요", {
       duration: 5000,
       action: {
         label: "되돌리기",
-        onClick: () => {
-          const restored = [...nextList];
-          restored.splice(Math.min(idx, restored.length), 0, food);
-          persistCustom(restored);
-          if (wasFav) {
-            const favs = readArr<string>(FAV_KEY);
-            if (!favs.includes(food.name)) persistFavs([...favs, food.name]);
+        onClick: async () => {
+          try {
+            // Re-create the food
+            const insert: FoodInsert = {
+              source: "user",
+              food_code: null,
+              name: food.name,
+              serving_unit: food.serving_unit,
+              serving_amount: food.serving_amount,
+              serving_g: food.serving_g,
+              kcal: food.kcal,
+              carb_g: food.carb_g,
+              protein_g: food.protein_g,
+              fat_g: food.fat_g,
+              is_estimated: food.is_estimated,
+              category: food.category ?? null,
+            };
+            const restored = await cloudRepository.foods.create(insert);
+            setUserFoods((prev) => [restored, ...prev]);
+            if (wasFav) {
+              await cloudRepository.favorites.add(restored.id);
+              setFavFoodIds((prev) => new Set([...prev, restored.id]));
+            }
+          } catch {
+            toast.error("되돌리기 실패");
           }
         },
       },
@@ -594,6 +754,12 @@ function AddFoodPage() {
   }
 
   /* ---------------- render ---------------- */
+
+  // For favorites grid display: use favUserFoods as CustomFood[]
+  const favCustomFoods = useMemo(
+    () => favUserFoods.map(foodRowToCustomFood),
+    [favUserFoods],
+  );
 
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
@@ -666,19 +832,19 @@ function AddFoodPage() {
                 </Section>
               )}
 
-              {sortedCustom.length > 0 && (
+              {sortedUserFoods.length > 0 && (
                 <Section title="내가 등록한 음식">
                   <CustomFoodGrid
-                    foods={sortedCustom}
-                    favorites={favorites}
-                    onToggleFav={toggleFavByName}
-                    onPick={(c) => setActiveFood(customToPickable(c))}
+                    foods={sortedUserFoods.map(foodRowToCustomFood)}
+                    favFoodIds={favFoodIds}
+                    onToggleFav={(id) => void toggleFav(id)}
+                    onPick={(c) => setActiveFood(customFoodToPickable(c))}
                     onLongPress={(c) => setActionTarget(c)}
                   />
                 </Section>
               )}
 
-              {favList.length > 0 && (
+              {favCustomFoods.length > 0 && (
                 <Section
                   title={
                     <>
@@ -688,25 +854,18 @@ function AddFoodPage() {
                   }
                 >
                   <FoodGrid
-                    foods={showAllFavs ? favList : favList.slice(0, 10)}
-                    favorites={favorites}
-                    onToggleFav={(id) => {
-                      const c = customFoods.find((x) => x.id === id);
-                      if (c) toggleFavByName(c.name);
-                      else toggleFav(id);
-                    }}
-                    onPick={(p) => {
-                      const c = customFoods.find((x) => x.id === p.id);
-                      setActiveFood(c ? customToPickable(c) : presetToPickable(p));
-                    }}
+                    foods={showAllFavs ? favCustomFoods : favCustomFoods.slice(0, 10)}
+                    favFoodIds={favFoodIds}
+                    onToggleFav={(id) => void toggleFav(id)}
+                    onPick={(c) => setActiveFood(customFoodToPickable(c))}
                   />
-                  {favList.length > 10 && (
+                  {favCustomFoods.length > 10 && (
                     <button
                       type="button"
                       onClick={() => setShowAllFavs((v) => !v)}
                       className="mt-2 w-full h-9 rounded-lg border border-neutral-200 bg-white text-xs font-medium text-neutral-600 active:scale-[0.98]"
                     >
-                      {showAllFavs ? "접기" : `더 보기 (${favList.length - 10}개 더)`}
+                      {showAllFavs ? "접기" : `더 보기 (${favCustomFoods.length - 10}개 더)`}
                     </button>
                   )}
                 </Section>
@@ -721,20 +880,39 @@ function AddFoodPage() {
                     </>
                   }
                 >
-                  <FoodGrid
-                    foods={recentList}
-                    favorites={favorites}
-                    onToggleFav={(id) => {
-                      const c = customFoods.find((x) => x.id === id);
-                      if (c) toggleFavByName(c.name);
-                      else toggleFav(id);
-                    }}
-                    onPick={(p) => {
-                      const c = customFoods.find((x) => x.id === p.id);
-                      setActiveFood(c ? customToPickable(c) : presetToPickable(p));
-                    }}
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    {recentList.map((item) => {
+                      if (item.type === "preset") {
+                        const p = item.data as FoodPreset;
+                        return (
+                          <PresetCard
+                            key={p.id}
+                            food={p}
+                            isFav={false}
+                            onToggleFav={() => void toggleFavForPickable(presetToPickable(p))}
+                            onPick={() => setActiveFood(presetToPickable(p))}
+                          />
+                        );
+                      }
+                      const f = item.data as FoodRow;
+                      const c = foodRowToCustomFood(f);
+                      return (
+                        <CustomFoodCard
+                          key={f.id}
+                          food={c}
+                          isFav={favFoodIds.has(f.id)}
+                          onToggleFav={() => void toggleFav(f.id)}
+                          onPick={() => setActiveFood(customFoodToPickable(c))}
+                          onLongPress={() => setActionTarget(c)}
+                        />
+                      );
+                    })}
+                  </div>
                 </Section>
+              )}
+
+              {cloudLoading && (
+                <p className="text-[11px] text-neutral-400 text-center">불러오는 중…</p>
               )}
             </>
           )}
@@ -749,9 +927,9 @@ function AddFoodPage() {
                     <CustomFoodCard
                       key={c.id}
                       food={c}
-                      isFav={favorites.includes(c.name)}
-                      onToggleFav={() => toggleFavByName(c.name)}
-                      onPick={() => setActiveFood(customToPickable(c))}
+                      isFav={favFoodIds.has(c.id)}
+                      onToggleFav={() => void toggleFav(c.id)}
+                      onPick={() => setActiveFood(customFoodToPickable(c))}
                       onLongPress={() => setActionTarget(c)}
                     />
                   ))}
@@ -759,8 +937,8 @@ function AddFoodPage() {
                     <PresetCard
                       key={p.id}
                       food={p}
-                      isFav={favorites.includes(p.id)}
-                      onToggleFav={() => toggleFav(p.id)}
+                      isFav={false}
+                      onToggleFav={() => void toggleFavForPickable(presetToPickable(p))}
                       onPick={() => setActiveFood(presetToPickable(p))}
                     />
                   ))}
@@ -829,7 +1007,7 @@ function AddFoodPage() {
           last={lastQtyMap[activeFood.name]}
           onClose={() => setActiveFood(null)}
           onAdd={(mode, qty, saveAsBase) =>
-            handleAdd(activeFood, mode, qty, saveAsBase)
+            void handleAdd(activeFood, mode, qty, saveAsBase)
           }
         />
       )}
@@ -841,7 +1019,7 @@ function AddFoodPage() {
           setFormOpen(o);
           if (!o) setFormInitial(null);
         }}
-        onSave={handleFormSave}
+        onSave={(food) => void handleFormSave(food)}
       />
 
       {actionTarget && (
@@ -853,7 +1031,7 @@ function AddFoodPage() {
             setActionTarget(null);
             setFormOpen(true);
           }}
-          onDelete={() => handleDelete(actionTarget)}
+          onDelete={() => void handleDelete(actionTarget)}
         />
       )}
     </div>
@@ -900,14 +1078,14 @@ function DirectRegisterCard({ onClick }: { onClick: () => void }) {
 
 function FoodGrid({
   foods,
-  favorites,
+  favFoodIds,
   onToggleFav,
   onPick,
 }: {
-  foods: FoodPreset[];
-  favorites: string[];
+  foods: CustomFood[];
+  favFoodIds: Set<string>;
   onToggleFav: (id: string) => void;
-  onPick: (f: FoodPreset) => void;
+  onPick: (f: CustomFood) => void;
 }) {
   if (foods.length === 0) {
     return <p className="text-xs text-neutral-400">결과가 없어요</p>;
@@ -915,12 +1093,13 @@ function FoodGrid({
   return (
     <div className="grid grid-cols-2 gap-2">
       {foods.map((f) => (
-        <PresetCard
+        <CustomFoodCard
           key={f.id}
           food={f}
-          isFav={favorites.includes(f.id) || favorites.includes(f.name)}
+          isFav={favFoodIds.has(f.id)}
           onToggleFav={() => onToggleFav(f.id)}
           onPick={() => onPick(f)}
+          onLongPress={() => {/* favorites grid doesn't need long-press actions */}}
         />
       ))}
     </div>
@@ -966,26 +1145,25 @@ function PresetCard({
 
 function CustomFoodGrid({
   foods,
-  favorites,
+  favFoodIds,
   onToggleFav,
   onPick,
   onLongPress,
 }: {
   foods: CustomFood[];
-  favorites: string[];
-  onToggleFav: (name: string) => void;
+  favFoodIds: Set<string>;
+  onToggleFav: (id: string) => void;
   onPick: (f: CustomFood) => void;
   onLongPress: (f: CustomFood) => void;
 }) {
-  // 가로 스크롤 — 내가 등록한 음식은 무제한이라 세로로 늘리지 않음
   return (
     <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-none">
       {foods.map((f) => (
         <div key={f.id} className="shrink-0 w-[180px]">
           <CustomFoodCard
             food={f}
-            isFav={favorites.includes(f.name)}
-            onToggleFav={() => onToggleFav(f.name)}
+            isFav={favFoodIds.has(f.id)}
+            onToggleFav={() => onToggleFav(f.id)}
             onPick={() => onPick(f)}
             onLongPress={() => onLongPress(f)}
           />
@@ -1006,7 +1184,6 @@ function CustomFoodCard({
   isFav: boolean;
   onToggleFav: () => void;
   onPick: () => void;
-  /** 카드 우측 ⋯ 아이콘 탭 시 트리거 (편집/삭제 시트) */
   onLongPress: () => void;
 }) {
   const isWeight = food.serving_unit === "g" || food.serving_unit === "ml";
@@ -1133,10 +1310,7 @@ function CustomFoodFormSheet({
   const [fat, setFat] = useState("");
   const [category, setCategory] = useState<FoodCategory>("other");
   const [categoryOpen, setCategoryOpen] = useState(false);
-  // is_estimated flag — true only when macros came from [매크로 추정] or
-  // were filled in 추정 mode AND not hand-edited since.
   const [isEstimated, setIsEstimated] = useState(false);
-  // Mode-switch confirm (manual → estimate when macros have user values)
   const [switchConfirm, setSwitchConfirm] = useState(false);
 
   useEffect(() => {
@@ -1171,13 +1345,11 @@ function CustomFoodFormSheet({
   const servingG = isWeightUnit ? amountN : gramConvN;
   const servingGValid = !Number.isNaN(servingG) && servingG > 0;
 
-  // In estimate mode, macros are derived live from kcal+category (read-only).
   const estimateMacros = useMemo(() => {
     if (mode !== "estimate" || !kcalFilled) return null;
     return estimateMacrosFromKcal(kcalN, category);
   }, [mode, kcalFilled, kcalN, category]);
 
-  // Atwater consistency check (manual mode, inline notice only)
   const atwaterNotice = useMemo(() => {
     if (mode !== "manual" || !kcalFilled || !allMacrosFilled) return null;
     const atwater = kcalFromMacros({
@@ -1191,7 +1363,6 @@ function CustomFoodFormSheet({
     return { atwater, diff };
   }, [mode, kcalFilled, allMacrosFilled, kcalN, carbN, proteinN, fatN]);
 
-  // Inline preview values surfaced as input placeholders
   const previewEffectiveKcal = kcalFilled
     ? kcalN
     : allMacrosFilled
@@ -1212,12 +1383,10 @@ function CustomFoodFormSheet({
     const base = name.trim().length > 0 && !Number.isNaN(amountN) && amountN > 0;
     if (!base) return false;
     if (mode === "estimate") return kcalFilled && !!category && servingGValid;
-    // manual: serving_g resolves at save time (g/ml unit OR user grams OR macro-sum fallback)
     return kcalFilled || allMacrosFilled;
   })();
 
   function switchToManual() {
-    // 추정 → 직접: copy current (estimated) values so they remain editable
     if (mode === "estimate" && estimateMacros) {
       setCarb(String(estimateMacros.carbs));
       setProtein(String(estimateMacros.protein));
@@ -1227,7 +1396,6 @@ function CustomFoodFormSheet({
   }
 
   function requestSwitchToEstimate() {
-    // 직접 → 추정: if any macro has a value, ask before overwriting
     if (!macrosEmpty) {
       setSwitchConfirm(true);
       return;
@@ -1271,6 +1439,14 @@ function CustomFoodFormSheet({
     if (isEstimated) setIsEstimated(false);
   }
 
+  // suppress unused variable warnings for functions used only via UI
+  void switchToManual;
+  void requestSwitchToEstimate;
+  void confirmSwitchToEstimate;
+  void handleAutoCalcKcal;
+  void handleEstimateMacros;
+  void switchConfirm;
+
   function handleSubmit() {
     if (!canSave) return;
 
@@ -1290,7 +1466,6 @@ function CustomFoodFormSheet({
       finalIsEstimated = true;
       finalCategory = category;
     } else {
-      // Auto-fill macros from kcal + default category when only kcal is given
       if (macrosEmpty && kcalFilled) {
         const m = estimateMacrosFromKcal(kcalN, category || "other");
         finalCarb = m.carbs;
@@ -1314,7 +1489,6 @@ function CustomFoodFormSheet({
           });
     }
 
-    // serving_g fallback: kcal × category density first; macro-sum as last resort
     const fallbackCategory: FoodCategory = finalCategory ?? category ?? "other";
     const resolvedServingG = servingGValid
       ? servingG
@@ -1340,7 +1514,6 @@ function CustomFoodFormSheet({
     onSave(food);
   }
 
-  // Values shown in macro inputs/badges
   const carbShown =
     mode === "estimate" ? (estimateMacros ? String(estimateMacros.carbs) : "") : carb;
   const proteinShown =
@@ -1350,6 +1523,7 @@ function CustomFoodFormSheet({
 
   const showEstimateMacrosBtn =
     mode === "manual" && kcalFilled && !!category && categoryOpen && macrosEmpty;
+  void showEstimateMacrosBtn;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1423,7 +1597,6 @@ function CustomFoodFormSheet({
             <div className="flex-1 h-px bg-neutral-200" />
           </div>
 
-          {/* Category — always visible, helps macro estimation when only kcal is given */}
           <Field label="카테고리">
             <select
               value={category}
@@ -1441,7 +1614,6 @@ function CustomFoodFormSheet({
             </p>
           </Field>
 
-          {/* kcal field */}
           <Field label="열량 (kcal)">
             <input
               type="number"
@@ -1458,12 +1630,11 @@ function CustomFoodFormSheet({
             />
             {atwaterNotice && (
               <p className="text-[12px] text-neutral-500 mt-1.5">
-                💡 탄단지 g 기준 계산: {atwaterNotice.atwater} kcal ({atwaterNotice.diff} kcal 차이)
+                탄단지 g 기준 계산: {atwaterNotice.atwater} kcal ({atwaterNotice.diff} kcal 차이)
               </p>
             )}
           </Field>
 
-          {/* Macro row */}
           <div>
             <div className="grid grid-cols-3 gap-2">
               {(
@@ -1501,8 +1672,6 @@ function CustomFoodFormSheet({
               ))}
             </div>
           </div>
-
-          {/* Estimation previews are surfaced as input placeholders (see kcal/macro/gram inputs) */}
 
           <button
             disabled={!canSave}
