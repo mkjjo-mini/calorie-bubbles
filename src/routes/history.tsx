@@ -59,24 +59,30 @@ function hash01(str: string, salt = 0) {
 }
 
 // Curated palette for kcal-mode bubbles — distinct from macro RGB identity.
-// Mid-tone, jewel-ish colors that read well at 25% alpha over the tank.
-const KCAL_PALETTE = [
-  "#5EC4B6", // mint
-  "#9B8CE0", // lavender
-  "#F2A57C", // peach
-  "#4FB3C9", // teal
-  "#E8B86E", // apricot
-  "#C29BD8", // light purple
-  "#A8B86C", // olive
-  "#E58CA8", // rose
-  "#7B95B5", // slate blue
-  "#8FB08A", // sage
+// Solid mid-tone jewel colors. Each entry pairs a fill color with a readable text color.
+const KCAL_PALETTE: { color: string; text: string }[] = [
+  { color: "#5EC4B6", text: "#fff" }, // mint
+  { color: "#9B8CE0", text: "#fff" }, // lavender
+  { color: "#F2A57C", text: "#3F2A00" }, // peach — light
+  { color: "#4FB3C9", text: "#fff" }, // teal
+  { color: "#E8B86E", text: "#3F2A00" }, // apricot — light
+  { color: "#C29BD8", text: "#fff" }, // light purple
+  { color: "#A8B86C", text: "#3F2A00" }, // olive — light
+  { color: "#E58CA8", text: "#fff" }, // rose
+  { color: "#7B95B5", text: "#fff" }, // slate blue
+  { color: "#8FB08A", text: "#1f2937" }, // sage — light
 ];
 
 // Deterministic: same food name always picks same color across months.
-function kcalBubbleColor(name: string): string {
+function kcalPaletteEntry(name: string) {
   const idx = Math.floor(hash01(name, 1) * KCAL_PALETTE.length);
   return KCAL_PALETTE[idx] ?? KCAL_PALETTE[0];
+}
+function kcalBubbleColor(name: string): string {
+  return kcalPaletteEntry(name).color;
+}
+function kcalBubbleText(name: string): string {
+  return kcalPaletteEntry(name).text;
 }
 
 function normalizeFoodKey(name: string): string {
@@ -742,19 +748,31 @@ function Bubble({
             width: size,
             height: size,
             y: waveY,
-            background:
-              mode === "kcal"
-                ? `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.12) 18%, ${color}55 45%, ${color}40 100%)`
-                : `radial-gradient(circle at 32% 28%, ${color}ee, ${color}bb 58%, ${color}77)`,
+            background: `radial-gradient(circle at 30% 30%, ${color}ee, ${color}aa 60%, ${color}66)`,
             boxShadow:
               mode === "kcal"
-                ? `inset 0 0 0 0.5px ${color}33, 0 2px 6px rgba(15,23,42,0.10)`
-                : `inset -5px -7px 12px ${color}55, 0 4px 10px rgba(15,23,42,0.18)`,
-            border: mode === "kcal" ? `1.5px solid ${color}cc` : `1px solid ${color}`,
+                ? `inset -6px -8px 14px ${color}55, inset 0 -10px 14px ${color}88, inset 2px 2px 0 rgba(255,255,255,0.35), 0 0 0 1px rgba(255,255,255,0.28), 0 4px 10px ${color}44`
+                : `inset -6px -8px 14px ${color}55, 0 4px 10px ${color}44`,
+            border: `1px solid ${color}`,
             willChange: "transform",
           }}
           aria-label={`${date.getMonth() + 1}/${date.getDate()} ${b.name}`}
         >
+          {mode === "kcal" && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute rounded-full"
+              style={{
+                top: `${size * 0.1}px`,
+                left: `${size * 0.16}px`,
+                width: `${size * 0.26}px`,
+                height: `${size * 0.22}px`,
+                background:
+                  "radial-gradient(ellipse at center, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.45) 38%, rgba(255,255,255,0) 75%)",
+                filter: "blur(0.4px)",
+              }}
+            />
+          )}
           <motion.span
             className="flex h-full w-full items-center justify-center rounded-full"
             animate={
@@ -779,7 +797,7 @@ function Bubble({
                 fontSize: size >= 28 ? 10 : 8,
                 color:
                   mode === "kcal"
-                    ? "#1f2937"
+                    ? kcalBubbleText(b.name)
                     : mode === "carbs"
                       ? "#3F2A00"
                       : "#FFFFFF",
