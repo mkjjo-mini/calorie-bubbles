@@ -148,7 +148,8 @@ export async function loadMonth(year: number, month0: number): Promise<DayData[]
 export function progressColor(day: DayData, mode: MetricMode): string | null {
   if (day.foods.length === 0) return null;
   const macroGoal = pickGoal(day.goal, mode);
-  if (macroGoal.value <= 0) return null;
+  // 비활성 매크로 (null) 또는 목표값 0 → 도트 없음
+  if (macroGoal === null || macroGoal.value <= 0) return null;
   const actual = mode === "kcal" ? day.totalKcal : day.totals[mode];
   const ratio = actual / macroGoal.value;
   if (macroGoal.dir === "max") {
@@ -162,10 +163,10 @@ export function progressColor(day: DayData, mode: MetricMode): string | null {
   return "#EF4444";
 }
 
-function pickGoal(goal: ResolvedGoal, mode: MetricMode): {
-  value: number;
-  dir: MacroDirection;
-} {
+function pickGoal(
+  goal: ResolvedGoal,
+  mode: MetricMode,
+): { value: number; dir: MacroDirection } | null {
   if (mode === "kcal") return goal.daily_kcal;
   if (mode === "carbs") return goal.carb_g;
   if (mode === "protein") return goal.protein_g;

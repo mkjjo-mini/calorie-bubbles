@@ -39,52 +39,54 @@ export interface UserGoalRow {
 }
 
 export interface ResolvedGoal {
-  daily_kcal: MacroGoal;
-  protein_g: MacroGoal;
-  carb_g: MacroGoal;
-  fat_g: MacroGoal;
+  daily_kcal: MacroGoal;        // 항상 필수
+  protein_g: MacroGoal | null;  // null = 비활성 (진척 추적 X)
+  carb_g: MacroGoal | null;
+  fat_g: MacroGoal | null;
   notification_time: string | null;
 }
 
+/** 칼로리 기본값 (row 없을 때만 사용) */
+export const DEFAULT_KCAL_GOAL: MacroGoal = { value: 2000, dir: "max" };
+
+/** 하위호환용 — 코드 내 DEFAULT_GOAL 참조가 남아있는 곳에서 사용 */
 export const DEFAULT_GOAL: ResolvedGoal = {
-  daily_kcal: { value: 2000, dir: "max" },
-  protein_g: { value: 40, dir: "min" },
-  carb_g: { value: 250, dir: "max" },
-  fat_g: { value: 60, dir: "max" },
+  daily_kcal: DEFAULT_KCAL_GOAL,
+  protein_g: null,
+  carb_g: null,
+  fat_g: null,
   notification_time: null,
 };
-
-function cloneDefault(): ResolvedGoal {
-  return {
-    daily_kcal: { ...DEFAULT_GOAL.daily_kcal },
-    protein_g: { ...DEFAULT_GOAL.protein_g },
-    carb_g: { ...DEFAULT_GOAL.carb_g },
-    fat_g: { ...DEFAULT_GOAL.fat_g },
-    notification_time: DEFAULT_GOAL.notification_time,
-  };
-}
 
 export function resolveGoal(
   row: UserGoalRow | null | undefined,
 ): ResolvedGoal {
-  if (!row) return cloneDefault();
+  if (!row) {
+    return {
+      daily_kcal: { ...DEFAULT_KCAL_GOAL },
+      protein_g: null,
+      carb_g: null,
+      fat_g: null,
+      notification_time: null,
+    };
+  }
   return {
     daily_kcal: {
       value: row.daily_kcal_value,
       dir: row.daily_kcal_dir,
     },
-    protein_g: {
-      value: row.protein_g_value ?? DEFAULT_GOAL.protein_g.value,
-      dir: row.protein_g_dir,
-    },
-    carb_g: {
-      value: row.carb_g_value ?? DEFAULT_GOAL.carb_g.value,
-      dir: row.carb_g_dir,
-    },
-    fat_g: {
-      value: row.fat_g_value ?? DEFAULT_GOAL.fat_g.value,
-      dir: row.fat_g_dir,
-    },
+    protein_g:
+      row.protein_g_value != null
+        ? { value: row.protein_g_value, dir: row.protein_g_dir }
+        : null,
+    carb_g:
+      row.carb_g_value != null
+        ? { value: row.carb_g_value, dir: row.carb_g_dir }
+        : null,
+    fat_g:
+      row.fat_g_value != null
+        ? { value: row.fat_g_value, dir: row.fat_g_dir }
+        : null,
     notification_time: row.notification_time,
   };
 }
