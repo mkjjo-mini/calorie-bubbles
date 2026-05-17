@@ -8,7 +8,6 @@ import {
   MACRO_COLORS,
   MACRO_KCAL,
   MACRO_LABELS,
-  MEAL_SLOT_META,
   type Macro,
 } from "@/lib/foods";
 import {
