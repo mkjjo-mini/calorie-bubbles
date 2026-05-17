@@ -30,8 +30,8 @@ const MAX_COL_W = 176;
 const PER_FOOD_W = 18; // extra width per merged food bubble on a day
 const TANK_H = 440;
 const WAVE_H = 140; // higher water level
-const BUBBLE_MIN = 24;
-const BUBBLE_MAX = 76;
+const BUBBLE_MIN = 20;
+const BUBBLE_MAX = 96;
 
 type MetricMode = "kcal" | Macro;
 
@@ -568,7 +568,8 @@ function DayBubbles({
       BUBBLE_MIN,
       Math.min(
         BUBBLE_MAX,
-        BUBBLE_MIN + Math.sqrt(ratio) * (BUBBLE_MAX - BUBBLE_MIN),
+        // linear scaling — 합산 효과가 시각적으로 직관 (sqrt는 차이 약화)
+        BUBBLE_MIN + ratio * (BUBBLE_MAX - BUBBLE_MIN),
       ),
     );
     const seed = b.key + mode;
