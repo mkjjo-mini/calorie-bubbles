@@ -595,6 +595,7 @@ function HistoryPage() {
                   reduced={reduced}
                   date={month[dayIdx].date}
                   tankH={TANK_H}
+                  kcalColors={monthKcalColors}
                 />
               ))}
 
