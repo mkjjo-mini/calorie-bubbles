@@ -200,8 +200,13 @@ function HistoryPage() {
       const el = scrollRef.current;
       if (!el || typeof window === "undefined") return;
       const top = el.getBoundingClientRect().top;
-      // 하단 탭바(고정) + 루트 pb-20 (80px) 영역 제외, 약간 여유
-      const next = Math.max(320, Math.floor(window.innerHeight - top - 16));
+      // 하단 고정 탭바 높이(약 72px) + safe-area + 여유 공간 제외
+      const safeBottom = Number.parseInt(
+        getComputedStyle(document.documentElement).getPropertyValue("--sab") || "0",
+        10,
+      ) || 0;
+      const BOTTOM_NAV = 72 + Math.max(safeBottom, 16) + 12;
+      const next = Math.max(320, Math.floor(window.innerHeight - top - BOTTOM_NAV));
       setTankH(next);
     }
     recalc();
