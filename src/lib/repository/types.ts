@@ -66,12 +66,18 @@ export interface FavoriteRow {
 }
 
 export interface UserGoalInsert {
-  daily_kcal: number;
+  /** 일일 칼로리 목표 (kcal). 필수 */
+  daily_kcal_value: number;
+  daily_kcal_dir?: "min" | "max"; // default 'max' (서버측)
+  /** 매크로 목표 (g). nullable — 미설정 시 코드 측 DEFAULT_GOAL fallback */
+  protein_g_value?: number | null;
+  protein_g_dir?: "min" | "max"; // default 'min'
+  carb_g_value?: number | null;
+  carb_g_dir?: "min" | "max"; // default 'max'
+  fat_g_value?: number | null;
+  fat_g_dir?: "min" | "max"; // default 'max'
   effective_from?: string;
   effective_to?: string | null;
-  carb_ratio?: number | null;
-  protein_ratio?: number | null;
-  fat_ratio?: number | null;
   notification_time?: string | null;
 }
 

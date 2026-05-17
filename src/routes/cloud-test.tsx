@@ -19,7 +19,7 @@ import type {
   FoodRow,
 } from "@/lib/repository/types";
 import { CloudAuthError } from "@/lib/repository/types";
-import type { ResolvedGoal } from "@/lib/goal";
+import { formatDirection, type ResolvedGoal } from "@/lib/goal";
 
 export const Route = createFileRoute("/cloud-test")({
   component: CloudTestPage,
@@ -279,8 +279,11 @@ function CloudTestPage() {
           <h2 className="text-sm font-semibold mb-1">목표 (오늘)</h2>
           {goal ? (
             <p className="text-xs text-neutral-700">
-              {goal.daily_kcal} kcal · 탄 {goal.carb_ratio}% / 단{" "}
-              {goal.protein_ratio}% / 지 {goal.fat_ratio}%
+              칼로리 {goal.daily_kcal.value} kcal{" "}
+              {formatDirection(goal.daily_kcal.dir)} · 단백질{" "}
+              {goal.protein_g.value}g {formatDirection(goal.protein_g.dir)} · 탄수{" "}
+              {goal.carb_g.value}g {formatDirection(goal.carb_g.dir)} · 지방{" "}
+              {goal.fat_g.value}g {formatDirection(goal.fat_g.dir)}
             </p>
           ) : (
             <p className="text-xs text-neutral-400">{loading ? "로딩…" : "없음"}</p>
