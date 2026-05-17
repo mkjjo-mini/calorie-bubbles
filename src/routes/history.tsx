@@ -25,10 +25,10 @@ export const Route = createFileRoute("/history")({
 /* ---------- layout constants ---------- */
 const DAY_COL_W = 88;
 const TANK_H = 460; // mobile-friendly height
-const WATER_TOP = 40; // surface line y
-const WATER_BOTTOM = TANK_H - 16;
-const BUBBLE_MIN = 22;
-const BUBBLE_MAX = 72;
+const SURFACE_Y = 300; // water surface line (bubbles float along this)
+const FLOAT_BAND = 56; // ± vertical range above the surface for bubble centers
+const BUBBLE_MIN = 24;
+const BUBBLE_MAX = 76;
 
 type MetricMode = "kcal" | Macro;
 
