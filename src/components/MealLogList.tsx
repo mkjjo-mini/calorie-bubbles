@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useMotionValue } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { MoreVertical } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
-  useDndContext,
   useSensor,
   useSensors,
   useDraggable,
@@ -345,8 +344,6 @@ function SlotDropZone({
   );
 }
 
-const SWIPE_DELETE_THRESHOLD = -80;
-const SWIPE_DRAG_CONSTRAINT_LEFT = -120;
 
 function DraggableLogRow({
   item,
@@ -360,18 +357,9 @@ function DraggableLogRow({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.foodLogId,
   });
-  const { active: dndActive } = useDndContext();
-  const isDndActive = dndActive !== null;
-
   const [primed, setPrimed] = useState(false);
-  const [deleted, setDeleted] = useState(false);
   const timerRef = useRef<number | null>(null);
   const startPos = useRef<{ x: number; y: number } | null>(null);
-
-  // framer-motion motion value for swipe x offset
-  const x = useMotionValue(0);
-  // 가벼운 터치로 안 움직이게 — 12px horizontal + horizontal-dominant 일 때만 활성화
-  const swipingRef = useRef(false);
 
   const clearTimer = () => {
     if (timerRef.current !== null) {
@@ -389,9 +377,7 @@ function DraggableLogRow({
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0 : 1,
-    // primed(long-press) 통과 전엔 vertical scroll 허용, 후엔 자유 drag
-    // pan-y로 두면 좌 swipe(horizontal)는 react가 받고 위/아래는 native scroll에 양보
-    touchAction: primed ? "none" : "pan-y",
+    touchAction: "none",
   };
 
   // Compose with dnd-kit's listeners so drag activation still works.
@@ -428,45 +414,6 @@ function DraggableLogRow({
     onKeyDown: dndListeners.onKeyDown as React.KeyboardEventHandler<HTMLDivElement> | undefined,
   };
 
-  // PanInfo handlers — drag activation threshold + axis lock
-  function handlePanStart() {
-    swipingRef.current = false;
-  }
-  function handlePan(
-    _e: PointerEvent | MouseEvent | TouchEvent,
-    info: { offset: { x: number; y: number } },
-  ) {
-    if (isDndActive) return;
-    const dx = info.offset.x;
-    const dy = info.offset.y;
-    if (!swipingRef.current) {
-      // 활성화 조건: |dx| > 12 AND horizontal 우세
-      if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
-        swipingRef.current = true;
-      } else {
-        return;
-      }
-    }
-    // 좌 swipe만 (right=0, left=-120), 12px offset 보정으로 jump 방지
-    const adjusted = dx + (dx < 0 ? 12 : -12);
-    x.set(Math.max(SWIPE_DRAG_CONSTRAINT_LEFT, Math.min(0, adjusted)));
-  }
-  function handlePanEnd(
-    _e: PointerEvent | MouseEvent | TouchEvent,
-    _info: { offset: { x: number; y: number } },
-  ) {
-    if (!swipingRef.current) return;
-    swipingRef.current = false;
-    if (x.get() < SWIPE_DELETE_THRESHOLD) {
-      setDeleted(true);
-      onDelete(item.foodLogId, item.foodName);
-    } else {
-      x.set(0);
-    }
-  }
-
-  if (deleted) return null;
-
   return (
     <motion.div
       ref={setNodeRef}
@@ -486,15 +433,7 @@ function DraggableLogRow({
         primed ? "bg-white shadow-lg ring-1 ring-neutral-200" : ""
       }`}
     >
-      {/* 좌 swipe로 즉시 삭제 — 휴지통 UI 없음. 12px threshold 후 활성화 */}
-      <motion.div
-        onPanStart={handlePanStart}
-        onPan={handlePan}
-        onPanEnd={handlePanEnd}
-        style={{ x, position: "relative", backgroundColor: "white", borderRadius: 12 }}
-      >
-        <LogRowVisual item={item} onOpenActions={onOpenActions} />
-      </motion.div>
+      <LogRowVisual item={item} onOpenActions={onOpenActions} />
     </motion.div>
   );
 }
