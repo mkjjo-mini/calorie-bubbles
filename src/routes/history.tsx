@@ -385,7 +385,7 @@ function HistoryPage() {
             </div>
             <button
               onClick={goToToday}
-              className="rounded-full bg-neutral-900 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm active:scale-95"
+              className="text-xs text-neutral-400 hover:text-neutral-600"
             >
               오늘
             </button>
@@ -402,8 +402,8 @@ function HistoryPage() {
                     onClick={() => setMode(m.id)}
                     className="flex-1 rounded-full py-1.5 text-[12px] font-semibold transition-colors"
                     style={{
-                      background: active ? "#FFD700" : "transparent",
-                      color: active ? "#171717" : "#737373",
+                      background: active ? "#171717" : "transparent",
+                      color: active ? "#FFFFFF" : "#737373",
                     }}
                   >
                     {m.label}
