@@ -660,6 +660,45 @@ function HistoryPage() {
           </div>
 
         </div>
+
+        {/* Go to home date dialog */}
+        <AlertDialog
+          open={goHomeDialog.open}
+          onOpenChange={(open) => {
+            if (!open) setGoHomeDialog({ open: false, dateKey: null });
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>해당 일자로 이동할까요?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {goHomeDialog.dateKey
+                  ? `${goHomeDialog.dateKey.split("-")[1]}월 ${goHomeDialog.dateKey.split("-")[2]}일 기록 화면으로 이동합니다.`
+                  : ""}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => setGoHomeDialog({ open: false, dateKey: null })}
+              >
+                취소
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (goHomeDialog.dateKey) {
+                    navigate({
+                      to: "/",
+                      search: { date: dateKeyToIso(goHomeDialog.dateKey) },
+                    });
+                  }
+                  setGoHomeDialog({ open: false, dateKey: null });
+                }}
+              >
+                이동
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
