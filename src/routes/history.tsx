@@ -193,6 +193,21 @@ function HistoryPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollX, setScrollX] = useState(0);
   const [viewportW, setViewportW] = useState(0);
+  const [TANK_H, setTankH] = useState(TANK_H_DEFAULT);
+
+  useEffect(() => {
+    function recalc() {
+      const el = scrollRef.current;
+      if (!el || typeof window === "undefined") return;
+      const top = el.getBoundingClientRect().top;
+      // 하단 탭바(고정) + 루트 pb-20 (80px) 영역 제외, 약간 여유
+      const next = Math.max(320, Math.floor(window.innerHeight - top - 16));
+      setTankH(next);
+    }
+    recalc();
+    window.addEventListener("resize", recalc);
+    return () => window.removeEventListener("resize", recalc);
+  }, []);
 
   useEffect(() => {
     const el = scrollRef.current;
