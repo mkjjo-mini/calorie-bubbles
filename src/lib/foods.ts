@@ -81,6 +81,7 @@ export interface BubbleEntry {
   foodName: string;
   addedAt: number;
   meal_slot?: MealSlot;
+  food_id?: string;
 }
 
 export function caloriesFor(entry: { carbs: number; protein: number; fat: number }) {

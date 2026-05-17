@@ -99,6 +99,7 @@ function logsToBubbles(logs: FoodLogRow[]): BubbleEntry[] {
           foodName,
           addedAt,
           meal_slot: slot,
+          food_id: log.food_id,
         });
       }
     });

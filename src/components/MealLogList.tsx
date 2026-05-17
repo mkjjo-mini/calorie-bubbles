@@ -24,6 +24,8 @@ import {
   type MealSlot,
 } from "@/lib/foods";
 import foodPresets from "@/data/food-presets.json";
+import { cloudRepository } from "@/lib/repository/cloud";
+import type { FoodRow } from "@/lib/repository/types";
 
 interface FoodPreset {
   id: string;
@@ -108,6 +110,7 @@ interface LogItem {
   kcal: number;
   addedAt: number;
   slot: MealSlot;
+  food_id?: string;
 }
 
 function dominantMacro(item: LogItem): Macro {
@@ -151,6 +154,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
           kcal: 0,
           addedAt: e.addedAt,
           slot,
+          food_id: e.food_id,
         });
       } else {
         if (e.macro === "carbs") cur.carbs += e.grams;
@@ -622,6 +626,30 @@ function SheetShell({
 
 /* ----------------------------- Edit Quantity ----------------------------- */
 
+function foodRowToBaseline(row: FoodRow): Baseline {
+  return {
+    name: row.name,
+    kcal: row.kcal,
+    carb: row.carb_g,
+    protein: row.protein_g,
+    fat: row.fat_g,
+    serving_g: row.serving_g,
+  };
+}
+
+function itemFallbackBaseline(item: LogItem): Baseline {
+  const itemKcal = Math.round(item.carbs * 4 + item.protein * 4 + item.fat * 9);
+  const approxG = Math.max(1, Math.round(item.carbs + item.protein + item.fat));
+  return {
+    name: item.foodName,
+    kcal: itemKcal,
+    carb: item.carbs,
+    protein: item.protein,
+    fat: item.fat,
+    serving_g: approxG,
+  };
+}
+
 function EditQuantitySheet({
   item,
   onClose,
@@ -631,40 +659,53 @@ function EditQuantitySheet({
   onClose: () => void;
   onConfirm: (newEntries: BubbleEntry[]) => void;
 }) {
-  const baseline: Baseline = useMemo(() => {
-    const found = findBaselineByName(item.foodName);
-    if (found) return found;
-    // Fallback: derive a 1-serving baseline from the log entry itself.
-    const itemKcal = Math.round(item.carbs * 4 + item.protein * 4 + item.fat * 9);
-    const approxG = Math.max(
-      1,
-      Math.round(item.carbs + item.protein + item.fat),
-    );
-    return {
-      name: item.foodName,
-      kcal: itemKcal,
-      carb: item.carbs,
-      protein: item.protein,
-      fat: item.fat,
-      serving_g: approxG,
-    };
-  }, [item]);
+  // Start with name-based lookup (presets + localStorage) as initial value
+  const nameBaseline = useMemo(() => findBaselineByName(item.foodName), [item.foodName]);
+  const [baseline, setBaseline] = useState<Baseline>(
+    () => nameBaseline ?? itemFallbackBaseline(item),
+  );
+
+  // On mount: if food_id is available, fetch from cloud foods and use that row as baseline
+  useEffect(() => {
+    if (!item.food_id) return;
+    let cancelled = false;
+    cloudRepository.foods.list().then((rows) => {
+      if (cancelled) return;
+      const row = rows.find((r) => r.id === item.food_id);
+      if (row) setBaseline(foodRowToBaseline(row));
+    }).catch(() => {
+      // Network/auth failure — keep current baseline (name-based or fallback)
+    });
+    return () => { cancelled = true; };
+  }, [item.food_id]);
 
   // Compute current grams from any non-zero macro ratio.
-  const initialGrams = useMemo(() => {
+  function computeGrams(b: Baseline): number {
     const candidates: [number, number][] = [
-      [item.carbs, baseline.carb],
-      [item.protein, baseline.protein],
-      [item.fat, baseline.fat],
+      [item.carbs, b.carb],
+      [item.protein, b.protein],
+      [item.fat, b.fat],
     ];
     for (const [cur, base] of candidates) {
-      if (base > 0 && cur > 0) return Math.round(baseline.serving_g * (cur / base));
+      if (base > 0 && cur > 0) return Math.round(b.serving_g * (cur / base));
     }
-    return baseline.serving_g;
-  }, [item, baseline]);
+    return b.serving_g;
+  }
 
   const [mode, setMode] = useState<"serving" | "gram">("gram");
-  const [qtyStr, setQtyStr] = useState(String(initialGrams || 100));
+  const [qtyStr, setQtyStr] = useState(() => String(computeGrams(baseline) || 100));
+
+  // When baseline updates from cloud fetch, recompute qtyStr in gram mode
+  const prevBaselineRef = useRef<Baseline>(baseline);
+  useEffect(() => {
+    if (baseline === prevBaselineRef.current) return;
+    prevBaselineRef.current = baseline;
+    if (mode === "gram") {
+      setQtyStr(String(computeGrams(baseline) || 100));
+    }
+    // If user is in serving mode, leave qtyStr as-is (ratio stays correct)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseline]);
 
   // mode 토글 시 현재 값을 새 단위로 비례 환산
   function switchMode(next: "serving" | "gram") {
