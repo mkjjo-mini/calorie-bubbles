@@ -403,16 +403,16 @@ function Index() {
                 지운 기록은 되돌릴 수 없어요.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
+            <AlertDialogFooter className="!flex-row !justify-between !space-x-2">
               <AlertDialogAction
                 onClick={() => void confirmReset()}
-                className="bg-white text-red-600 border border-neutral-200 hover:bg-red-50"
+                className="flex-1 bg-white text-red-600 border border-neutral-200 hover:bg-red-50"
               >
                 지우기
               </AlertDialogAction>
               <AlertDialogCancel
                 onClick={() => setOpenResetDialog(false)}
-                className="bg-neutral-900 text-white hover:bg-neutral-800 border-0"
+                className="flex-1 mt-0 bg-neutral-900 text-white hover:bg-neutral-800 border-0"
               >
                 취소
               </AlertDialogCancel>
