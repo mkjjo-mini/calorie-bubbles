@@ -338,8 +338,8 @@ function HistoryPage() {
 
           {/* Minimap */}
           <div className="px-3 pb-2">
-            <div ref={minimapRef} className="relative h-3 w-full" role="presentation">
-              <div className="absolute inset-0 flex items-center justify-center gap-[3px]">
+            <div ref={minimapRef} className="relative h-4 w-full" role="presentation">
+              <div className="absolute inset-0 flex items-center justify-center gap-[4px]">
                 {month.map((d, i) => {
                   const color = progressColor(d, mode);
                   const isToday =
@@ -349,12 +349,17 @@ function HistoryPage() {
                       key={d.dateKey}
                       onClick={() => scrollToDay(i)}
                       aria-label={`${d.date.getMonth() + 1}/${d.date.getDate()}로 이동`}
-                      className="h-2 w-2 rounded-full transition-opacity hover:opacity-80"
                       style={{
-                        background: color ?? "#E5E7EB",
-                        boxShadow: isToday
-                          ? "0 0 0 1.5px rgba(59,130,246,0.9)"
-                          : undefined,
+                        display: "block",
+                        flexShrink: 0,
+                        padding: 0,
+                        border: 0,
+                        width: 10,
+                        height: 10,
+                        borderRadius: "9999px",
+                        backgroundColor: color ?? "#CBD5E1",
+                        boxShadow: isToday ? "0 0 0 2px #FFD700" : undefined,
+                        cursor: "pointer",
                       }}
                     />
                   );
@@ -362,8 +367,8 @@ function HistoryPage() {
               </div>
               {mmViewportW > 0 && (
                 <div
-                  className="pointer-events-none absolute top-1/2 -translate-y-1/2 rounded-full border border-neutral-900/30 bg-neutral-900/10"
-                  style={{ left: mmViewportLeft, width: mmViewportW, height: 12 }}
+                  className="pointer-events-none absolute top-1/2 -translate-y-1/2 rounded-full border border-neutral-900/30 bg-neutral-900/5"
+                  style={{ left: mmViewportLeft, width: mmViewportW, height: 14 }}
                 />
               )}
             </div>
