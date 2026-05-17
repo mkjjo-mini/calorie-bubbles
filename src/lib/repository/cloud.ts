@@ -61,6 +61,10 @@ export const cloudRepository: Repository = {
   foodLogs: {
     listByDate: (date: string) =>
       api<FoodLogRow[]>(`/food-logs?date=${encodeURIComponent(date)}`),
+    listByRange: (from: string, to: string) =>
+      api<FoodLogRow[]>(
+        `/food-logs?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      ),
     create: (log: FoodLogInsert) =>
       api<FoodLogRow>("/food-logs", {
         method: "POST",
@@ -75,6 +79,10 @@ export const cloudRepository: Repository = {
     get: (date?: string) =>
       api<ResolvedGoal>(
         `/user-goals${date ? `?date=${encodeURIComponent(date)}` : ""}`,
+      ),
+    getMonth: (yyyymm: string) =>
+      api<Record<string, ResolvedGoal>>(
+        `/user-goals/month?yyyymm=${encodeURIComponent(yyyymm)}`,
       ),
     put: (goal: UserGoalInsert) =>
       api<void>("/user-goals", {

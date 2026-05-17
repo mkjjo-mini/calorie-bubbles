@@ -91,12 +91,16 @@ export interface Repository {
   foodLogs: {
     /** date: "YYYY-MM-DD" (KST) */
     listByDate(date: string): Promise<FoodLogRow[]>;
+    /** from/to: "YYYY-MM-DD" (KST), inclusive — 캘린더 월별 일괄 조회 */
+    listByRange(from: string, to: string): Promise<FoodLogRow[]>;
     create(log: FoodLogInsert): Promise<FoodLogRow>;
     remove(id: string): Promise<void>;
   };
   userGoal: {
     /** date 생략 시 오늘 (서버측 todayKST) */
     get(date?: string): Promise<ResolvedGoal>;
+    /** yyyymm: "YYYY-MM" — 그 월 일자별 effective ResolvedGoal map */
+    getMonth(yyyymm: string): Promise<Record<string, ResolvedGoal>>;
     put(goal: UserGoalInsert): Promise<void>;
   };
   favorites: {

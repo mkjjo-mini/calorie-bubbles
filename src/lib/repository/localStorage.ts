@@ -26,11 +26,13 @@ export const localRepository: Repository = {
   },
   foodLogs: {
     listByDate: async () => [],
+    listByRange: async () => [],
     create: async () => notImplemented("foodLogs.create"),
     remove: async () => notImplemented("foodLogs.remove"),
   },
   userGoal: {
     get: async () => ({ ...DEFAULT_GOAL }),
+    getMonth: async () => ({}),
     put: async () => notImplemented("userGoal.put"),
   },
   favorites: {

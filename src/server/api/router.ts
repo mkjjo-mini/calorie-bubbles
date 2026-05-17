@@ -9,7 +9,7 @@ import { handleFavorites } from "./favorites";
 import { handleFoodLogs } from "./food-logs";
 import { handleFoods } from "./foods";
 import { handleSubscriptionStatus } from "./subscription-status";
-import { handleUserGoals } from "./user-goals";
+import { handleUserGoals, handleUserGoalsMonth } from "./user-goals";
 
 export async function handleApi(
   req: Request,
@@ -23,6 +23,8 @@ export async function handleApi(
       return handleFoodLogs(req, env);
     case "/api/user-goals":
       return handleUserGoals(req, env);
+    case "/api/user-goals/month":
+      return handleUserGoalsMonth(req, env);
     case "/api/favorites":
       return handleFavorites(req, env);
     case "/api/subscription-status":
