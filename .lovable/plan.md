@@ -1,33 +1,45 @@
-# kcal 버블 — 솔리드 유지 + 굴절/하이라이트 업그레이드
+## 목표
+홈탭에서 오늘 외 다른 날짜의 기록도 보고, 추가/수정/삭제할 수 있게 한다.
 
-## 방향
-홈/매크로 버블과 같은 솔리드 재질감은 유지하되, kcal 모드 한정으로 "진짜 구슬/유리알" 같은 광학 디테일을 더해 자연스럽게 한 단계 위로 보이게 합니다. 형태와 그라데이션 골격은 그대로라 앱 안에서 떠 보이지 않습니다.
+## UI 구성
 
-## 1. 베이스 (현재 매크로 공식 그대로)
-```
-background: radial-gradient(circle at 30% 30%, ${color}ee, ${color}aa 60%, ${color}66)
-boxShadow:  inset -6px -8px 14px ${color}55, 0 4px 10px ${color}44
-border:     1px solid ${color}
-```
+### 1. 헤더 — 날짜 셀렉터
+- 가운데 라벨 좌우에 `◀` `▶` 화살표 버튼 (±1일, 미래는 비활성)
+- **오늘일 때**: 라벨 = `오늘의 칼로리`
+- **과거일 때**: 라벨 = `11/15 화` 형태(괄호 없음), 우측 "비우기" 자리 옆에 작은 **`오늘`** 버튼이 추가로 노출되어 한 번에 복귀
+- 라벨을 탭하면 shadcn `Popover` + `Calendar`(single mode)로 임의 날짜 선택. 미래 날짜는 `disabled`
 
-## 2. kcal 모드에서만 추가되는 광학 레이어
+### 2. 데이터 흐름
+- `const [selectedDate, setSelectedDate] = useState(todayKST())`
+- 기존 `loadTodayLogs()` → `loadLogsForDate(date)`로 일반화, `useEffect([selectedDate])`에서 호출
+- `isToday = selectedDate === todayKST()` 파생 값
+- 다이얼로그 카피 등 "오늘" 고정 표현은 `isToday` 분기로 처리
 
-### a. 스펙큘러 하이라이트 (좌상단 작은 흰 점)
-버블 위에 절대 위치한 작은 흰색 블롭 — `width/height ≈ 22% size`, `top 12%, left 18%`, `background: radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.4) 40%, transparent 70%)`, `filter: blur(0.5px)`. 카메라 플래시 반사 같은 점.
+### 3. 음식 추가 (FAB / QuickAddTray)
+- 추가 시 `logged_date = selectedDate` 로 저장 (보고 있는 날짜에 추가)
+- `QuickAddTray`에 `loggedDate` prop 추가, 내부 `foodLogs.create` 호출 시 주입
+- FAB의 `/add` 이동 시 search param으로 `date` 전달:
+  `navigate({ to: "/add", search: { date: selectedDate } })`
+- `/add` 라우트: `validateSearch`에 `date` 추가하고, 저장 로직에서 그 값 사용
 
-### b. 보조 림 하이라이트 (우상단 얇은 호)
-`box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35)`를 한 단계 더 얹어 곡면 윗선이 살아남.
+### 4. 삭제 / Undo / Reset
+- 기존 로직 그대로. id 기반이라 날짜와 무관하게 동작
 
-### c. 바닥 굴절/캐스틱
-버블 하단 안쪽에 `inset 0 -10px 14px ${color}88` 추가 — 색이 아래에서 진해지면서 빛이 모인 느낌. 매크로의 `inset -6px -8px`와 합쳐져 입체감 강화.
+## 기술 세부
 
-### d. 미세한 외곽 림라이트
-`box-shadow`에 `0 0 0 1px rgba(255,255,255,0.25)` 추가 — 테두리 바깥쪽에 머리카락 굵기의 흰선이 생겨 "유리알 가장자리" 효과.
+- 헤더는 `src/routes/index.tsx` 내부 인라인 (별도 컴포넌트 분리는 추후)
+- 날짜 포맷 `M/D 요일` — 괄호 없이 공백 구분 (예: `11/15 화`)
+- `Calendar` 사용 시 `pointer-events-auto` 포함
+- `/add` search 스키마:
+  ```ts
+  z.object({ date: fallback(z.string(), todayKST()).default(todayKST()) })
+  ```
 
-### e. (선택) 미세 굴절 왜곡
-글자 컨테이너에 `backdrop-filter: blur(0.3px)` — 글자가 아주 살짝 떠 보임. 성능 영향 미미.
+## 변경 파일
+- `src/routes/index.tsx` — 헤더 날짜 셀렉터, `selectedDate` state, 로드/네비/카피 분기
+- `src/components/QuickAddTray.tsx` — `loggedDate` prop 추가
+- `src/routes/add.tsx` — search param `date` 수용 및 저장 시 사용
 
-## 3. 색은 큐레이션 팔레트 유지
-직전 추가한 `kcalBubbleColor()` + 10색 팔레트 그대로. 같은 음식 = 같은 색 원칙 유지.
-
-## 4
+## 범위 밖 (이번에 안 함)
+- 기록탭에서 홈으로 날짜 점프 동선
+- 날짜별 목표(user_goal) 동적 반영 — 현재 목표 그대로 사용

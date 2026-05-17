@@ -124,9 +124,11 @@ interface FlyState {
 interface Props {
   bubbleContainerRef: RefObject<HTMLDivElement | null>;
   onAdded: (log: FoodLogRow) => void;
+  /** Date to log against (YYYY-MM-DD). Defaults to today (KST). */
+  loggedDate?: string;
 }
 
-export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
+export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props) {
   const [favFoods, setFavFoods] = useState<FoodRow[]>([]);
   // 모든 source의 cloud foods — recents chip 매칭에 필요 (즐겨찾기 아닌 음식도 포함)
   const [allFoods, setAllFoods] = useState<FoodRow[]>([]);
@@ -236,7 +238,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdded }: Props) {
 
     const log = await cloudRepository.foodLogs.create({
       food_id: foodId,
-      logged_date: todayKST(),
+      logged_date: loggedDate ?? todayKST(),
       meal_slot: mealSlot,
       grams,
       kcal,

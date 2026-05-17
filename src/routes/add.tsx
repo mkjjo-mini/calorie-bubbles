@@ -30,7 +30,15 @@ import { resolveFoodId } from "@/lib/foods-resolve";
 import { todayKST } from "@/lib/time";
 import { inferMealSlot } from "@/lib/foods";
 
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
+
+const addSearchSchema = z.object({
+  date: fallback(z.string(), todayKST()).default(todayKST()),
+});
+
 export const Route = createFileRoute("/add")({
+  validateSearch: zodValidator(addSearchSchema),
   component: AddFoodPage,
 });
 
@@ -254,6 +262,7 @@ function customFoodToPickable(c: CustomFood): Pickable {
 
 function AddFoodPage() {
   const navigate = useNavigate();
+  const { date: loggedDate } = Route.useSearch();
   const [query, setQuery] = useState("");
 
   // Cloud-backed state
@@ -516,7 +525,7 @@ function AddFoodPage() {
     );
     const grams = mode === "gram" ? qty : Math.round(food.serving_g * qty);
     const now = Date.now();
-    const loggedDate = todayKST();
+    // loggedDate from search params (defaults to today)
     const mealSlot = inferMealSlot(now);
 
     try {
@@ -659,7 +668,7 @@ function AddFoodPage() {
       }
 
       toast(`${displayName(food.name)} 추가됨`);
-      navigate({ to: "/" });
+      navigate({ to: "/", search: { date: loggedDate } });
     } catch (e) {
       if (e instanceof CloudAuthError) {
         toast.error("로그인이 필요해요");
@@ -820,7 +829,7 @@ function AddFoodPage() {
         <header className="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 pt-4 pb-3 border-b border-neutral-100">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate({ to: "/" })}
+              onClick={() => navigate({ to: "/", search: { date: loggedDate } })}
               className="p-2 -ml-2 rounded-full hover:bg-neutral-100"
               aria-label="뒤로"
             >

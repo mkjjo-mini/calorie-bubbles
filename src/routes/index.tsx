@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { toast } from "sonner";
 import { BubbleField } from "@/components/BubbleField";
 import { Wave } from "@/components/Wave";
 import { EmptyStomach } from "@/components/EmptyStomach";
 import { QuickAddTray } from "@/components/QuickAddTray";
-import { Plus } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -17,6 +19,9 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { MealLogList } from "@/components/MealLogList";
 import {
   DAILY_GOAL_KCAL,
@@ -32,9 +37,40 @@ import { cloudRepository } from "@/lib/repository/cloud";
 import { CloudAuthError, type FoodLogRow } from "@/lib/repository/types";
 import { todayKST } from "@/lib/time";
 
+const homeSearchSchema = z.object({
+  date: fallback(z.string(), todayKST()).default(todayKST()),
+});
+
 export const Route = createFileRoute("/")({
+  validateSearch: zodValidator(homeSearchSchema),
   component: Index,
 });
+
+/** Parse YYYY-MM-DD as a local-date (no timezone shift). */
+function parseYmd(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+/** YYYY-MM-DD from a Date in local time (used after Calendar select). */
+function toYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+function formatPastDate(ymd: string): string {
+  const d = parseYmd(ymd);
+  return `${d.getMonth() + 1}/${d.getDate()} ${WEEKDAY_KO[d.getDay()]}`;
+}
+
+function addDays(ymd: string, delta: number): string {
+  const d = parseYmd(ymd);
+  d.setDate(d.getDate() + delta);
+  return toYmd(d);
+}
 
 /**
  * Convert cloud FoodLogRow[] → BubbleEntry[] for the existing bubble/UI system.
@@ -71,19 +107,29 @@ function logsToBubbles(logs: FoodLogRow[]): BubbleEntry[] {
 }
 
 function Index() {
-  // Cloud food logs for today
+  // Cloud food logs for the selected date (defaults to today via search param)
   const [logs, setLogs] = useState<FoodLogRow[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const navigate = useNavigate();
+  const { date: selectedDate } = Route.useSearch();
+  const today = todayKST();
+  const isToday = selectedDate === today;
+  
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  function setSelectedDate(next: string) {
+    void navigate({ to: "/", search: { date: next } });
+  }
 
   useEffect(() => {
-    void loadTodayLogs();
-  }, []);
+    setHydrated(false);
+    void loadLogsForDate(selectedDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
-  async function loadTodayLogs() {
+  async function loadLogsForDate(date: string) {
     try {
-      const today = todayKST();
-      const fetched = await cloudRepository.foodLogs.listByDate(today);
+      const fetched = await cloudRepository.foodLogs.listByDate(date);
       setLogs(fetched);
     } catch (e) {
       if (e instanceof CloudAuthError) {
@@ -257,7 +303,7 @@ function Index() {
 
     try {
       await Promise.all(toDelete.map((l) => cloudRepository.foodLogs.remove(l.id)));
-      toast("오늘 기록을 지웠어요");
+      toast(isToday ? "오늘 기록을 지웠어요" : `${formatPastDate(selectedDate)} 기록을 지웠어요`);
     } catch (e) {
       // Revert
       setLogs(toDelete);
@@ -277,14 +323,67 @@ function Index() {
       <main className="w-full max-w-[375px] flex flex-col">
         {/* Header */}
         <header className="px-5 pt-6 pb-3">
-          <div className="flex items-baseline justify-between">
-            <h1 className="text-lg font-semibold text-neutral-900">오늘의 칼로리</h1>
-            <button
-              onClick={reset}
-              className="text-xs text-neutral-400 hover:text-neutral-600"
-            >
-              비우기
-            </button>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 min-w-0">
+              <button
+                type="button"
+                onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+                aria-label="이전 날짜"
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="rounded-md px-1 text-lg font-semibold text-neutral-900 hover:bg-neutral-100 tabular-nums"
+                  >
+                    {isToday ? "오늘의 칼로리" : formatPastDate(selectedDate)}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={parseYmd(selectedDate)}
+                    onSelect={(d) => {
+                      if (d) {
+                        setSelectedDate(toYmd(d));
+                        setCalendarOpen(false);
+                      }
+                    }}
+                    disabled={(d) => toYmd(d) > today}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+              <button
+                type="button"
+                onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+                aria-label="다음 날짜"
+                disabled={isToday}
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              {!isToday && (
+                <button
+                  onClick={() => setSelectedDate(today)}
+                  className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
+                >
+                  오늘
+                </button>
+              )}
+              <button
+                onClick={reset}
+                className="text-xs text-neutral-400 hover:text-neutral-600"
+              >
+                비우기
+              </button>
+            </div>
           </div>
 
           <div className="mt-3 flex items-baseline gap-1">
@@ -394,6 +493,7 @@ function Index() {
         {/* Quick add tray */}
         <QuickAddTray
           bubbleContainerRef={bowlRef}
+          loggedDate={selectedDate}
           onAdded={(log) => {
             setLogs((prev) => [...prev, log]);
           }}
@@ -415,7 +515,7 @@ function Index() {
         <AlertDialog open={openResetDialog} onOpenChange={setOpenResetDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>오늘 기록을 모두 지울까요?</AlertDialogTitle>
+              <AlertDialogTitle>{isToday ? "오늘 기록을 모두 지울까요?" : `${formatPastDate(selectedDate)} 기록을 모두 지울까요?`}</AlertDialogTitle>
               <AlertDialogDescription className="text-[13px] text-neutral-500">
                 지운 기록은 되돌릴 수 없어요.
               </AlertDialogDescription>
@@ -440,7 +540,7 @@ function Index() {
 
       {/* FAB */}
       <button
-        onClick={() => navigate({ to: "/add" })}
+        onClick={() => navigate({ to: "/add", search: { date: selectedDate } })}
         aria-label="음식 추가"
         className="fixed z-40 flex items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg active:scale-95 transition hover:bg-neutral-800"
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 88px)", right: 20, width: 44, height: 44 }}
