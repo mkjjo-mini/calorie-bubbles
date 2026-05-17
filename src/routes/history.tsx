@@ -187,16 +187,20 @@ function HistoryPage() {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !isCurrentMonth) return;
-    const x = (today.getDate() - 1) * DAY_COL_W - el.clientWidth / 2 + DAY_COL_W / 2;
+    const col = colLayouts[today.getDate() - 1];
+    if (!col) return;
+    const x = col.start + col.width / 2 - el.clientWidth / 2;
     el.scrollTo({ left: Math.max(0, x), behavior: "auto" });
     setScrollX(el.scrollLeft);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cursor, isCurrentMonth]);
+  }, [cursor, isCurrentMonth, colLayouts]);
 
   function scrollToDay(idx: number, behavior: ScrollBehavior = "smooth") {
     const el = scrollRef.current;
     if (!el) return;
-    const x = idx * DAY_COL_W - el.clientWidth / 2 + DAY_COL_W / 2;
+    const col = colLayouts[idx];
+    if (!col) return;
+    const x = col.start + col.width / 2 - el.clientWidth / 2;
     el.scrollTo({ left: Math.max(0, x), behavior });
   }
   function goToToday() {
@@ -216,7 +220,6 @@ function HistoryPage() {
     });
   }
 
-  const totalWidth = month.length * DAY_COL_W;
   const reduced = prefersReducedMotion();
 
   // Minimap
