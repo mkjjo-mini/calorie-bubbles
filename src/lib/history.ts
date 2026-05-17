@@ -137,30 +137,38 @@ export async function loadMonth(year: number, month0: number): Promise<DayData[]
   return out;
 }
 
+export interface DotStyle {
+  /** fill 색. "transparent"이면 흰색(빈 카드) */
+  fill: string;
+  /** border 색. undefined면 없음 */
+  border?: string;
+}
+
 /**
- * 선택 매크로 기준 진척 도트 색상.
- * dir 반영: max → 이하 충족 / min → 이상 충족.
- *   - 충족: green
- *   - ±20% 벗어남: yellow
- *   - 그 외: red
- *   - 기록 없음: null (도트 없음)
+ * 선택 매크로 기준 진척 도트 스타일.
+ *   - 음식 등록 없음: 흰색 + 회색 테두리
+ *   - 음식 있음 + 매크로 비활성(목표 없음): 회색 fill
+ *   - dir(max) 충족(≤1): green / ±20% 이내: yellow / 초과: red
+ *   - dir(min) 충족(≥1): green / ±20% 이내: yellow / 미달: red
  */
-export function progressColor(day: DayData, mode: MetricMode): string | null {
-  if (day.foods.length === 0) return null;
+export function progressColor(day: DayData, mode: MetricMode): DotStyle {
+  if (day.foods.length === 0) {
+    return { fill: "transparent", border: "#D4D4D8" };
+  }
   const macroGoal = pickGoal(day.goal, mode);
-  // 비활성 매크로 (null) 또는 목표값 0 → 도트 없음
-  if (macroGoal === null || macroGoal.value <= 0) return null;
+  if (macroGoal === null || macroGoal.value <= 0) {
+    return { fill: "#9CA3AF" };
+  }
   const actual = mode === "kcal" ? day.totalKcal : day.totals[mode];
   const ratio = actual / macroGoal.value;
   if (macroGoal.dir === "max") {
-    if (ratio <= 1) return "#22C55E"; // green
-    if (ratio <= 1.2) return "#FBBF24"; // yellow
-    return "#EF4444"; // red
+    if (ratio <= 1) return { fill: "#22C55E" };
+    if (ratio <= 1.2) return { fill: "#FBBF24" };
+    return { fill: "#EF4444" };
   }
-  // min
-  if (ratio >= 1) return "#22C55E";
-  if (ratio >= 0.8) return "#FBBF24";
-  return "#EF4444";
+  if (ratio >= 1) return { fill: "#22C55E" };
+  if (ratio >= 0.8) return { fill: "#FBBF24" };
+  return { fill: "#EF4444" };
 }
 
 function pickGoal(

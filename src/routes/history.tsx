@@ -497,7 +497,8 @@ function HistoryPage() {
                               width: dot,
                               height: dot,
                               borderRadius: "9999px",
-                              backgroundColor: color ?? "#CBD5E1",
+                              backgroundColor: color.fill,
+                              border: color.border ? `1px solid ${color.border}` : undefined,
                               boxShadow: isToday ? "0 0 0 2px #FFD700" : undefined,
                             }}
                           />
