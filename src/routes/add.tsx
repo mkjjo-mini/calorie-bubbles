@@ -259,8 +259,10 @@ function AddFoodPage() {
   // Cloud-backed state
   // favorites: Set of food_id (UUID) for O(1) lookup
   const [favFoodIds, setFavFoodIds] = useState<Set<string>>(new Set());
-  // user foods from cloud (source='user')
+  // user foods from cloud (source='user') — UI 검색/CRUD용
   const [userFoods, setUserFoods] = useState<FoodRow[]>([]);
+  // 모든 source의 cloud foods — 즐겨찾기 표시용 (preset/api 즐겨찾기도 보여야 함)
+  const [allFoods, setAllFoods] = useState<FoodRow[]>([]);
   // cloud loading state
   const [cloudLoading, setCloudLoading] = useState(false);
 
@@ -295,6 +297,16 @@ function AddFoodPage() {
     void loadCloudData();
   }, []);
 
+  // 다른 탭(history 등)에서 즐겨찾기/음식 변경했을 때 add 페이지로 돌아오면 최신화
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") void loadCloudData();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function loadCloudData() {
     setCloudLoading(true);
     try {
@@ -304,6 +316,8 @@ function AddFoodPage() {
       ]);
       // user-registered foods only (not api-auto-saved presets shown in search)
       setUserFoods(foods.filter((f) => f.source === "user"));
+      // 모든 source 보관 — preset/api 즐겨찾기 표시에 필요
+      setAllFoods(foods);
       setFavFoodIds(new Set(favs.map((f: FavoriteRow) => f.food_id)));
     } catch (e) {
       if (e instanceof CloudAuthError) {
@@ -450,12 +464,11 @@ function AddFoodPage() {
     return out;
   }, [apiResults, customMatches, presetMatches, inSearch]);
 
-  // Favorites list: cloud food rows whose id is in favFoodIds
-  // We build from userFoods + presets (for preset favs, look up by food_code)
-  // For simplicity, fav list = userFoods that are favorited
+  // 즐겨찾기 목록: 모든 source(user/preset/api) 통합
+  // history 탭이나 add 검색에서 토글한 preset/api 즐겨찾기도 함께 표시
   const favUserFoods = useMemo(
-    () => userFoods.filter((f) => favFoodIds.has(f.id)),
-    [userFoods, favFoodIds],
+    () => allFoods.filter((f) => favFoodIds.has(f.id)),
+    [allFoods, favFoodIds],
   );
 
   // Recent list from localStorage (UX-only, preset ids or cloud food UUIDs)
