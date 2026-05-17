@@ -24,9 +24,9 @@ export const Route = createFileRoute("/history")({
 });
 
 /* ---------- layout constants (mirrors home bowl) ---------- */
-const MIN_COL_W = 64;
-const MAX_COL_W = 168;
-const PER_FOOD_W = 22; // extra width per food on a day
+const MIN_COL_W = 88;
+const MAX_COL_W = 176;
+const PER_FOOD_W = 18; // extra width per merged food bubble on a day
 const TANK_H = 440;
 const WAVE_H = 140; // higher water level
 const BUBBLE_MIN = 24;
@@ -65,6 +65,10 @@ function foodColor(name: string): string {
   return `hsl(${hue} ${sat}% ${lit}%)`;
 }
 
+function normalizeFoodKey(name: string): string {
+  return displayName(name).trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
+}
+
 // Build per-day bubbles aggregated by food name
 interface FoodBubbleData {
   key: string;
@@ -80,7 +84,8 @@ function buildDayBubbles(day: DayData): FoodBubbleData[] {
   const map = new Map<string, FoodBubbleData>();
   for (const e of day.entries) {
     const name = displayName(e.foodName);
-    let b = map.get(name);
+    const key = normalizeFoodKey(e.foodName);
+    let b = map.get(key);
     if (!b) {
       b = {
         key: `${day.dateKey}-${name}`,
@@ -91,7 +96,7 @@ function buildDayBubbles(day: DayData): FoodBubbleData[] {
         fat: 0,
         kcal: 0,
       };
-      map.set(name, b);
+      map.set(key, b);
     }
     b[e.macro] += e.grams;
     b.ts = Math.min(b.ts, e.addedAt);
