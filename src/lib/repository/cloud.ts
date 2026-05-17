@@ -34,8 +34,15 @@ async function api<T = unknown>(
     const body = await res.text().catch(() => "");
     throw new Error(`api ${path} ${res.status}: ${body.slice(0, 200)}`);
   }
+  // 빈 body 응답 처리 (204 또는 201 with null body 등) — JSON parse 실패 방지
   if (res.status === 204) return undefined as T;
-  return res.json();
+  const text = await res.text();
+  if (!text) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined as T;
+  }
 }
 
 export const cloudRepository: Repository = {
