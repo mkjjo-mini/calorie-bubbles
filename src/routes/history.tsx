@@ -662,7 +662,7 @@ function DayBubbles({
     <>
       {positioned.map(({ b, size, xPos, yPos, seed }) => {
         const color =
-          mode === "kcal" ? foodColor(b.name) : MACRO_COLORS[mode];
+          mode === "kcal" ? kcalBubbleColor(b.name) : MACRO_COLORS[mode];
         return (
           <Bubble
             key={b.key}
