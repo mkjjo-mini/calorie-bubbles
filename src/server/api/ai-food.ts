@@ -81,14 +81,18 @@ const SYSTEM_PROMPT = `당신은 한국 음식 영양 정보 전문가입니다.
 - rationale은 한 문장으로 "왜 이렇게 추정했는지" 적습니다.
 - 식당명이 포함된 경우 Google Search 결과를 참고합니다.
 
-⚠️ 영양 정보 (kcal·carb·protein·fat) 추정에 자신 없으면:
-- needs_fallback=true 로 설정
-- fallback_query 에는 식약처 식품 DB에서 검색할 한국어 일반 명칭을 적습니다 (예: "된장찌개", "치킨 후라이드")
-- 이 경우 macros 추정값은 비워두지 말고 본인이 아는 만큼 적되, 서버가 식약처 DB로 보강합니다
+⚠️ needs_fallback 판단 — 매우 중요:
+- needs_fallback=true: 영양 정보를 추측만 하고 있어 식약처 DB 보강이 필요한 경우
+- needs_fallback=false: 다음 중 하나라도 해당되면 false
+  · 사진에서 영양성분 라벨을 읽었다 (예: "0kcal" 표기를 본 경우)
+  · 잘 알려진 표준 메뉴라 영양 정보를 알고 있다 (예: 흰밥 1공기, 삶은 계란)
+  · 사용자가 영양 정보를 직접 명시했다
 
-확실한 경우(라벨이 명확하거나 표준 메뉴):
-- needs_fallback=false
-- 본인 추정 그대로 사용됨`;
+⚠️ false인 경우, kcal·carb·protein·fat 값이 0이어도 "실제로 0"인 것으로 간주됩니다.
+   예: 라벨에 "0kcal"이 명시된 무가당 차 → needs_fallback=false, kcal=0 (정확함)
+   예: 새로운 카페 메뉴라 모름 → needs_fallback=true, fallback_query="딸기 라떼"
+
+fallback_query: needs_fallback=true 일 때만 필요. 식약처 식품 DB에서 검색할 한국어 일반 명칭 (브랜드명 제외, 음식 카테고리 위주).`;
 
 export async function handleAiFood(req: Request, env: Env): Promise<Response> {
   return withUser(req, env, async () => {
@@ -187,13 +191,10 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
       const a = analysis as Record<string, unknown>;
       const isFood = a?.is_food === true;
       const needsFallback = a?.needs_fallback === true;
-      const macrosAllZero =
-        Number(a?.kcal ?? 0) === 0 &&
-        Number(a?.carb_g ?? 0) === 0 &&
-        Number(a?.protein_g ?? 0) === 0 &&
-        Number(a?.fat_g ?? 0) === 0;
+      // ⚠️ macros_all_zero를 자동 트리거 조건에 넣지 않음 — Gemini가 "실제 0"임을
+      //    명시적으로 판단한 경우(0kcal 음료 라벨)와 충돌. needs_fallback=true 만 신뢰.
 
-      if (isFood && (needsFallback || macrosAllZero) && env.FOOD_API_KEY) {
+      if (isFood && needsFallback && env.FOOD_API_KEY) {
         const query =
           (typeof a?.fallback_query === "string" && a.fallback_query.trim()) ||
           (typeof a?.name === "string" && a.name) ||
@@ -204,7 +205,7 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
           if (fb.hit) {
             fallback = {
               triggered: true,
-              reason: needsFallback ? "ai_uncertain" : "macros_all_zero",
+              reason: "ai_uncertain",
               hit: fb.hit,
               scaled: fb.scaled ?? fb.hit,
               query: fb.query,
@@ -222,7 +223,7 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
           } else {
             fallback = {
               triggered: true,
-              reason: needsFallback ? "ai_uncertain" : "macros_all_zero",
+              reason: "ai_uncertain",
               hit: null,
               query: fb.query,
               totalCount: fb.totalCount,
@@ -231,7 +232,7 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
         } catch (e) {
           fallback = {
             triggered: true,
-            reason: needsFallback ? "ai_uncertain" : "macros_all_zero",
+            reason: "ai_uncertain",
             error: e instanceof Error ? e.message : String(e),
           };
         }

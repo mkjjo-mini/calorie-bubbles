@@ -43,7 +43,7 @@ interface Ref {
 
 interface FallbackInfo {
   triggered: boolean;
-  reason?: "ai_uncertain" | "macros_all_zero";
+  reason?: "ai_uncertain";
   hit?: { name: string; serving_g: number; kcal: number; carb_g: number; protein_g: number; fat_g: number } | null;
   query?: string;
   totalCount?: number;
@@ -400,12 +400,7 @@ function ResultCard({ analysis }: { analysis: Analysis }) {
 }
 
 function FallbackBanner({ info }: { info: FallbackInfo }) {
-  const reasonLabel =
-    info.reason === "ai_uncertain"
-      ? "AI가 영양정보 추정에 자신 없어"
-      : info.reason === "macros_all_zero"
-        ? "AI가 영양정보를 0으로 응답해"
-        : "보강 시도";
+  const reasonLabel = "AI가 영양정보 추정에 자신 없어";
 
   if (info.error) {
     return (
