@@ -1,103 +1,90 @@
+/**
+ * Supabase Auth 세션 훅.
+ *
+ *  - 초기 마운트: supabase.auth.getSession()
+ *  - 이후: onAuthStateChange 구독 (로그인/로그아웃/토큰 refresh 자동 반영)
+ *  - status:
+ *      "loading"          → 초기 조회 중
+ *      "authenticated"    → 세션 있음 (userId, email 사용 가능)
+ *      "unauthenticated"  → 세션 없음 (로그인 화면으로 가드)
+ *      "error"            → 환경변수 미설정 등 (가드 통과 X)
+ */
 import { useCallback, useEffect, useState } from "react";
-import { startLogin } from "@/lib/toss-sdk";
-
-export interface Session {
-  userKey: number;
-}
+import type { Session } from "@supabase/supabase-js";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
 
 export type SessionStatus =
-  | "idle"
   | "loading"
-  | "ready"
+  | "authenticated"
   | "unauthenticated"
   | "error";
 
-export interface SessionState {
-  session: Session | null;
-  status: SessionStatus;
-  error: string | null;
-  retry: () => void;
+export interface AuthSession {
+  userId: string;
+  email: string | null;
+  raw: Session;
 }
 
-/**
- * Bootstraps Toss session:
- *   1. GET /api/auth/me (기존 세션 쿠키로 시도)
- *   2. 401 → appLogin() → POST /api/auth/login (쿠키 발급 후 ready)
- *
- * 앱인토스 외부 (일반 브라우저 dev) — appLogin이 throw하면 `unauthenticated`로
- * surface. 앱은 localStorage 기반으로 계속 동작 (무료 사용자 경험과 동일).
- */
-export function useSession(): SessionState {
-  const [session, setSession] = useState<Session | null>(null);
-  const [status, setStatus] = useState<SessionStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
+export interface SessionState {
+  session: AuthSession | null;
+  status: SessionStatus;
+  error: string | null;
+  signOut: () => Promise<void>;
+}
 
-  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+function fromRaw(raw: Session | null): AuthSession | null {
+  if (!raw?.user) return null;
+  return { userId: raw.user.id, email: raw.user.email ?? null, raw };
+}
+
+export function useSession(): SessionState {
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [status, setStatus] = useState<SessionStatus>("loading");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    setStatus("loading");
-    setError(null);
+    let supabase;
+    try {
+      supabase = getBrowserSupabase();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "supabase init failed");
+      setStatus("error");
+      return;
+    }
 
-    (async () => {
-      // 1. 기존 세션 쿠키로 me 시도
-      try {
-        const me = await fetch("/api/auth/me", { credentials: "include" });
-        if (me.ok) {
-          const data = (await me.json()) as { userKey: number };
-          if (cancelled) return;
-          setSession({ userKey: data.userKey });
-          setStatus("ready");
-          return;
-        }
-        if (me.status !== 401) {
-          throw new Error(`/api/auth/me ${me.status}`);
-        }
-      } catch (e) {
-        if (cancelled) return;
-        setError(e instanceof Error ? e.message : "me check failed");
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data, error: err }) => {
+      if (cancelled) return;
+      if (err) {
+        setError(err.message);
         setStatus("error");
         return;
       }
+      const s = fromRaw(data.session);
+      setSession(s);
+      setStatus(s ? "authenticated" : "unauthenticated");
+    });
 
-      // 2. appLogin → /api/auth/login
-      try {
-        const { authorizationCode, referrer } = await startLogin();
-        if (cancelled) return;
-        const loginRes = await fetch("/api/auth/login", {
-          method: "POST",
-          credentials: "include",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ authorizationCode, referrer }),
-        });
-        if (!loginRes.ok) {
-          let code = `LOGIN_${loginRes.status}`;
-          try {
-            const body = (await loginRes.json()) as { code?: string };
-            if (body.code) code = body.code;
-          } catch {
-            /* ignore */
-          }
-          throw new Error(code);
-        }
-        const data = (await loginRes.json()) as { userKey: number };
-        if (cancelled) return;
-        setSession({ userKey: data.userKey });
-        setStatus("ready");
-      } catch (e) {
-        if (cancelled) return;
-        setSession(null);
-        setError(e instanceof Error ? e.message : "login failed");
-        // Soft fail — 앱은 localStorage 모드로 계속.
-        setStatus("unauthenticated");
-      }
-    })();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, raw) => {
+      if (cancelled) return;
+      const s = fromRaw(raw);
+      setSession(s);
+      setStatus(s ? "authenticated" : "unauthenticated");
+    });
 
     return () => {
       cancelled = true;
+      subscription.unsubscribe();
     };
-  }, [attempt]);
+  }, []);
 
-  return { session, status, error, retry };
+  const signOut = useCallback(async () => {
+    const supabase = getBrowserSupabase();
+    await supabase.auth.signOut();
+    // onAuthStateChange가 status를 unauthenticated로 갱신
+  }, []);
+
+  return { session, status, error, signOut };
 }

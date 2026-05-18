@@ -1,11 +1,18 @@
 /**
- * `/api/*` 모든 라우트가 거치는 인증 미들웨어.
+ * `/api/*` 인증 미들웨어 (Supabase Auth 기반).
  *
- * Step 01의 세션 쿠키로 userKey 확정 → handler에 주입.
- * 세션 없거나 만료면 401 SESSION_EXPIRED. 클라이언트의 useSession이 자동 재로그인.
+ * - 요청 쿠키에서 Supabase 세션 파싱 → auth.getUser()로 검증된 user.id 추출
+ * - admin 클라이언트(service_role)를 핸들러에 전달 — 코드가 user_id WHERE 절 강제
+ * - 미인증/세션 만료 → 401 SESSION_EXPIRED
+ * - getUser()가 토큰을 refresh했다면 Set-Cookie를 응답에 머지
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Env } from "./env";
-import { resolveSession } from "./session";
+import {
+  applyCookies,
+  createAdminSupabase,
+  createServerSupabase,
+} from "./supabase-server";
 
 export function jsonError(
   status: number,
@@ -19,22 +26,42 @@ export function jsonError(
 }
 
 /**
- * 모든 /api/* 응답에 적용할 헤더. 특히 iOS WebView의 GET 응답 캐시를 차단해야
- * 추가/삭제 후 stale 화면 발생 방지. private = shared cache (CDN) 차단.
+ * /api/* 응답 공통 헤더. iOS WebView의 GET 캐시 차단 (추가/삭제 후 stale 방지).
  */
 export const NO_STORE_JSON_HEADERS = {
   "content-type": "application/json",
   "cache-control": "no-store, private",
 } as const;
 
-export async function withSession(
+export interface UserContext {
+  userId: string;
+  admin: SupabaseClient;
+}
+
+export async function withUser(
   req: Request,
   env: Env,
-  handler: (userKey: number) => Promise<Response>,
+  handler: (ctx: UserContext) => Promise<Response>,
 ): Promise<Response> {
-  const session = await resolveSession(req, env);
-  if (!session) {
-    return jsonError(401, "SESSION_EXPIRED", "no valid session");
+  let serverCtx;
+  try {
+    serverCtx = createServerSupabase(req, env);
+  } catch (e) {
+    console.error("[auth] env config error", e);
+    return jsonError(500, "ENV_MISSING", (e as Error).message);
   }
-  return handler(session.userKey);
+
+  const {
+    data: { user },
+    error,
+  } = await serverCtx.supabase.auth.getUser();
+
+  if (error || !user) {
+    const res = jsonError(401, "SESSION_EXPIRED", "no valid session");
+    return applyCookies(res, serverCtx.cookiesToSet);
+  }
+
+  const admin = createAdminSupabase(env);
+  const res = await handler({ userId: user.id, admin });
+  return applyCookies(res, serverCtx.cookiesToSet);
 }

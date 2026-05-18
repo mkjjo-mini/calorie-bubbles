@@ -1,51 +1,28 @@
 /**
- * Cloudflare Worker bindings for this app.
+ * Cloudflare Worker bindings.
+ *
+ * Standalone Auth 전환 후 — Apps in Toss SDK / mTLS / KV 세션 모두 제거.
+ * Supabase Auth가 쿠키 기반 세션을 직접 관리.
  *
  * 셋업:
- *   - SESSIONS:        `npx wrangler kv namespace create SESSIONS`
- *   - TOSS_MTLS:       `npx wrangler mtls-certificate upload --cert ... --key ...`
- *                      후 wrangler.jsonc `mtls_certificates` binding
- *   - ENVIRONMENT:     wrangler.jsonc `vars.ENVIRONMENT`
+ *   - SUPABASE_URL, SUPABASE_ANON_KEY:        클라이언트·서버 모두 사용 (auth)
+ *   - SUPABASE_SERVICE_ROLE_KEY:              서버 전용. RLS 우회 admin 작업
+ *   - ENVIRONMENT=development:                dev에서 Secure 쿠키 off
  *
- * 미니앱 컨텍스트에서는 OAuth client_id/secret을 발급받지 않음.
- * 대신 mTLS client certificate로 토스 API에 인증.
- * (가이드: https://developers-apps-in-toss.toss.im/login/develop.md
- *  + 콘솔 "mTLS 인증서" 메뉴)
- *
- * dev 환경 (Vite + Node)에서는 mtls_certificates binding이 동작 안 함.
- * .env.local에 cert/key 파일 path를 두고 undici Agent로 처리.
- *
- * PII 복호화는 v1엔 미사용 (TOSS_DECRYPT_KEY는 필요해질 때).
- *
- * Step 07에서 `DB: D1Database`가 추가됩니다.
+ * dev: .env.local (Vite가 VITE_ prefix를 클라 노출, 그 외는 server 전용)
+ * prod: wrangler secret put (SERVICE_ROLE_KEY) + wrangler.jsonc vars (URL/ANON)
  */
-interface KvNamespace {
-  get(key: string): Promise<string | null>;
-  put(
-    key: string,
-    value: string,
-    options?: { expirationTtl?: number },
-  ): Promise<void>;
-  delete(key: string): Promise<void>;
-}
-
-interface MtlsFetcher {
-  fetch(url: string, init?: RequestInit): Promise<Response>;
-}
-
 export interface Env {
-  SESSIONS: KvNamespace;
-  /** CF Worker mtls_certificates binding — prod에서 토스 API mTLS 핸드셰이크 자동 처리 */
-  TOSS_MTLS?: MtlsFetcher;
-  /** dev (Node) 환경 전용 — PEM 파일 path. wrangler dev/vite dev에서 .env.local로 주입 */
-  TOSS_MTLS_CERT_PATH?: string;
-  TOSS_MTLS_KEY_PATH?: string;
-  /** AES-256 base64. PII 복호화 키. v1엔 미사용. */
-  TOSS_DECRYPT_KEY?: string;
-  /** Step 07 — Supabase. service_role로 Worker만 접근. 클라이언트 노출 X */
+  /** Supabase project URL (e.g., https://xxx.supabase.co). 클라/서버 공통 */
   SUPABASE_URL?: string;
+  /** Supabase anon key. 클라이언트 노출 OK (RLS로 보호) */
+  SUPABASE_ANON_KEY?: string;
+  /** Supabase service_role key. **서버 전용**. 절대 클라에 노출 X */
   SUPABASE_SERVICE_ROLE_KEY?: string;
-  /** v1 mock — isPaidUser 강제 토글. BM 확정 후 실제 구독 조회로 교체 */
-  FORCE_PAID?: string;
+  /** Cookie Secure flag 분기. dev=http=development, prod=production */
   ENVIRONMENT?: "development" | "production";
+  /** Step 04 식약처 API */
+  FOOD_API_KEY?: string;
+  /** v1 mock — 유료 사용자 강제 토글 (BM 확정 전까지) */
+  FORCE_PAID?: string;
 }

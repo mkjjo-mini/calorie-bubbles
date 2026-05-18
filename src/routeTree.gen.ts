@@ -16,6 +16,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsGoalRouteImport } from './routes/settings.goal'
+import { Route as AuthSignupRouteImport } from './routes/auth.signup'
+import { Route as AuthResetRouteImport } from './routes/auth.reset'
+import { Route as AuthLoginRouteImport } from './routes/auth.login'
+import { Route as AuthForgotRouteImport } from './routes/auth.forgot'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -52,12 +56,36 @@ const SettingsGoalRoute = SettingsGoalRouteImport.update({
   path: '/goal',
   getParentRoute: () => SettingsRoute,
 } as any)
+const AuthSignupRoute = AuthSignupRouteImport.update({
+  id: '/auth/signup',
+  path: '/auth/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthResetRoute = AuthResetRouteImport.update({
+  id: '/auth/reset',
+  path: '/auth/reset',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthLoginRoute = AuthLoginRouteImport.update({
+  id: '/auth/login',
+  path: '/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthForgotRoute = AuthForgotRouteImport.update({
+  id: '/auth/forgot',
+  path: '/auth/forgot',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/auth/forgot': typeof AuthForgotRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/reset': typeof AuthResetRoute
+  '/auth/signup': typeof AuthSignupRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -67,6 +95,10 @@ export interface FileRoutesByTo {
   '/add': typeof AddRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/auth/forgot': typeof AuthForgotRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/reset': typeof AuthResetRoute
+  '/auth/signup': typeof AuthSignupRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -77,6 +109,10 @@ export interface FileRoutesById {
   '/add': typeof AddRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/auth/forgot': typeof AuthForgotRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/reset': typeof AuthResetRoute
+  '/auth/signup': typeof AuthSignupRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -88,6 +124,10 @@ export interface FileRouteTypes {
     | '/add'
     | '/history'
     | '/settings'
+    | '/auth/forgot'
+    | '/auth/login'
+    | '/auth/reset'
+    | '/auth/signup'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -97,6 +137,10 @@ export interface FileRouteTypes {
     | '/add'
     | '/history'
     | '/settings'
+    | '/auth/forgot'
+    | '/auth/login'
+    | '/auth/reset'
+    | '/auth/signup'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -106,6 +150,10 @@ export interface FileRouteTypes {
     | '/add'
     | '/history'
     | '/settings'
+    | '/auth/forgot'
+    | '/auth/login'
+    | '/auth/reset'
+    | '/auth/signup'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -116,6 +164,10 @@ export interface RootRouteChildren {
   AddRoute: typeof AddRoute
   HistoryRoute: typeof HistoryRoute
   SettingsRoute: typeof SettingsRouteWithChildren
+  AuthForgotRoute: typeof AuthForgotRoute
+  AuthLoginRoute: typeof AuthLoginRoute
+  AuthResetRoute: typeof AuthResetRoute
+  AuthSignupRoute: typeof AuthSignupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -169,6 +221,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsGoalRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/auth/signup': {
+      id: '/auth/signup'
+      path: '/auth/signup'
+      fullPath: '/auth/signup'
+      preLoaderRoute: typeof AuthSignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/reset': {
+      id: '/auth/reset'
+      path: '/auth/reset'
+      fullPath: '/auth/reset'
+      preLoaderRoute: typeof AuthResetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/login': {
+      id: '/auth/login'
+      path: '/auth/login'
+      fullPath: '/auth/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/forgot': {
+      id: '/auth/forgot'
+      path: '/auth/forgot'
+      fullPath: '/auth/forgot'
+      preLoaderRoute: typeof AuthForgotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -193,6 +273,10 @@ const rootRouteChildren: RootRouteChildren = {
   AddRoute: AddRoute,
   HistoryRoute: HistoryRoute,
   SettingsRoute: SettingsRouteWithChildren,
+  AuthForgotRoute: AuthForgotRoute,
+  AuthLoginRoute: AuthLoginRoute,
+  AuthResetRoute: AuthResetRoute,
+  AuthSignupRoute: AuthSignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

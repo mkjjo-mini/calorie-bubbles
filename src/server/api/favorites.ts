@@ -1,28 +1,22 @@
 /**
  * /api/favorites
  *
- * GET    /api/favorites                  → list (food JOIN으로 name 포함)
- * POST   /api/favorites                  → body: { food_id }
- * DELETE /api/favorites?food_id=<uuid>   → DELETE
- *
- * favorites.food_id → foods(id) ON DELETE CASCADE 라 음식 삭제 시 자동 정리.
+ * GET    /api/favorites
+ * POST   /api/favorites
+ * DELETE /api/favorites?food_id=<uuid>
  */
 import type { Env } from "../auth/env";
-import { jsonError, withSession } from "../auth/middleware";
-import { getSupabase } from "../db/supabase";
+import { jsonError, withUser } from "../auth/middleware";
 
 export async function handleFavorites(req: Request, env: Env): Promise<Response> {
-  return withSession(req, env, async (userKey) => {
-    const supabase = getSupabase(env);
+  return withUser(req, env, async ({ userId, admin }) => {
     const url = new URL(req.url);
 
     if (req.method === "GET") {
-      // foods JOIN에 deleted_at 같이 가져와 클라이언트 측에서 필터.
-      // (soft delete된 음식의 즐겨찾기는 UI에서 숨김 — 음식 복구 시 자동 부활)
-      const { data, error } = await supabase
+      const { data, error } = await admin
         .from("favorites")
         .select("*, food:foods(name, food_code, source, deleted_at)")
-        .eq("user_key", userKey)
+        .eq("user_id", userId)
         .order("added_at", { ascending: false });
       if (error) return jsonError(500, "DB_ERROR", error.message);
       const filtered = (data ?? []).filter(
@@ -43,12 +37,11 @@ export async function handleFavorites(req: Request, env: Env): Promise<Response>
       if (!foodId || typeof foodId !== "string") {
         return jsonError(400, "INVALID_BODY", "missing food_id");
       }
-      // upsert로 멱등성 (이미 즐겨찾기면 added_at만 갱신)
-      const { error } = await supabase
+      const { error } = await admin
         .from("favorites")
         .upsert(
-          { user_key: userKey, food_id: foodId },
-          { onConflict: "user_key,food_id" },
+          { user_id: userId, food_id: foodId },
+          { onConflict: "user_id,food_id" },
         );
       if (error) {
         if (error.code === "23503") {
@@ -62,10 +55,10 @@ export async function handleFavorites(req: Request, env: Env): Promise<Response>
     if (req.method === "DELETE") {
       const foodId = url.searchParams.get("food_id");
       if (!foodId) return jsonError(400, "INVALID_BODY", "missing food_id");
-      const { error } = await supabase
+      const { error } = await admin
         .from("favorites")
         .delete()
-        .eq("user_key", userKey)
+        .eq("user_id", userId)
         .eq("food_id", foodId);
       if (error) return jsonError(500, "DB_ERROR", error.message);
       return new Response(null, { status: 204 });

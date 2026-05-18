@@ -1,7 +1,7 @@
 /**
- * Cloud Repository — fetch /api/* (Step 07 Supabase 백엔드).
- * 세션 쿠키는 credentials: "include"로 자동 첨부 (Step 01 발급).
- * 401 응답은 CloudAuthError throw — useStorage twin-write가 catch해서 localStorage 폴백.
+ * Cloud Repository — fetch /api/* (Supabase 백엔드).
+ * 세션 쿠키는 credentials: "include"로 Supabase Auth가 발급한 sb-* 쿠키 자동 전송.
+ * 401 응답은 즉시 /auth/login으로 redirect 후 CloudAuthError throw.
  */
 import {
   CloudAuthError,
@@ -32,7 +32,14 @@ async function api<T = unknown>(
     },
     ...init,
   });
-  if (res.status === 401) throw new CloudAuthError();
+  if (res.status === 401) {
+    // 세션 만료 — 즉시 로그인으로 이동. 현재 경로를 next로 보관해 복귀 가능.
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth/")) {
+      const next = window.location.pathname + window.location.search;
+      window.location.assign(`/auth/login?next=${encodeURIComponent(next)}`);
+    }
+    throw new CloudAuthError();
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`api ${path} ${res.status}: ${body.slice(0, 200)}`);
