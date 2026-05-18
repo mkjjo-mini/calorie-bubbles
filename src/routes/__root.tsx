@@ -115,11 +115,30 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   // 부팅 시 토스 세션 (silent). 앱인토스 외부 dev 환경에서는 unauthenticated로 폴백돼
   // localStorage 모드로 정상 동작. 결과는 Step 07에서 useStorage()가 활용.
-  useSession();
+  const { status, error } = useSession();
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen w-full bg-white pb-20">
+        {/* DEBUG: 흰 화면 진단용 임시 패널 — 이후 제거 */}
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            padding: "8px 12px",
+            background: "rgba(255, 240, 200, 0.95)",
+            fontFamily: "monospace",
+            fontSize: 11,
+            color: "#1f2937",
+            borderBottom: "1px solid #FFD700",
+          }}
+        >
+          session: {status}
+          {error ? ` · err: ${error}` : ""}
+        </div>
         <Outlet />
       </div>
       <BottomTabBar />
