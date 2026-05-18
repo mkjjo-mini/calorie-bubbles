@@ -187,7 +187,7 @@ export function AiAddSheet({
       let photoPath: string | null = null;
       if (image) {
         const { blob } = await resizeToThumbnail(image.file, 200);
-        const photoId = crypto.randomUUID();
+        const photoId = randomId();
         const path = `${session.userId}/${photoId}.jpg`;
         const supabase = getBrowserSupabase();
         const { error: upErr } = await supabase.storage
@@ -433,82 +433,106 @@ function PreviewStep({
   }
 
   const lowConf = edit.confidence < 0.5;
+  const canRegister = edit.name.trim().length > 0 && edit.serving_g > 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="space-y-4">
       {imagePreviewUrl && (
         <img
           src={imagePreviewUrl}
           alt="분석한 사진"
-          className="w-full max-h-32 object-contain rounded-xl bg-neutral-100"
+          className="w-full max-h-40 object-contain rounded-xl bg-neutral-100"
         />
       )}
 
-      {/* 음식명 */}
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] text-neutral-500">음식</span>
+      {/* 음식 이름 */}
+      <SheetField label="음식 이름" required>
         <input
           value={edit.name}
           onChange={(e) => setEdit({ ...edit, name: e.target.value })}
-          className="rounded-xl border border-neutral-200 px-3 py-2.5 text-sm font-semibold outline-none focus:border-neutral-900"
+          placeholder="음식 이름"
+          className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
         />
-      </label>
+      </SheetField>
 
-      {/* 1인분 양 + 단위 */}
-      <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
-        <NumField
-          label="1인분 g"
-          value={edit.serving_g}
-          onChange={(v) => num("serving_g", v)}
-          step={1}
-        />
-        <NumField
-          label="kcal"
-          value={edit.kcal}
-          onChange={(v) => num("kcal", v)}
-          step={1}
-          highlight
-        />
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] text-neutral-500">단위</span>
-          <div className="flex gap-1.5 items-center px-2.5 py-2.5 rounded-xl border border-neutral-200 text-sm">
-            <input
-              type="number"
-              value={edit.serving_amount}
-              onChange={(e) => num("serving_amount", e.target.value)}
-              className="w-8 outline-none bg-transparent text-right"
-            />
-            <input
-              value={edit.serving_unit}
-              onChange={(e) =>
-                setEdit({ ...edit, serving_unit: e.target.value })
-              }
-              className="flex-1 outline-none bg-transparent"
-            />
-          </div>
+      {/* 1회 제공량 */}
+      <SheetField label="1회 제공량" required>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            inputMode="decimal"
+            value={edit.serving_amount}
+            onChange={(e) => num("serving_amount", e.target.value)}
+            min={0}
+            className="flex-1 h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+          />
+          <input
+            value={edit.serving_unit}
+            onChange={(e) => setEdit({ ...edit, serving_unit: e.target.value })}
+            placeholder="단위"
+            className="w-24 h-11 px-3 rounded-xl border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300"
+          />
         </div>
+        <div className="mt-2">
+          <label className="text-xs text-neutral-500 block mb-1">
+            그램 (g)
+          </label>
+          <input
+            type="number"
+            inputMode="decimal"
+            value={edit.serving_g}
+            onChange={(e) => num("serving_g", e.target.value)}
+            min={0}
+            className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+          />
+        </div>
+      </SheetField>
+
+      <div className="flex items-center gap-3 py-1">
+        <div className="flex-1 h-px bg-neutral-200" />
+        <span className="text-xs text-neutral-400">영양 정보</span>
+        <div className="flex-1 h-px bg-neutral-200" />
       </div>
 
-      {/* 매크로 */}
+      {/* 열량 */}
+      <SheetField label="열량 (kcal)">
+        <input
+          type="number"
+          inputMode="decimal"
+          value={edit.kcal}
+          onChange={(e) => num("kcal", e.target.value)}
+          min={0}
+          className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+        />
+      </SheetField>
+
+      {/* 탄·단·지 */}
       <div className="grid grid-cols-3 gap-2">
-        <NumField
-          label="탄 g"
-          value={edit.carb_g}
-          onChange={(v) => num("carb_g", v)}
-          step={0.1}
-        />
-        <NumField
-          label="단 g"
-          value={edit.protein_g}
-          onChange={(v) => num("protein_g", v)}
-          step={0.1}
-        />
-        <NumField
-          label="지 g"
-          value={edit.fat_g}
-          onChange={(v) => num("fat_g", v)}
-          step={0.1}
-        />
+        {(
+          [
+            { key: "carb_g", label: "탄수화물 (g)" },
+            { key: "protein_g", label: "단백질 (g)" },
+            { key: "fat_g", label: "지방 (g)" },
+          ] as const
+        ).map((row) => (
+          <div key={row.key}>
+            <label className="text-xs text-neutral-600 font-medium mb-1.5 flex items-center gap-1">
+              {row.label}
+              <span className="text-[10px] text-neutral-400 px-1 py-0.5 rounded bg-neutral-100">
+                AI
+              </span>
+            </label>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={edit[row.key] as number}
+              onChange={(e) => num(row.key, e.target.value)}
+              min={0}
+              step={0.1}
+              className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+            />
+          </div>
+        ))}
       </div>
 
       {/* AI rationale + fallback */}
@@ -552,7 +576,7 @@ function PreviewStep({
 
       {err && <p className="text-xs text-red-600 px-1">{err}</p>}
 
-      <div className="grid grid-cols-[1fr_2fr] gap-2 pt-1">
+      <div className="grid grid-cols-[1fr_2fr] gap-2 pt-2">
         <button
           onClick={onBack}
           disabled={loading}
@@ -562,7 +586,7 @@ function PreviewStep({
         </button>
         <button
           onClick={onRegister}
-          disabled={loading || !edit.name.trim()}
+          disabled={loading || !canRegister}
           className="h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold disabled:opacity-40 active:bg-neutral-800 inline-flex items-center justify-center gap-2"
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -573,35 +597,22 @@ function PreviewStep({
   );
 }
 
-function NumField({
+function SheetField({
   label,
-  value,
-  onChange,
-  step,
-  highlight,
+  required,
+  children,
 }: {
   label: string;
-  value: number;
-  onChange: (v: string) => void;
-  step?: number;
-  highlight?: boolean;
+  required?: boolean;
+  children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[11px] text-neutral-500">{label}</span>
-      <input
-        type="number"
-        inputMode="decimal"
-        value={value}
-        step={step ?? 1}
-        onChange={(e) => onChange(e.target.value)}
-        className={`rounded-xl border px-3 py-2.5 text-sm font-semibold outline-none focus:border-neutral-900 ${
-          highlight
-            ? "border-neutral-900 bg-neutral-900 text-white"
-            : "border-neutral-200"
-        }`}
-      />
-    </label>
+    <div>
+      <label className="text-xs text-neutral-600 font-medium block mb-1.5">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {children}
+    </div>
   );
 }
 
@@ -617,4 +628,24 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * crypto.randomUUID polyfill — Toss 인앱 WebView (구 WebKit)에서 randomUUID 미지원.
+ * getRandomValues는 광범위하게 지원돼 RFC4122 v4 UUID 직접 생성.
+ */
+function randomId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0"));
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
 }
