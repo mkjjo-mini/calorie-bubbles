@@ -41,9 +41,19 @@ interface Ref {
   url?: string;
 }
 
+interface FallbackInfo {
+  triggered: boolean;
+  reason?: "ai_uncertain" | "macros_all_zero";
+  hit?: { name: string; serving_g: number; kcal: number; carb_g: number; protein_g: number; fat_g: number } | null;
+  query?: string;
+  totalCount?: number;
+  error?: string;
+}
+
 interface AnalyzeResponse {
   analysis: Analysis;
   refs?: Ref[];
+  fallback?: FallbackInfo;
   raw?: { text: string };
 }
 
@@ -291,6 +301,10 @@ function AiFoodLab() {
           <div className="px-4 mt-6 space-y-3">
             <ResultCard analysis={result.analysis} />
 
+            {result.fallback?.triggered && (
+              <FallbackBanner info={result.fallback} />
+            )}
+
             {result.refs && result.refs.length > 0 && (
               <div className="rounded-xl border border-neutral-100 bg-white px-3 py-3">
                 <p className="text-[11px] font-semibold text-neutral-500 mb-2">
@@ -381,6 +395,38 @@ function ResultCard({ analysis }: { analysis: Analysis }) {
           ⚠️ AI가 자신 없어요. 수치를 꼭 확인해주세요.
         </div>
       )}
+    </div>
+  );
+}
+
+function FallbackBanner({ info }: { info: FallbackInfo }) {
+  const reasonLabel =
+    info.reason === "ai_uncertain"
+      ? "AI가 영양정보 추정에 자신 없어"
+      : info.reason === "macros_all_zero"
+        ? "AI가 영양정보를 0으로 응답해"
+        : "보강 시도";
+
+  if (info.error) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-900">
+        🔁 {reasonLabel} 식약처 DB 보강을 시도했지만 실패: {info.error}
+      </div>
+    );
+  }
+  if (!info.hit) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-900">
+        🔁 {reasonLabel} 식약처 DB "{info.query}" 검색 — 일치 항목 없음 (총 {info.totalCount}건)
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[11px] text-emerald-900">
+      <p className="font-semibold">🔁 식약처 DB 보강 적용됨</p>
+      <p className="mt-1 leading-relaxed">
+        {reasonLabel}, 식약처에서 "<b>{info.hit.name}</b>" ({info.hit.serving_g}g 기준) 데이터로 매크로를 채웠어요.
+      </p>
     </div>
   );
 }

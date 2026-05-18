@@ -20,6 +20,7 @@
 import type { Env } from "../auth/env";
 import { jsonError, NO_STORE_JSON_HEADERS, withUser } from "../auth/middleware";
 import { callGemini, GeminiError } from "../ai/gemini";
+import { fetchFoodFallback, type FoodFallbackHit } from "../ai/food-fallback";
 
 interface AnalyzeBody {
   mode: "photo" | "text" | "restaurant";
@@ -45,6 +46,10 @@ const NUTRITION_SCHEMA = {
     fat_g: { type: "number" },
     confidence: { type: "number" },
     rationale: { type: "string" },
+    /** 영양 추정에 자신 없으면 true. 그러면 서버가 식약처 API로 보강 */
+    needs_fallback: { type: "boolean" },
+    /** 식약처 검색용 query 추천 (예: "돼지고기 된장찌개"). 비우면 name 사용 */
+    fallback_query: { type: "string" },
   },
   required: [
     "is_food",
@@ -58,6 +63,7 @@ const NUTRITION_SCHEMA = {
     "fat_g",
     "confidence",
     "rationale",
+    "needs_fallback",
   ],
 } as const;
 
@@ -66,13 +72,23 @@ const SYSTEM_PROMPT = `당신은 한국 음식 영양 정보 전문가입니다.
 
 규칙:
 - 모든 응답은 한국어로 작성합니다.
+- 음식 이름은 검색하기 좋게 일반적인 명칭으로 적습니다 (예: "엄마표 김치찌개" → "돼지고기 김치찌개").
 - 1인분 기준 영양 정보를 추정하며, serving_g는 통상 한국 식약처 기준 1인분 무게입니다.
 - 자연어에 "2인분", "곱빼기" 같은 단서가 있으면 serving_amount에 반영합니다.
 - 자연어에 "고기 듬뿍", "기름 많이" 같은 단서가 있으면 macros에 반영합니다.
 - 음식이 아닌 사진/텍스트(사람·풍경·무관한 텍스트)면 is_food=false, 다른 필드는 0 또는 빈 문자열.
 - confidence는 0.0~1.0 (어둡거나 모호하면 낮춤).
 - rationale은 한 문장으로 "왜 이렇게 추정했는지" 적습니다.
-- 식당명이 포함된 경우 Google Search 결과를 참고합니다.`;
+- 식당명이 포함된 경우 Google Search 결과를 참고합니다.
+
+⚠️ 영양 정보 (kcal·carb·protein·fat) 추정에 자신 없으면:
+- needs_fallback=true 로 설정
+- fallback_query 에는 식약처 식품 DB에서 검색할 한국어 일반 명칭을 적습니다 (예: "된장찌개", "치킨 후라이드")
+- 이 경우 macros 추정값은 비워두지 말고 본인이 아는 만큼 적되, 서버가 식약처 DB로 보강합니다
+
+확실한 경우(라벨이 명확하거나 표준 메뉴):
+- needs_fallback=false
+- 본인 추정 그대로 사용됨`;
 
 export async function handleAiFood(req: Request, env: Env): Promise<Response> {
   return withUser(req, env, async () => {
@@ -157,10 +173,75 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
         }
       }
 
+      // 식약처 API fallback — Gemini가 자신 없거나 macros 0인 경우
+      let fallback: {
+        triggered: boolean;
+        reason?: string;
+        hit?: FoodFallbackHit | null;
+        scaled?: FoodFallbackHit | null;
+        query?: string;
+        totalCount?: number;
+        error?: string;
+      } = { triggered: false };
+
+      const a = analysis as Record<string, unknown>;
+      const isFood = a?.is_food === true;
+      const needsFallback = a?.needs_fallback === true;
+      const macrosAllZero =
+        Number(a?.kcal ?? 0) === 0 &&
+        Number(a?.carb_g ?? 0) === 0 &&
+        Number(a?.protein_g ?? 0) === 0 &&
+        Number(a?.fat_g ?? 0) === 0;
+
+      if (isFood && (needsFallback || macrosAllZero) && env.FOOD_API_KEY) {
+        const query =
+          (typeof a?.fallback_query === "string" && a.fallback_query.trim()) ||
+          (typeof a?.name === "string" && a.name) ||
+          "";
+        const targetG = Number(a?.serving_g) > 0 ? Number(a.serving_g) : undefined;
+        try {
+          const fb = await fetchFoodFallback(env, query, targetG);
+          if (fb.hit) {
+            fallback = {
+              triggered: true,
+              reason: needsFallback ? "ai_uncertain" : "macros_all_zero",
+              hit: fb.hit,
+              scaled: fb.scaled ?? fb.hit,
+              query: fb.query,
+              totalCount: fb.totalCount,
+            };
+            // analysis의 macros를 fallback 값으로 덮어쓰기 (사용자가 보는 값)
+            const src = fb.scaled ?? fb.hit;
+            (analysis as Record<string, unknown>).kcal = src.kcal;
+            (analysis as Record<string, unknown>).carb_g = src.carb_g;
+            (analysis as Record<string, unknown>).protein_g = src.protein_g;
+            (analysis as Record<string, unknown>).fat_g = src.fat_g;
+            const existingRationale = String(a?.rationale ?? "");
+            (analysis as Record<string, unknown>).rationale =
+              `${existingRationale} · 식약처 DB "${fb.hit.name}" 기준 보강.`.trim();
+          } else {
+            fallback = {
+              triggered: true,
+              reason: needsFallback ? "ai_uncertain" : "macros_all_zero",
+              hit: null,
+              query: fb.query,
+              totalCount: fb.totalCount,
+            };
+          }
+        } catch (e) {
+          fallback = {
+            triggered: true,
+            reason: needsFallback ? "ai_uncertain" : "macros_all_zero",
+            error: e instanceof Error ? e.message : String(e),
+          };
+        }
+      }
+
       return new Response(
         JSON.stringify({
           analysis,
           refs: result.groundingChunks ?? [],
+          fallback,
           raw: {
             text: result.rawText,
           },
