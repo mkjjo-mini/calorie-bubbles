@@ -13,14 +13,13 @@ import {
   Loader2,
   Sparkles,
   Type,
-  Utensils,
 } from "lucide-react";
 
 export const Route = createFileRoute("/lab/ai-foods")({
   component: AiFoodLab,
 });
 
-type Mode = "photo" | "text" | "restaurant";
+type Mode = "photo" | "text";
 
 interface Analysis {
   is_food: boolean;
@@ -59,8 +58,7 @@ interface AnalyzeResponse {
 
 const MODES: { id: Mode; label: string; icon: typeof Camera; hint: string }[] = [
   { id: "photo", label: "사진", icon: Camera, hint: "음식 사진을 업로드하면 AI가 영양 정보를 추정해요." },
-  { id: "text", label: "텍스트", icon: Type, hint: '자연어로 음식을 설명하세요. 예: "엄마가 만든 김치찌개"' },
-  { id: "restaurant", label: "식당", icon: Utensils, hint: '식당 이름 + 메뉴. 예: "금돼지식당 껍데기 2인분"' },
+  { id: "text", label: "텍스트", icon: Type, hint: '자연어로 입력. 일반 음식·식당 메뉴 모두 OK.\n예: "엄마표 김치찌개", "금돼지식당 껍데기 2인분"' },
 ];
 
 function AiFoodLab() {
@@ -171,7 +169,7 @@ function AiFoodLab() {
 
         {/* 모드 토글 */}
         <div className="px-4 pt-4">
-          <div className="grid grid-cols-3 gap-1 p-1 bg-neutral-100 rounded-xl">
+          <div className="grid grid-cols-2 gap-1 p-1 bg-neutral-100 rounded-xl">
             {MODES.map((m) => {
               const Icon = m.icon;
               const active = mode === m.id;
@@ -191,7 +189,7 @@ function AiFoodLab() {
               );
             })}
           </div>
-          <p className="mt-2 text-[11px] text-neutral-500 leading-relaxed">
+          <p className="mt-2 text-[11px] text-neutral-500 leading-relaxed whitespace-pre-line">
             {MODES.find((m) => m.id === mode)?.hint}
           </p>
         </div>
@@ -246,17 +244,13 @@ function AiFoodLab() {
             </>
           )}
 
-          {(mode === "text" || mode === "restaurant") && (
+          {mode === "text" && (
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={4}
               className="w-full rounded-xl border border-neutral-200 px-3 py-3 text-sm outline-none focus:border-neutral-900 resize-none"
-              placeholder={
-                mode === "text"
-                  ? "예: 엄마가 만든 김치찌개"
-                  : "예: 금돼지식당 껍데기 2인분"
-              }
+              placeholder="예: 엄마가 만든 김치찌개 / 금돼지식당 껍데기 2인분"
             />
           )}
 
@@ -269,14 +263,17 @@ function AiFoodLab() {
             {loading ? "분석 중..." : "AI로 분석"}
           </button>
 
-          {/* PoC 빠른 입력 — 텍스트/식당 모드만 */}
-          {!loading && (mode === "text" || mode === "restaurant") && !result && (
+          {/* PoC 빠른 입력 — 텍스트 모드만 */}
+          {!loading && mode === "text" && !result && (
             <div className="pt-2 flex flex-wrap gap-1.5">
               <span className="text-[10px] text-neutral-400 self-center">예시:</span>
-              {(mode === "text"
-                ? ["계란 후라이 2개", "엄마표 김치찌개", "스타벅스 아이스 아메리카노"]
-                : ["금돼지식당 껍데기 2인분", "교촌치킨 허니콤보 1마리", "이삭토스트 햄치즈"]
-              ).map((s) => (
+              {[
+                "계란 후라이 2개",
+                "엄마표 김치찌개",
+                "스타벅스 아이스 아메리카노",
+                "금돼지식당 껍데기 2인분",
+                "교촌치킨 허니콤보 1마리",
+              ].map((s) => (
                 <button
                   key={s}
                   onClick={() => setText(s)}

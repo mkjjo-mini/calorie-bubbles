@@ -23,7 +23,7 @@ import { callGemini, GeminiError } from "../ai/gemini";
 import { fetchFoodFallback, type FoodFallbackHit } from "../ai/food-fallback";
 
 interface AnalyzeBody {
-  mode: "photo" | "text" | "restaurant";
+  mode: "photo" | "text";
   text?: string;
   hint?: string;
   image?: {
@@ -135,15 +135,12 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
       if (!body.text?.trim()) {
         return jsonError(400, "INVALID_BODY", "text 필요");
       }
-      userText = `다음 음식 설명을 영양 정보로 변환하세요: "${body.text.trim()}"`;
-    } else if (body.mode === "restaurant") {
-      if (!body.text?.trim()) {
-        return jsonError(400, "INVALID_BODY", "text 필요");
-      }
-      userText = `식당 메뉴 영양 정보를 추정하세요. Google Search 결과를 참고해 메뉴 정보를 찾고, 못 찾으면 일반적인 1인분 기준으로 추정하세요: "${body.text.trim()}"`;
+      // 식당명/브랜드/특정 제품일 수 있어 항상 search ON.
+      // 일반 음식("계란 후라이")엔 검색이 안 걸리고 자체 지식으로 응답해도 정확함.
+      userText = `다음 음식 설명을 영양 정보로 변환하세요. 식당명·브랜드·구체 제품이 포함됐다면 Google Search 결과를 참고하세요: "${body.text.trim()}"`;
       useSearch = true;
     } else {
-      return jsonError(400, "INVALID_BODY", "mode must be photo/text/restaurant");
+      return jsonError(400, "INVALID_BODY", "mode must be photo/text");
     }
 
     try {
