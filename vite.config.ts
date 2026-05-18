@@ -14,6 +14,9 @@ export default defineConfig({
   },
   vite: {
     server: {
+      port: 3000,
+      // 3000이 점유돼 있어도 다른 포트로 fallback하지 말고 실패 — Supabase Site URL과 일치 보장
+      strictPort: true,
       // tunneling (cloudflared, ngrok 등) 통한 외부 host 허용 — dev only
       allowedHosts: true,
     },
