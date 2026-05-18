@@ -23,6 +23,12 @@ export interface FoodRow {
   fat_g: number;
   category?: string | null;
   is_estimated: boolean;
+  /** AI 음식 추가 메타데이터 (step-12) */
+  created_via?: "manual" | "search" | "ai_photo" | "ai_text";
+  photo_url?: string | null;
+  source_text?: string | null;
+  source_refs?: Array<{ title?: string; url?: string }> | null;
+  ai_confidence?: number | null;
   created_at: string;
   updated_at: string;
 }
