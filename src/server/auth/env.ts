@@ -23,6 +23,8 @@ export interface Env {
   ENVIRONMENT?: "development" | "production";
   /** Step 04 식약처 API */
   FOOD_API_KEY?: string;
+  /** Step 12 AI 음식 추가 — Google Gemini API key (https://aistudio.google.com) */
+  GEMINI_API_KEY?: string;
   /** v1 mock — 유료 사용자 강제 토글 (BM 확정 전까지) */
   FORCE_PAID?: string;
 }

@@ -5,6 +5,7 @@
  * (caller should fall through to TanStack Start).
  */
 import type { Env } from "../auth/env";
+import { handleAiFood } from "./ai-food";
 import { handleFavorites } from "./favorites";
 import { handleFoodLogs } from "./food-logs";
 import { handleFoods } from "./foods";
@@ -35,6 +36,8 @@ export async function handleApi(
       return handleUserProfile(req, env);
     case "/api/user-notifications":
       return handleUserNotifications(req, env);
+    case "/api/ai-food/analyze":
+      return handleAiFood(req, env);
     default:
       return null;
   }

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ChevronRight, LogOut } from "lucide-react";
+import { ChevronRight, LogOut, Sparkles } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
 
 export const Route = createFileRoute("/settings")({
@@ -85,6 +85,32 @@ function SettingsMenuPage() {
                 </Link>
               </React.Fragment>
             ))}
+          </div>
+        </div>
+
+        {/* 실험실 (PoC 전용) */}
+        <div className="px-5 pt-2 pb-2">
+          <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-2 px-1">
+            실험실
+          </p>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/50 overflow-hidden">
+            <Link
+              to="/lab/ai-foods"
+              className="flex w-full items-center justify-between px-4 py-4 text-left active:bg-amber-100/40 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-600" />
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">
+                    🧪 AI 음식 추가 테스트
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-neutral-500">
+                    사진·자연어·식당 검색 (Gemini) — DB 저장 X
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0 ml-2" />
+            </Link>
           </div>
         </div>
 

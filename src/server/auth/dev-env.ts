@@ -14,6 +14,7 @@ export function getDevEnv(): Env {
     SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     FOOD_API_KEY: process.env.FOOD_API_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     FORCE_PAID: process.env.FORCE_PAID,
     ENVIRONMENT:
       (process.env.ENVIRONMENT as "development" | "production") ?? "development",

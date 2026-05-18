@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsGoalRouteImport } from './routes/settings.goal'
+import { Route as LabAiFoodsRouteImport } from './routes/lab.ai-foods'
 import { Route as AuthSignupRouteImport } from './routes/auth.signup'
 import { Route as AuthResetRouteImport } from './routes/auth.reset'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
@@ -56,6 +57,11 @@ const SettingsGoalRoute = SettingsGoalRouteImport.update({
   path: '/goal',
   getParentRoute: () => SettingsRoute,
 } as any)
+const LabAiFoodsRoute = LabAiFoodsRouteImport.update({
+  id: '/lab/ai-foods',
+  path: '/lab/ai-foods',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthSignupRoute = AuthSignupRouteImport.update({
   id: '/auth/signup',
   path: '/auth/signup',
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset': typeof AuthResetRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/lab/ai-foods': typeof LabAiFoodsRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset': typeof AuthResetRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/lab/ai-foods': typeof LabAiFoodsRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset': typeof AuthResetRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/lab/ai-foods': typeof LabAiFoodsRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset'
     | '/auth/signup'
+    | '/lab/ai-foods'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset'
     | '/auth/signup'
+    | '/lab/ai-foods'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset'
     | '/auth/signup'
+    | '/lab/ai-foods'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   AuthLoginRoute: typeof AuthLoginRoute
   AuthResetRoute: typeof AuthResetRoute
   AuthSignupRoute: typeof AuthSignupRoute
+  LabAiFoodsRoute: typeof LabAiFoodsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -220,6 +233,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/goal'
       preLoaderRoute: typeof SettingsGoalRouteImport
       parentRoute: typeof SettingsRoute
+    }
+    '/lab/ai-foods': {
+      id: '/lab/ai-foods'
+      path: '/lab/ai-foods'
+      fullPath: '/lab/ai-foods'
+      preLoaderRoute: typeof LabAiFoodsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/auth/signup': {
       id: '/auth/signup'
@@ -277,6 +297,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthLoginRoute: AuthLoginRoute,
   AuthResetRoute: AuthResetRoute,
   AuthSignupRoute: AuthSignupRoute,
+  LabAiFoodsRoute: LabAiFoodsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
