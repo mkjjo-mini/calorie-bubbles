@@ -1,14 +1,11 @@
 /**
- * /api/user-notifications — 푸시 알림 시각 관리.
+ * /api/user-notifications — 푸시 알림 시간 관리.
  *
- * GET  /api/user-notifications  → 본인 알림 시각 목록 반환 { times: string[] }
- * PUT  /api/user-notifications  → 전체 교체
- *                                 body: { times: string[] (HH:MM, 30분 단위) }
- *                                 빈 배열 허용 (알림 off)
+ * GET  /api/user-notifications  → { times: string[] }
+ * PUT  /api/user-notifications  → 전체 교체. body: { times: HH:MM[] }
  */
 import type { Env } from "../auth/env";
-import { jsonError, withSession } from "../auth/middleware";
-import { getSupabase } from "../db/supabase";
+import { jsonError, withUser } from "../auth/middleware";
 
 const NOTIFY_TIME_RE = /^([01][0-9]|2[0-3]):(00|30)$/;
 
@@ -16,14 +13,12 @@ export async function handleUserNotifications(
   req: Request,
   env: Env,
 ): Promise<Response> {
-  return withSession(req, env, async (userKey) => {
-    const supabase = getSupabase(env);
-
+  return withUser(req, env, async ({ userId, admin }) => {
     if (req.method === "GET") {
-      const { data, error } = await supabase
+      const { data, error } = await admin
         .from("user_notifications")
         .select("time")
-        .eq("user_key", userKey)
+        .eq("user_id", userId)
         .order("time");
       if (error) return jsonError(500, "DB_ERROR", error.message);
       const times = (data ?? []).map((r: { time: string }) => r.time);
@@ -41,41 +36,29 @@ export async function handleUserNotifications(
         return jsonError(400, "INVALID_BODY", "body must be object");
       }
       const b = body as Record<string, unknown>;
-
       if (!Array.isArray(b.times)) {
-        return jsonError(
-          400,
-          "INVALID_BODY",
-          "times must be an array of HH:MM strings",
-        );
+        return jsonError(400, "INVALID_BODY", "times must be array");
       }
       for (const t of b.times) {
         if (typeof t !== "string" || !NOTIFY_TIME_RE.test(t)) {
-          return jsonError(
-            400,
-            "INVALID_BODY",
-            `times: invalid 30-min slot "${String(t)}"`,
-          );
+          return jsonError(400, "INVALID_BODY", `invalid 30-min slot "${String(t)}"`);
         }
       }
-      // dedupe + sort
       const times = Array.from(new Set(b.times as string[])).sort();
 
-      // 전체 교체: DELETE all → INSERT new rows
-      const { error: delError } = await supabase
+      const { error: delError } = await admin
         .from("user_notifications")
         .delete()
-        .eq("user_key", userKey);
+        .eq("user_id", userId);
       if (delError) return jsonError(500, "DB_ERROR", delError.message);
 
       if (times.length > 0) {
-        const rows = times.map((time) => ({ user_key: userKey, time }));
-        const { error: insError } = await supabase
+        const rows = times.map((time) => ({ user_id: userId, time }));
+        const { error: insError } = await admin
           .from("user_notifications")
           .insert(rows);
         if (insError) return jsonError(500, "DB_ERROR", insError.message);
       }
-
       return Response.json({ times });
     }
 

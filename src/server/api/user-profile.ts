@@ -1,15 +1,11 @@
 /**
  * /api/user-profile — 사용자 프로필 (신체정보 + 목표).
  *
- * GET  /api/user-profile  → 본인 row 반환 (없으면 null)
- * PUT  /api/user-profile  → UPSERT (user_key 서버 강제, onConflict: user_key)
- *                           body: { height_cm, weight_kg, sex, birth_year,
- *                                   activity_level?, goal?,
- *                                   target_weight_kg?, target_period_weeks? }
+ * GET  /api/user-profile  → 본인 row (없으면 null)
+ * PUT  /api/user-profile  → UPSERT (onConflict: user_id)
  */
 import type { Env } from "../auth/env";
-import { jsonError, withSession } from "../auth/middleware";
-import { getSupabase } from "../db/supabase";
+import { jsonError, withUser } from "../auth/middleware";
 
 const VALID_ACTIVITY = new Set([
   "sedentary",
@@ -24,14 +20,12 @@ export async function handleUserProfile(
   req: Request,
   env: Env,
 ): Promise<Response> {
-  return withSession(req, env, async (userKey) => {
-    const supabase = getSupabase(env);
-
+  return withUser(req, env, async ({ userId, admin }) => {
     if (req.method === "GET") {
-      const { data, error } = await supabase
+      const { data, error } = await admin
         .from("user_profiles")
         .select("*")
-        .eq("user_key", userKey)
+        .eq("user_id", userId)
         .maybeSingle();
       if (error) return jsonError(500, "DB_ERROR", error.message);
       return Response.json(data ?? null);
@@ -49,22 +43,13 @@ export async function handleUserProfile(
       }
       const b = body as Record<string, unknown>;
 
-      // --- 필수 필드 검증 ---
       const height = Number(b.height_cm);
       if (!Number.isFinite(height) || height < 50 || height > 300) {
-        return jsonError(
-          400,
-          "INVALID_BODY",
-          "height_cm must be a number between 50 and 300",
-        );
+        return jsonError(400, "INVALID_BODY", "height_cm must be 50–300");
       }
       const weight = Number(b.weight_kg);
       if (!Number.isFinite(weight) || weight < 10 || weight > 500) {
-        return jsonError(
-          400,
-          "INVALID_BODY",
-          "weight_kg must be a number between 10 and 500",
-        );
+        return jsonError(400, "INVALID_BODY", "weight_kg must be 10–500");
       }
       if (b.sex !== "male" && b.sex !== "female") {
         return jsonError(400, "INVALID_BODY", "sex must be 'male' or 'female'");
@@ -75,27 +60,13 @@ export async function handleUserProfile(
         birthYear < 1900 ||
         birthYear > new Date().getFullYear()
       ) {
-        return jsonError(
-          400,
-          "INVALID_BODY",
-          "birth_year must be a valid year",
-        );
+        return jsonError(400, "INVALID_BODY", "birth_year must be valid");
       }
-
-      // --- 선택 필드 검증 ---
       if (b.activity_level !== undefined && !VALID_ACTIVITY.has(b.activity_level as string)) {
-        return jsonError(
-          400,
-          "INVALID_BODY",
-          "activity_level must be one of: sedentary, light, moderate, active, very_active",
-        );
+        return jsonError(400, "INVALID_BODY", "invalid activity_level");
       }
       if (b.goal !== undefined && !VALID_GOAL.has(b.goal as string)) {
-        return jsonError(
-          400,
-          "INVALID_BODY",
-          "goal must be one of: loss, maintain, gain",
-        );
+        return jsonError(400, "INVALID_BODY", "invalid goal");
       }
       const targetWeight =
         b.target_weight_kg !== undefined && b.target_weight_kg !== null
@@ -105,11 +76,7 @@ export async function handleUserProfile(
         targetWeight !== null &&
         (!Number.isFinite(targetWeight) || targetWeight < 10 || targetWeight > 500)
       ) {
-        return jsonError(
-          400,
-          "INVALID_BODY",
-          "target_weight_kg must be a number between 10 and 500 or null",
-        );
+        return jsonError(400, "INVALID_BODY", "target_weight_kg must be 10–500 or null");
       }
       const targetPeriod =
         b.target_period_weeks !== undefined && b.target_period_weeks !== null
@@ -119,31 +86,25 @@ export async function handleUserProfile(
         targetPeriod !== null &&
         (!Number.isInteger(targetPeriod) || targetPeriod < 1 || targetPeriod > 520)
       ) {
-        return jsonError(
-          400,
-          "INVALID_BODY",
-          "target_period_weeks must be a positive integer or null",
-        );
+        return jsonError(400, "INVALID_BODY", "target_period_weeks 1–520 or null");
       }
 
       const upsertRow = {
-        user_key: userKey,
+        user_id: userId,
         height_cm: height,
         weight_kg: weight,
         sex: b.sex as "male" | "female",
         birth_year: birthYear,
-        ...(b.activity_level !== undefined
-          ? { activity_level: b.activity_level }
-          : {}),
+        ...(b.activity_level !== undefined ? { activity_level: b.activity_level } : {}),
         ...(b.goal !== undefined ? { goal: b.goal } : {}),
         target_weight_kg: targetWeight,
         target_period_weeks: targetPeriod,
         updated_at: new Date().toISOString(),
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await admin
         .from("user_profiles")
-        .upsert(upsertRow, { onConflict: "user_key" })
+        .upsert(upsertRow, { onConflict: "user_id" })
         .select()
         .single();
       if (error) return jsonError(500, "DB_ERROR", error.message);

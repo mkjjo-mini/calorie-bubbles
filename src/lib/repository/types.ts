@@ -1,9 +1,8 @@
 /**
- * Repository 추상화 — LocalStorage 어댑터와 Cloud 어댑터가 같은 인터페이스 구현.
- * useStorage() 훅이 isPaidUser 기준으로 어느 어댑터 사용할지 결정.
+ * Repository 추상화 — Cloud 어댑터(/api/* + Supabase) 한 가지만 사용.
+ * (v1 BM 결정 시 LocalStorage 어댑터는 v2로 미뤘음)
  *
- * 신규 컴포넌트는 useStorage()를 사용해서 자연스럽게 cloud 동기화 받음.
- * 기존 컴포넌트(add.tsx 등)의 localStorage 직접 호출은 점진 마이그레이션 (별도 PR).
+ *  Standalone Auth 전환 후 — user_id (uuid, auth.users.id) 사용.
  */
 import type { ResolvedGoal } from "@/lib/goal";
 
@@ -11,7 +10,7 @@ export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
 
 export interface FoodRow {
   id: string;
-  user_key: number;
+  user_id: string;
   source: "user" | "api" | "preset";
   food_code?: string | null;
   name: string;
@@ -30,7 +29,7 @@ export interface FoodRow {
 
 export type FoodInsert = Omit<
   FoodRow,
-  "id" | "user_key" | "created_at" | "updated_at"
+  "id" | "user_id" | "created_at" | "updated_at"
 >;
 
 export interface FoodLogRow {
@@ -82,7 +81,7 @@ export interface UserGoalInsert {
 }
 
 export interface UserProfileRow {
-  user_key: number;
+  user_id: string;
   height_cm: number;
   weight_kg: number;
   sex: "male" | "female";
@@ -148,7 +147,10 @@ export interface Repository {
   };
 }
 
-/** Worker가 401 SESSION_EXPIRED 응답 시 — useSession 자동 재로그인 트리거 */
+/**
+ * Worker가 401 SESSION_EXPIRED 응답 시 — Supabase 세션이 만료되거나 잘못된 경우.
+ * cloud.ts의 api() 래퍼가 자동으로 /auth/login으로 redirect 후 throw.
+ */
 export class CloudAuthError extends Error {
   constructor() {
     super("CloudAuthError");

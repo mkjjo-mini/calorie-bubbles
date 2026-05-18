@@ -12,4 +12,10 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
+  vite: {
+    server: {
+      // tunneling (cloudflared, ngrok 등) 통한 외부 host 허용 — dev only
+      allowedHosts: true,
+    },
+  },
 });

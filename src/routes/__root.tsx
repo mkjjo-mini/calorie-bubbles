@@ -5,9 +5,11 @@ import {
   createRootRouteWithContext,
   useRouter,
   useRouterState,
+  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
@@ -75,14 +77,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { title: "탄단지 버블" },
+      { name: "description", content: "탄·단·지 균형 체크 5초 트래커" },
     ],
     links: [
       {
@@ -99,7 +95,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="ko">
       <head>
         <HeadContent />
       </head>
@@ -113,37 +109,93 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  // 부팅 시 토스 세션 (silent). 앱인토스 외부 dev 환경에서는 unauthenticated로 폴백돼
-  // localStorage 모드로 정상 동작. 결과는 Step 07에서 useStorage()가 활용.
-  const { status, error } = useSession();
-
   return (
     <QueryClientProvider client={queryClient}>
+      <AppShell />
+      <Toaster />
+    </QueryClientProvider>
+  );
+}
+
+/**
+ * 라우트 가드 + 레이아웃.
+ *  - /auth/* : 인증 화면. BottomTabBar 숨김. 가드 X
+ *  - 그 외   : 인증 필요. unauthenticated → /auth/login?next=<현재경로>
+ */
+function AppShell() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isAuthRoute = pathname.startsWith("/auth/");
+  const { session, status } = useSession();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthRoute) return;
+    if (status === "unauthenticated") {
+      navigate({
+        to: "/auth/login",
+        search: pathname === "/" ? undefined : { next: pathname },
+        replace: true,
+      });
+    }
+  }, [isAuthRoute, status, pathname, navigate]);
+
+  // auth 화면은 가드 통과
+  if (isAuthRoute) {
+    return (
+      <div className="min-h-screen w-full bg-white">
+        <Outlet />
+      </div>
+    );
+  }
+
+  // 부팅/리다이렉트 중
+  if (status === "loading" || status === "unauthenticated") {
+    return <SplashScreen />;
+  }
+
+  if (status === "error") {
+    return <AuthErrorScreen />;
+  }
+
+  // authenticated
+  void session;
+  return (
+    <>
       <div className="min-h-screen w-full bg-white pb-20">
-        {/* DEBUG: 흰 화면 진단용 임시 패널 — 이후 제거 */}
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 9999,
-            padding: "8px 12px",
-            background: "rgba(255, 240, 200, 0.95)",
-            fontFamily: "monospace",
-            fontSize: 11,
-            color: "#1f2937",
-            borderBottom: "1px solid #FFD700",
-          }}
-        >
-          session: {status}
-          {error ? ` · err: ${error}` : ""}
-        </div>
         <Outlet />
       </div>
       <BottomTabBar />
-      <Toaster />
-    </QueryClientProvider>
+    </>
+  );
+}
+
+function SplashScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-white">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-900" />
+    </div>
+  );
+}
+
+function AuthErrorScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-white px-6">
+      <div className="max-w-sm text-center">
+        <h2 className="text-base font-semibold text-neutral-900">
+          앱을 시작할 수 없어요
+        </h2>
+        <p className="mt-2 text-xs text-neutral-500">
+          환경설정(SUPABASE_URL/ANON_KEY)을 확인해주세요. 잠시 후 다시 시도하면
+          해결될 수 있어요.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-5 inline-flex h-10 items-center rounded-lg bg-neutral-900 px-4 text-xs font-semibold text-white"
+        >
+          다시 시도
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -162,7 +214,10 @@ function BottomTabBar() {
     <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(env(safe-area-inset-bottom),16px)] pointer-events-none">
       <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-neutral-200/70 bg-white/90 p-1.5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         {TABS.map((tab) => {
-          const active = pathname === tab.to;
+          const active =
+            tab.to === "/"
+              ? pathname === "/"
+              : pathname === tab.to || pathname.startsWith(`${tab.to}/`);
           const Icon = tab.icon;
           return (
             <Link

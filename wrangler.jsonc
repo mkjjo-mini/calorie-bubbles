@@ -6,23 +6,14 @@
 		"nodejs_compat"
 	],
 	"main": "src/server.ts",
-	// Cookie Secure flag 분기용. dev에서는 ENVIRONMENT=development override 가능.
+	// Standalone Auth — KV(SESSIONS) / mTLS binding 모두 제거.
+	// 세션은 Supabase Auth가 직접 쿠키로 관리.
+	//
+	// SUPABASE_URL, SUPABASE_ANON_KEY는 vars (공개 가능)
+	// SUPABASE_SERVICE_ROLE_KEY는 `npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY` (절대 vars X)
 	"vars": {
-		"ENVIRONMENT": "production"
-	},
-	// 세션 저장용 KV namespace (토스 OAuth 세션 페이로드).
-	// 셋업 명령: `npx wrangler kv namespace create SESSIONS`
-	// remote: true → local dev에서도 prod KV에 연결. 데이터 격리가 필요하면 dev용 namespace를
-	// 별도 생성 후 wrangler env 분리 권장.
-	"kv_namespaces": [
-		{
-			"binding": "SESSIONS",
-			"id": "71e26d1917784bd985719380152d8d40",
-			"remote": true
-		}
-	]
-	// Step 07에서 D1 binding 추가 예정:
-	// "d1_databases": [
-	//   { "binding": "DB", "database_name": "tandanji-bubble", "database_id": "..." }
-	// ]
+		"ENVIRONMENT": "production",
+		"SUPABASE_URL": "",
+		"SUPABASE_ANON_KEY": ""
+	}
 }
