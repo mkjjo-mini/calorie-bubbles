@@ -155,7 +155,9 @@ export function AiAddSheet({
         message?: string;
       };
       if (!res.ok) {
-        setErr(`${json.code ?? res.status}: ${json.message ?? "분석 실패"}`);
+        // 친절한 메시지가 있으면 그대로, 없으면 code 첨부
+        const msg = json.message ?? "분석 실패";
+        setErr(json.code === "OVERLOADED" ? msg : `${json.code ?? res.status}: ${msg}`);
         return;
       }
       if (!json.analysis?.is_food) {

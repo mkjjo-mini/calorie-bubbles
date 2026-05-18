@@ -104,18 +104,41 @@ export async function callGemini(
     body.tools = [{ googleSearch: {} }];
   }
 
-  const res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(env.GEMINI_API_KEY)}`, {
+  // 503/429 시 지수 백오프로 최대 2회 retry — Flash 모델 일시 과부하 자주 있음
+  const url = `${ENDPOINT}?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+  const init: RequestInit = {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
-  });
+  };
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
+  let res: Response | null = null;
+  let lastErrText = "";
+  const RETRY_DELAYS_MS = [500, 1500]; // 1st retry 500ms, 2nd retry 1500ms (총 ~2s)
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    res = await fetch(url, init);
+    if (res.ok) break;
+    if (res.status !== 503 && res.status !== 429) break; // 그 외 에러는 즉시 throw
+    lastErrText = await res.text().catch(() => "");
+    if (attempt === RETRY_DELAYS_MS.length) break; // retry 다 썼음
+    await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+  }
+
+  if (!res || !res.ok) {
+    const errText = lastErrText || (res ? await res.text().catch(() => "") : "");
+    const status = res?.status ?? 0;
+    // 503/429 → 사용자 친화 메시지
+    if (status === 503 || status === 429) {
+      throw new GeminiError(
+        503,
+        "OVERLOADED",
+        "AI 서버가 잠시 혼잡해요. 10초 후 다시 시도해주세요.",
+      );
+    }
     throw new GeminiError(
-      res.status,
-      `HTTP_${res.status}`,
-      `Gemini API ${res.status}: ${errText.slice(0, 300)}`,
+      status,
+      `HTTP_${status}`,
+      `Gemini API ${status}: ${errText.slice(0, 300)}`,
     );
   }
 
