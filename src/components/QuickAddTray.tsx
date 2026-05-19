@@ -347,7 +347,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
           setFavFoods((prev) => prev.map(apply));
           setAllFoods((prev) => prev.map(apply));
           persistLastQty(food.name, 1, "serving");
-          toast.success(`${newServingG}g을 1인분 기준으로 저장했어요`);
+          // 자명한 변화 — 카드 g 값이 즉시 갱신됨
         } catch (e) {
           persistLastQty(food.name, qty, mode);
           if (e instanceof CloudAuthError) toast.error("로그인이 필요해요");

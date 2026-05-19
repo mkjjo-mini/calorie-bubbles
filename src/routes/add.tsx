@@ -558,7 +558,7 @@ function AddFoodPage() {
                 });
                 // await로 변경 — UI 갱신 보장 (이후 foodLogs.create 전에 완료)
                 await loadCloudData();
-                toast.success(`${newServingG}g을 1인분 기준으로 저장했어요`);
+                // 자명한 변화 — 폼/카드의 g 값이 즉시 갱신됨
               } catch (e) {
                 if (e instanceof CloudAuthError) {
                   toast.error("로그인이 필요해요");
@@ -603,11 +603,7 @@ function AddFoodPage() {
           is_estimated: reconciled.is_estimated,
         };
         foodId = await resolveFoodId({ source: "api", food_code, insert });
-        if (reconciled.is_estimated) {
-          toast(`${displayName(food.name)} 탄단지 자동 추정`, {
-            description: "라벨 칼로리와 매크로 합이 안 맞아 카테고리 기준으로 보정했어요",
-          });
-        }
+        // 자동 추정은 폼 필드가 즉시 채워져 시각적으로 명백 — 토스트 생략
 
         // saveAsBase: api 음식도 1인분 기준 cloud 갱신 (custom 분기와 동일 패턴)
         if (saveAsBase && food.serving_g > 0) {
@@ -625,7 +621,7 @@ function AddFoodPage() {
                 fat_g: Math.round(reconciled.fat * ratio * 10) / 10,
               });
               await loadCloudData();
-              toast.success(`${newServingG}g을 1인분 기준으로 저장했어요`);
+              // 자명한 변화 — 폼/카드의 g 값이 즉시 갱신됨
             } catch (e) {
               if (e instanceof CloudAuthError) {
                 toast.error("로그인이 필요해요");

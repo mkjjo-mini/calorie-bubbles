@@ -262,7 +262,7 @@ export function AiAddSheet({
       // 트레이의 "최근 사용"에 즉시 노출되도록 공용 store에 push
       pushRecent(food.id);
 
-      toast.success(`"${edit.name}" 기록됐어요`);
+      // 시트 닫힘 + 홈에 버블 추가가 시각 신호 — 토스트 생략
       onRegistered?.();
       handleOpenChange(false);
     } catch (e) {
