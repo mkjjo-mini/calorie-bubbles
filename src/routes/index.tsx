@@ -8,7 +8,8 @@ import { BubbleField } from "@/components/BubbleField";
 import { Wave } from "@/components/Wave";
 import { EmptyStomach } from "@/components/EmptyStomach";
 import { QuickAddTray } from "@/components/QuickAddTray";
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { AiAddSheet } from "@/components/AiAddSheet";
+import { Plus, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -110,6 +111,7 @@ function logsToBubbles(logs: FoodLogRow[]): BubbleEntry[] {
 function Index() {
   // Cloud food logs for the selected date (defaults to today via search param)
   const [logs, setLogs] = useState<FoodLogRow[]>([]);
+  const [aiSheetOpen, setAiSheetOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const navigate = useNavigate();
   const { date: selectedDate } = Route.useSearch();
@@ -244,6 +246,8 @@ function Index() {
 
     toast(`${displayName(name)}을 지웠어요`, {
       id: tid,
+      // 되돌리기 토스트는 하단(엄지 닿기 좋은 위치) + 5초로 명시
+      position: "bottom-center",
       duration: 5000,
       action: {
         label: "되살리기",
@@ -541,15 +545,32 @@ function Index() {
         </AlertDialog>
       </main>
 
-      {/* FAB */}
+      {/* FAB — AI 시트 트리거 */}
       <button
-        onClick={() => navigate({ to: "/add", search: { date: selectedDate } })}
-        aria-label="음식 추가"
+        onClick={() => setAiSheetOpen(true)}
+        aria-label="AI로 음식 추가"
         className="fixed z-40 flex items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg active:scale-95 transition hover:bg-neutral-800"
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 88px)", right: 20, width: 44, height: 44 }}
       >
-        <Plus className="w-5 h-5" />
+        <Sparkles className="w-4 h-4" />
       </button>
+
+      <AiAddSheet
+        open={aiSheetOpen}
+        onOpenChange={setAiSheetOpen}
+        loggedDate={selectedDate}
+        onRegistered={() => {
+          // logs 재조회 (Optimistic insert 대신 — AI 결과/사진 등 신뢰성 위해 서버 단일 진실)
+          void (async () => {
+            try {
+              const fetched = await cloudRepository.foodLogs.listByDate(selectedDate);
+              setLogs(fetched);
+            } catch {
+              /* 다음 탐색에서 자동 복구 */
+            }
+          })();
+        }}
+      />
     </div>
   );
 }

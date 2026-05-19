@@ -1009,10 +1009,10 @@ function AddFoodPage() {
                     <button
                       key={`api-${a.code}`}
                       onClick={() => setActiveFood(apiToPickable(a))}
-                      className="rounded-xl border border-neutral-200 bg-white p-3 text-left transition active:scale-[0.98] hover:border-neutral-300"
+                      className="min-h-[100px] rounded-xl border border-neutral-200 bg-white p-3 text-left transition active:scale-[0.98] hover:border-neutral-300"
                     >
                       <div className="flex items-start justify-between gap-1">
-                        <span className="text-sm font-semibold text-neutral-900 line-clamp-2">
+                        <span className="text-sm font-semibold text-neutral-900 line-clamp-2 leading-tight">
                           {a.name}
                         </span>
                         <span className="text-[10px] text-neutral-400 px-1 py-0.5 rounded bg-neutral-100 shrink-0">
@@ -1183,7 +1183,7 @@ function PresetCard({
   onPick: () => void;
 }) {
   return (
-    <div className="relative rounded-xl border border-neutral-200 bg-white p-3 transition active:scale-95 hover:border-neutral-300">
+    <div className="relative min-h-[100px] rounded-xl border border-neutral-200 bg-white p-3 transition active:scale-95 hover:border-neutral-300">
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -1199,7 +1199,7 @@ function PresetCard({
         />
       </button>
       <button onClick={onPick} className="text-left w-full pr-6">
-        <div className="text-sm font-bold text-neutral-900 leading-tight">
+        <div className="text-sm font-bold text-neutral-900 leading-tight line-clamp-2">
           {food.name}
         </div>
         <div className="text-xs text-neutral-400 mt-1">{food.kcal} kcal</div>
@@ -1257,7 +1257,7 @@ function CustomFoodCard({
     : `${food.serving_amount}${food.serving_unit} (${food.serving_g}g)`;
 
   return (
-    <div className="relative rounded-xl border border-neutral-200 bg-white p-3 transition active:scale-95 hover:border-neutral-300">
+    <div className="relative min-h-[100px] rounded-xl border border-neutral-200 bg-white p-3 transition active:scale-95 hover:border-neutral-300">
       <div className="absolute top-2 right-2 flex items-center gap-0.5">
         <button
           onClick={(e) => {
@@ -1288,7 +1288,7 @@ function CustomFoodCard({
         onClick={onPick}
         className="text-left w-full pr-14"
       >
-        <div className="text-[14px] font-bold text-neutral-900 leading-tight">
+        <div className="text-[14px] font-bold text-neutral-900 leading-tight line-clamp-2">
           {food.name}
         </div>
         <div className="mt-1 flex items-center gap-1.5">

@@ -16,7 +16,7 @@ import { todayKST } from "@/lib/time";
 import type { FoodInsert } from "@/lib/repository/types";
 
 const LAST_QTY_KEY = "lastQtyByName";
-const RECENT_KEY = "recentFoods";
+import { pushRecent as pushRecentShared, readRecents, subscribeRecentChange } from "@/lib/recent-foods";
 
 type LastQtyMap = Record<string, LastQty>;
 
@@ -27,15 +27,6 @@ function formatQty(food: FoodRow, last: LastQty | undefined): string {
     : last.qty === 1
       ? "1인분"
       : `${last.qty}인분`;
-}
-
-function readArr(key: string): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(key) || "[]");
-  } catch {
-    return [];
-  }
 }
 
 function dominantMacro(f: FoodRow): Macro {
@@ -140,13 +131,15 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
   const flyIdRef = useRef(0);
 
   useEffect(() => {
-    setRecents(readArr(RECENT_KEY));
+    setRecents(readRecents());
     try {
       setLastQtyMap(JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}"));
     } catch {
       setLastQtyMap({});
     }
     void loadCloudData();
+    // AI 시트 등 다른 컴포넌트에서 recents push되면 즉시 동기화
+    return subscribeRecentChange(() => setRecents(readRecents()));
   }, []);
 
   // 다른 탭(add.tsx 등)에서 즐겨찾기/음식 변경 후 홈으로 돌아오면 최신화
@@ -184,11 +177,8 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
   }
 
   function pushRecent(foodId: string) {
-    setRecents((prev) => {
-      const next = [foodId, ...prev.filter((x) => x !== foodId)].slice(0, 10);
-      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-      return next;
-    });
+    // 공용 util — localStorage 갱신 + custom event 발동
+    setRecents(pushRecentShared(foodId));
   }
 
   function persistLastQty(name: string, qty: number, mode: "serving" | "gram") {

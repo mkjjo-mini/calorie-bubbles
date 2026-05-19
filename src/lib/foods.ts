@@ -88,7 +88,15 @@ export function caloriesFor(entry: { carbs: number; protein: number; fat: number
   return entry.carbs * 4 + entry.protein * 4 + entry.fat * 9;
 }
 
-/** Strip quantity suffix (e.g. "닭가슴살 100g" -> "닭가슴살") */
+/**
+ * 끝에 붙은 수량 접미사만 제거 — "닭가슴살 100g" → "닭가슴살"
+ * 단, "아이스 아메리카노"처럼 정상 공백 이름은 유지.
+ *
+ * 수량 패턴: 끝에 "<숫자><단위>" 형태 (g/ml/kg/개/봉/잔/조각/인분 등)
+ */
+const QUANTITY_SUFFIX_RE =
+  /\s+\d+(\.\d+)?\s*(g|ml|kg|개|봉|잔|조각|인분|컵|스푼|쪽|장|병|캔)\.?$/i;
+
 export function displayName(fullName: string): string {
-  return fullName.split(" ")[0];
+  return fullName.replace(QUANTITY_SUFFIX_RE, "").trim();
 }

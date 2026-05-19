@@ -207,8 +207,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
     if (!MEAL_SLOT_ORDER.includes(target)) return;
     if (target === item.slot) return;
     onChangeSlot(item.foodLogId, target);
-    const meta = MEAL_SLOT_META[target];
-    toast(`${meta.label}으로 옮겼어요`);
+    // 자명한 시각 변화 — 토스트 생략 (UI에서 아이템이 즉시 옮겨감)
   }
 
   function openActions(item: LogItem) {
@@ -296,8 +295,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
             setSlotSheetFor(null);
             if (slot === target.slot) return;
             onChangeSlot(target.foodLogId, slot);
-            const meta = MEAL_SLOT_META[slot];
-            toast(`${meta.label}으로 옮겼어요`);
+            // 자명한 시각 변화 — 토스트 생략
           }}
         />
       )}
@@ -310,7 +308,7 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
             const target = editFor;
             setEditFor(null);
             onReplaceQty(target.foodLogId, newEntries);
-            toast("수정했어요");
+            // 자명한 시각 변화 — 토스트 생략 (값이 즉시 갱신됨)
           }}
         />
       )}
