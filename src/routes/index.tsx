@@ -170,11 +170,18 @@ function Index() {
   const bowlControls = useAnimationControls();
   const prevLenRef = useRef(0);
   useEffect(() => {
-    if (entries.length > prevLenRef.current && stage === 4) {
+    const added = entries.length > prevLenRef.current;
+    if (added && stage === 4) {
       bowlControls.start({
         x: [0, -4, 4, -4, 4, 0],
         transition: { duration: 0.3 },
       });
+    }
+    // 목표 초과 후 음식 추가될 때마다 햅틱 — stage 3(100~120%)=짧게, stage 4(≥120%)=강하게.
+    // ⚠️ Android Chrome/PWA만 동작. iOS Safari는 navigator.vibrate 미지원.
+    //    Capacitor 도입 후 @capacitor/haptics로 교체 예정 (launch-roadmap Week 1).
+    if (added && stage >= 3 && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(stage === 4 ? [40, 30, 60] : 40);
     }
     prevLenRef.current = entries.length;
   }, [entries.length, stage, bowlControls]);
