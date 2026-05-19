@@ -163,7 +163,8 @@ function AppShell() {
   void session;
   return (
     <>
-      <div className="min-h-screen w-full bg-white pb-20">
+      {/* pb-40(160px): BottomTabBar(~60px) + FAB(56pt at bottom+88) 모두 클리어 — 마지막 row의 ⋮ 액션 버튼 가림 방지 */}
+      <div className="min-h-screen w-full bg-white pb-40">
         <Outlet />
       </div>
       <BottomTabBar />
