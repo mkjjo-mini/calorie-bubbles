@@ -278,7 +278,13 @@ export function AiAddSheet({
   }
 
   return (
-    <Drawer open={open} onOpenChange={handleOpenChange}>
+    <Drawer
+      open={open}
+      onOpenChange={handleOpenChange}
+      // vaul의 input 자동 reposition 비활성 — iOS에서 over-correct로 시트가
+      // 너무 위로 튀어오르는 문제 발생. 브라우저 native + dvh에 맡김.
+      repositionInputs={false}
+    >
       <DrawerContent className="max-h-[90dvh]">
         <DrawerHeader className="text-left pb-2">
           <DrawerTitle className="flex items-center gap-1.5 text-base">
