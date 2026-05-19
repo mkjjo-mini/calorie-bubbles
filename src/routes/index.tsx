@@ -400,6 +400,29 @@ function Index() {
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[375px] flex flex-col">
+        {/* 좌우 스와이프 영역 — header + bowl 전체 포함 (bowl이 꽉 차서 스와이프 공간 부족할 때 헤더에서도 가능).
+            아래 QuickAddTray·MealLogList는 가로 스크롤·dnd가 있어 제외. */}
+        <div
+          className="touch-pan-y"
+          onPointerDown={(e) => {
+            swipeStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+          }}
+          onPointerUp={(e) => {
+            const s = swipeStartRef.current;
+            swipeStartRef.current = null;
+            if (!s) return;
+            const dx = e.clientX - s.x;
+            const dy = e.clientY - s.y;
+            const dt = Date.now() - s.t;
+            if (dt > 700) return;
+            if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+            if (dx > 0) setSelectedDate(addDays(selectedDate, -1));
+            else setSelectedDate(addDays(selectedDate, 1));
+          }}
+          onPointerCancel={() => {
+            swipeStartRef.current = null;
+          }}
+        >
         {/* Header */}
         <header className="px-5 pt-6 pb-3">
           <div className="flex items-center justify-between gap-2">
@@ -499,31 +522,8 @@ function Index() {
           </div>
         </header>
 
-        {/* Bubble field — bowl/stomach container.
-            좌우 스와이프(60px 임계값, |dy|<40) → 전일/다음일 이동. 짧은 탭은 영향 X. */}
-        <section
-          className="relative mx-auto px-5 touch-pan-y"
-          style={{ width: fieldWidth }}
-          onPointerDown={(e) => {
-            swipeStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
-          }}
-          onPointerUp={(e) => {
-            const s = swipeStartRef.current;
-            swipeStartRef.current = null;
-            if (!s) return;
-            const dx = e.clientX - s.x;
-            const dy = e.clientY - s.y;
-            const dt = Date.now() - s.t;
-            // 빠르고(700ms 이내) 가로 우세한(|dx|>60, |dy|<40) 움직임만 스와이프로 인정
-            if (dt > 700) return;
-            if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
-            if (dx > 0) setSelectedDate(addDays(selectedDate, -1));
-            else setSelectedDate(addDays(selectedDate, 1));
-          }}
-          onPointerCancel={() => {
-            swipeStartRef.current = null;
-          }}
-        >
+        {/* Bubble field — bowl/stomach container (스와이프는 상위 div에서 처리) */}
+        <section className="relative mx-auto px-5" style={{ width: fieldWidth }}>
           <motion.div
             ref={bowlRef}
             animate={bowlControls}
@@ -597,6 +597,8 @@ function Index() {
             </motion.p>
           </AnimatePresence>
         </section>
+        </div>
+        {/* /스와이프 wrapper */}
 
         {/* Quick add tray */}
         <QuickAddTray
