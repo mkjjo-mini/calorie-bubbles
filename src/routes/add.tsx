@@ -667,7 +667,7 @@ function AddFoodPage() {
         localStorage.setItem(LAST_QTY_KEY, JSON.stringify({ [food.name]: lastQtyToPersist }));
       }
 
-      toast(`${displayName(food.name)} 추가됨`);
+      // 자명한 변화 — 홈 복귀하면 버블·로그 즉시 표시되므로 토스트 생략
       navigate({ to: "/", search: { date: loggedDate } });
     } catch (e) {
       if (e instanceof CloudAuthError) {
