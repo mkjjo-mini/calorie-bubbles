@@ -114,6 +114,8 @@ function Index() {
   const [aiSheetOpen, setAiSheetOpen] = useState(false);
   /** bowl 좌우 스와이프 추적 (날짜 이동) */
   const swipeStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  /** 다른 모달 열려있을 때는 shake 무시 — 콜백에서 최신값 참조용 */
+  const shakeBlockedRef = useRef(false);
   const [hydrated, setHydrated] = useState(false);
   const navigate = useNavigate();
   const { date: selectedDate } = Route.useSearch();
@@ -201,6 +203,66 @@ function Index() {
         void cloudRepository.foodLogs.remove(logId);
       }
       pendingDeleteRef.current.clear();
+    };
+  }, []);
+
+  // 흔들기로 비우기 — DeviceMotion API. iOS 13+ 권한 필요, 첫 사용자 탭 시 1회 요청
+  // 한 번 흔들면 비우기 dialog 열림 (확인 한 번 더 받음). 빈 상태일 때는 무시.
+  useEffect(() => {
+    shakeBlockedRef.current =
+      openResetDialog || aiSheetOpen || calendarOpen || logs.length === 0;
+  });
+  useEffect(() => {
+    const SHAKE_THRESHOLD = 18; // m/s² — 우연한 움직임 차단
+    const COOLDOWN_MS = 2000;
+    let lastShake = 0;
+    let attached = false;
+
+    function onMotion(e: DeviceMotionEvent) {
+      if (shakeBlockedRef.current) return;
+      const a = e.accelerationIncludingGravity;
+      if (!a) return;
+      const mag = Math.hypot(a.x ?? 0, a.y ?? 0, a.z ?? 0);
+      if (mag < SHAKE_THRESHOLD) return;
+      const now = Date.now();
+      if (now - lastShake < COOLDOWN_MS) return;
+      lastShake = now;
+      setOpenResetDialog(true);
+    }
+
+    function attach() {
+      if (attached) return;
+      attached = true;
+      window.addEventListener("devicemotion", onMotion);
+    }
+
+    // iOS 13+ Safari: DeviceMotionEvent.requestPermission() 필요. 반드시 user gesture 안에서 호출.
+    const dme = DeviceMotionEvent as unknown as {
+      requestPermission?: () => Promise<"granted" | "denied">;
+    };
+    if (typeof dme?.requestPermission === "function") {
+      const onFirstTouch = async () => {
+        document.removeEventListener("click", onFirstTouch);
+        document.removeEventListener("touchend", onFirstTouch);
+        try {
+          const status = await dme.requestPermission!();
+          if (status === "granted") attach();
+        } catch {
+          /* 사용자 거절·dev 환경 — silent */
+        }
+      };
+      document.addEventListener("click", onFirstTouch, { once: true });
+      document.addEventListener("touchend", onFirstTouch, { once: true });
+      return () => {
+        document.removeEventListener("click", onFirstTouch);
+        document.removeEventListener("touchend", onFirstTouch);
+        if (attached) window.removeEventListener("devicemotion", onMotion);
+      };
+    }
+    // Android·기타: 권한 없이 바로 청취
+    attach();
+    return () => {
+      if (attached) window.removeEventListener("devicemotion", onMotion);
     };
   }, []);
 
