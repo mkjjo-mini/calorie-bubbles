@@ -577,14 +577,14 @@ function Index() {
         </AlertDialog>
       </main>
 
-      {/* FAB — AI 시트 트리거 */}
+      {/* FAB — AI 시트 트리거. Material Design FAB 표준 (56pt button + 24pt icon) */}
       <button
         onClick={() => setAiSheetOpen(true)}
         aria-label="AI로 음식 추가"
         className="fixed z-40 flex items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg active:scale-95 transition hover:bg-neutral-800"
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 88px)", right: 20, width: 44, height: 44 }}
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 88px)", right: 20, width: 56, height: 56 }}
       >
-        <Sparkles className="w-4 h-4" />
+        <Sparkles className="w-6 h-6" />
       </button>
 
       <AiAddSheet
