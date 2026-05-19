@@ -54,7 +54,9 @@ interface FallbackInfo {
 }
 
 interface AnalyzeResponse {
-  analysis: Analysis;
+  /** v2 API: 후보 배열. 사진에 여러 음식이면 length > 1.
+   *  현재 시트는 첫 후보만 사용 — 다중 선택은 /lab에서 검증 후 도입. */
+  candidates: Analysis[];
   refs?: Ref[];
   fallback?: FallbackInfo;
 }
@@ -161,12 +163,13 @@ export function AiAddSheet({
         setErr(json.code === "OVERLOADED" ? msg : `${json.code ?? res.status}: ${msg}`);
         return;
       }
-      if (!json.analysis?.is_food) {
+      const first = json.candidates?.[0];
+      if (!first?.is_food) {
         setErr("음식을 찾지 못했어요. 다른 사진/설명을 시도해보세요.");
         return;
       }
       setResult(json);
-      setEdit({ ...json.analysis });
+      setEdit({ ...first });
       setStep("preview");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "네트워크 오류");

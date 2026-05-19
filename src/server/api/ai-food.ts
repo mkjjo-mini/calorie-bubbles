@@ -1,21 +1,28 @@
 /**
- * /api/ai-food/analyze — 음식 AI 분석 (PoC, DB 저장 X).
+ * /api/ai-food/analyze — 음식 AI 분석 (PoC).
  *
  *  POST body:
  *    { mode: "photo", image: { mimeType, data(base64) }, hint?: string }
  *    { mode: "text", text: string }
- *    { mode: "restaurant", text: string }
  *
  *  응답:
  *    {
- *      analysis: {
- *        name, serving_unit, serving_amount, serving_g,
- *        kcal, carb_g, protein_g, fat_g,
- *        confidence, rationale, is_food
- *      },
- *      refs?: [{ title, url }],   // restaurant 모드만
- *      raw: { text, full }        // 디버깅용
+ *      candidates: [
+ *        {
+ *          is_food, name, serving_unit, serving_amount, serving_g,
+ *          kcal, carb_g, protein_g, fat_g,
+ *          confidence, rationale, needs_fallback, fallback_query?,
+ *          bbox?: [y0, x0, y1, x1]   // 사진 모드만, 0-1 normalized (top-left origin)
+ *        },
+ *        ...
+ *      ],
+ *      refs?: [{ title, url }],   // 검색 grounding (텍스트 모드)
+ *      fallback?: {...}           // 단일 후보일 때만 식약처 보강 (multi에선 생략)
+ *      raw: { text }              // 디버깅
  *    }
+ *
+ *  사진에 여러 음식이 보이면 candidates.length > 1. 사용자가 lab/sheet UI에서 선택.
+ *  텍스트 모드는 거의 항상 length 1.
  */
 import type { Env } from "../auth/env";
 import { jsonError, NO_STORE_JSON_HEADERS, withUser } from "../auth/middleware";
@@ -32,67 +39,120 @@ interface AnalyzeBody {
   };
 }
 
-const NUTRITION_SCHEMA = {
+const CANDIDATE_PROPS = {
+  is_food: { type: "boolean" },
+  name: { type: "string" },
+  serving_unit: { type: "string" },
+  serving_amount: { type: "number" },
+  serving_g: { type: "number" },
+  kcal: { type: "number" },
+  carb_g: { type: "number" },
+  protein_g: { type: "number" },
+  fat_g: { type: "number" },
+  confidence: { type: "number" },
+  rationale: { type: "string" },
+  needs_fallback: { type: "boolean" },
+  fallback_query: { type: "string" },
+  /** 사진 모드 한정 — [y0, x0, y1, x1] 0~1 normalized */
+  bbox: {
+    type: "array",
+    items: { type: "number" },
+    minItems: 4,
+    maxItems: 4,
+  },
+};
+
+const RESPONSE_SCHEMA = {
   type: "object",
   properties: {
-    is_food: { type: "boolean" },
-    name: { type: "string" },
-    serving_unit: { type: "string" },
-    serving_amount: { type: "number" },
-    serving_g: { type: "number" },
-    kcal: { type: "number" },
-    carb_g: { type: "number" },
-    protein_g: { type: "number" },
-    fat_g: { type: "number" },
-    confidence: { type: "number" },
-    rationale: { type: "string" },
-    /** 영양 추정에 자신 없으면 true. 그러면 서버가 식약처 API로 보강 */
-    needs_fallback: { type: "boolean" },
-    /** 식약처 검색용 query 추천 (예: "돼지고기 된장찌개"). 비우면 name 사용 */
-    fallback_query: { type: "string" },
+    candidates: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: CANDIDATE_PROPS,
+        required: [
+          "is_food",
+          "name",
+          "serving_unit",
+          "serving_amount",
+          "serving_g",
+          "kcal",
+          "carb_g",
+          "protein_g",
+          "fat_g",
+          "confidence",
+          "rationale",
+          "needs_fallback",
+        ],
+      },
+    },
   },
-  required: [
-    "is_food",
-    "name",
-    "serving_unit",
-    "serving_amount",
-    "serving_g",
-    "kcal",
-    "carb_g",
-    "protein_g",
-    "fat_g",
-    "confidence",
-    "rationale",
-    "needs_fallback",
-  ],
+  required: ["candidates"],
 } as const;
 
 const SYSTEM_PROMPT = `당신은 한국 음식 영양 정보 전문가입니다.
 사용자가 보낸 사진 또는 자연어 설명을 기반으로 한국 식약처 기준에 맞춰 영양 정보를 추정합니다.
 
-규칙:
+⚠️ 중요: 응답은 항상 candidates 배열입니다.
+- 사진에 여러 음식이 분명히 구분돼 보이면 각 음식을 별도 candidate로 분리합니다 (예: 김치찌개 + 밥 + 김 → 3개 candidates).
+- 같은 음식의 일부(예: 밥의 여러 그릇)는 묶어서 하나로 처리합니다.
+- 단일 음식 / 텍스트 모드는 candidates.length = 1.
+
+각 candidate에 적용되는 규칙:
 - 모든 응답은 한국어로 작성합니다.
 - 음식 이름은 검색하기 좋게 일반적인 명칭으로 적습니다 (예: "엄마표 김치찌개" → "돼지고기 김치찌개").
 - 1인분 기준 영양 정보를 추정하며, serving_g는 통상 한국 식약처 기준 1인분 무게입니다.
 - 자연어에 "2인분", "곱빼기" 같은 단서가 있으면 serving_amount에 반영합니다.
-- 자연어에 "고기 듬뿍", "기름 많이" 같은 단서가 있으면 macros에 반영합니다.
-- 음식이 아닌 사진/텍스트(사람·풍경·무관한 텍스트)면 is_food=false, 다른 필드는 0 또는 빈 문자열.
+- "고기 듬뿍", "기름 많이" 같은 단서는 macros에 반영합니다.
+- 음식이 아닌 사진/텍스트(사람·풍경·무관)면 candidates에 단일 항목 + is_food=false.
 - confidence는 0.0~1.0 (어둡거나 모호하면 낮춤).
-- rationale은 한 문장으로 "왜 이렇게 추정했는지" 적습니다.
-- 식당명이 포함된 경우 Google Search 결과를 참고합니다.
+- rationale은 한 문장으로 "왜 이렇게 추정했는지".
+- 식당명이 포함되면 Google Search 결과 참고.
 
-⚠️ needs_fallback 판단 — 매우 중요:
+⚠️ bbox (사진 모드만):
+- 각 candidate의 bbox는 [y0, x0, y1, x1] 형식, 모든 값 0.0~1.0 normalized.
+- (0,0)이 사진 좌상단, (1,1)이 우하단.
+- y0 < y1, x0 < x1.
+- 사진 전체에 한 음식만 있으면 bbox를 거의 [0,0,1,1]로 설정해도 됨.
+- 텍스트 모드는 bbox 생략.
+
+⚠️ needs_fallback 판단:
 - needs_fallback=true: 영양 정보를 추측만 하고 있어 식약처 DB 보강이 필요한 경우
-- needs_fallback=false: 다음 중 하나라도 해당되면 false
-  · 사진에서 영양성분 라벨을 읽었다 (예: "0kcal" 표기를 본 경우)
-  · 잘 알려진 표준 메뉴라 영양 정보를 알고 있다 (예: 흰밥 1공기, 삶은 계란)
-  · 사용자가 영양 정보를 직접 명시했다
+- needs_fallback=false: 다음 중 하나라도 해당
+  · 사진에서 영양성분 라벨을 읽었다 (예: "0kcal" 표기)
+  · 잘 알려진 표준 메뉴 (흰밥 1공기, 삶은 계란)
+  · 사용자가 영양 정보를 직접 명시
 
-⚠️ false인 경우, kcal·carb·protein·fat 값이 0이어도 "실제로 0"인 것으로 간주됩니다.
-   예: 라벨에 "0kcal"이 명시된 무가당 차 → needs_fallback=false, kcal=0 (정확함)
-   예: 새로운 카페 메뉴라 모름 → needs_fallback=true, fallback_query="딸기 라떼"
+⚠️ false면 0 값도 "실제 0"으로 간주됩니다.
 
-fallback_query: needs_fallback=true 일 때만 필요. 식약처 식품 DB에서 검색할 한국어 일반 명칭 (브랜드명 제외, 음식 카테고리 위주).`;
+fallback_query: needs_fallback=true 일 때만, 식약처 DB 검색용 한국어 일반 명칭.`;
+
+interface Candidate {
+  is_food: boolean;
+  name: string;
+  serving_unit: string;
+  serving_amount: number;
+  serving_g: number;
+  kcal: number;
+  carb_g: number;
+  protein_g: number;
+  fat_g: number;
+  confidence: number;
+  rationale: string;
+  needs_fallback: boolean;
+  fallback_query?: string;
+  bbox?: [number, number, number, number];
+}
+
+interface FallbackResult {
+  triggered: boolean;
+  reason?: string;
+  hit?: FoodFallbackHit | null;
+  scaled?: FoodFallbackHit | null;
+  query?: string;
+  totalCount?: number;
+  error?: string;
+}
 
 export async function handleAiFood(req: Request, env: Env): Promise<Response> {
   return withUser(req, env, async () => {
@@ -106,7 +166,6 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
     } catch {
       return jsonError(400, "INVALID_BODY", "body must be JSON");
     }
-
     if (!body || typeof body !== "object") {
       return jsonError(400, "INVALID_BODY", "body must be object");
     }
@@ -122,7 +181,6 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
       if (!body.image.mimeType?.startsWith("image/")) {
         return jsonError(400, "INVALID_BODY", "image.mimeType은 image/* 이어야 합니다");
       }
-      // base64 크기 대략 검증 (5MB 한도) — 4/3 ratio 고려
       if (body.image.data.length > 5 * 1024 * 1024 * 1.4) {
         return jsonError(413, "IMAGE_TOO_LARGE", "사진이 너무 큽니다 (5MB 한도)");
       }
@@ -135,8 +193,6 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
       if (!body.text?.trim()) {
         return jsonError(400, "INVALID_BODY", "text 필요");
       }
-      // 식당명/브랜드/특정 제품일 수 있어 항상 search ON.
-      // 일반 음식("계란 후라이")엔 검색이 안 걸리고 자체 지식으로 응답해도 정확함.
       userText = `다음 음식 설명을 영양 정보로 변환하세요. 식당명·브랜드·구체 제품이 포함됐다면 Google Search 결과를 참고하세요: "${body.text.trim()}"`;
       useSearch = true;
     } else {
@@ -144,23 +200,24 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
     }
 
     try {
-      // ⚠️ Gemini는 grounding(검색) 사용 시 responseSchema/jsonMode를 함께 못 씀
-      // (Search grounding이 free-form text 생성을 강제). 검색 모드일 땐 jsonMode 끄고
-      // "JSON으로만 답해라" 지시로 유도 + 파싱 시 정규식으로 JSON 추출.
       const result = await callGemini(env, {
         systemInstruction: SYSTEM_PROMPT,
         userText: useSearch
-          ? `${userText}\n\n반드시 다음 형식의 JSON만 출력하세요 (다른 텍스트 금지):\n${JSON.stringify(NUTRITION_SCHEMA.properties)}`
+          ? `${userText}\n\n반드시 다음 JSON 스키마만 출력하세요 (다른 텍스트 금지):\n${JSON.stringify(
+              { candidates: [CANDIDATE_PROPS] },
+            )}`
           : userText,
         image,
         useSearch,
         jsonMode: !useSearch,
-        responseSchema: useSearch ? undefined : (NUTRITION_SCHEMA as unknown as Record<string, unknown>),
+        responseSchema: useSearch
+          ? undefined
+          : (RESPONSE_SCHEMA as unknown as Record<string, unknown>),
         temperature: 0.4,
       });
 
-      // grounding 모드면 raw text에서 JSON 추출 시도
-      let analysis: unknown = result.parsed;
+      // grounding 모드면 raw text에서 JSON 추출
+      let parsed: unknown = result.parsed;
       if (useSearch) {
         const text = result.rawText.trim();
         const match = text.match(/\{[\s\S]*\}/);
@@ -168,81 +225,73 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
           return jsonError(500, "PARSE_ERROR", `검색 모드 응답에서 JSON 추출 실패: ${text.slice(0, 200)}`);
         }
         try {
-          analysis = JSON.parse(match[0]);
+          parsed = JSON.parse(match[0]);
         } catch (e) {
           return jsonError(500, "PARSE_ERROR", `JSON 파싱 실패: ${(e as Error).message}`);
         }
       }
 
-      // 식약처 API fallback — Gemini가 자신 없거나 macros 0인 경우
-      let fallback: {
-        triggered: boolean;
-        reason?: string;
-        hit?: FoodFallbackHit | null;
-        scaled?: FoodFallbackHit | null;
-        query?: string;
-        totalCount?: number;
-        error?: string;
-      } = { triggered: false };
+      const p = parsed as { candidates?: Candidate[] };
+      let candidates: Candidate[] = Array.isArray(p?.candidates) ? p.candidates : [];
 
-      const a = analysis as Record<string, unknown>;
-      const isFood = a?.is_food === true;
-      const needsFallback = a?.needs_fallback === true;
-      // ⚠️ macros_all_zero를 자동 트리거 조건에 넣지 않음 — Gemini가 "실제 0"임을
-      //    명시적으로 판단한 경우(0kcal 음료 라벨)와 충돌. needs_fallback=true 만 신뢰.
+      // 빈 응답 fallback — 일부 모델은 candidates 안 감싸고 단일 객체로 응답할 수 있어 보정
+      if (candidates.length === 0 && parsed && typeof parsed === "object" && "name" in (parsed as object)) {
+        candidates = [parsed as Candidate];
+      }
 
-      if (isFood && needsFallback && env.FOOD_API_KEY) {
-        const query =
-          (typeof a?.fallback_query === "string" && a.fallback_query.trim()) ||
-          (typeof a?.name === "string" && a.name) ||
-          "";
-        const targetG = Number(a?.serving_g) > 0 ? Number(a.serving_g) : undefined;
-        try {
-          const fb = await fetchFoodFallback(env, query, targetG);
-          if (fb.hit) {
+      if (candidates.length === 0) {
+        return jsonError(500, "PARSE_ERROR", "candidates 비어있음");
+      }
+
+      // 식약처 fallback — 단일 candidate일 때만 적용 (multi는 사용자가 직접 결정)
+      let fallback: FallbackResult = { triggered: false };
+      if (candidates.length === 1) {
+        const c = candidates[0];
+        if (c.is_food && c.needs_fallback && env.FOOD_API_KEY) {
+          const query = (c.fallback_query?.trim()) || c.name || "";
+          const targetG = c.serving_g > 0 ? c.serving_g : undefined;
+          try {
+            const fb = await fetchFoodFallback(env, query, targetG);
+            if (fb.hit) {
+              fallback = {
+                triggered: true,
+                reason: "ai_uncertain",
+                hit: fb.hit,
+                scaled: fb.scaled ?? fb.hit,
+                query: fb.query,
+                totalCount: fb.totalCount,
+              };
+              const src = fb.scaled ?? fb.hit;
+              c.kcal = src.kcal;
+              c.carb_g = src.carb_g;
+              c.protein_g = src.protein_g;
+              c.fat_g = src.fat_g;
+              c.rationale = `${c.rationale} · 식약처 DB "${fb.hit.name}" 기준 보강.`.trim();
+            } else {
+              fallback = {
+                triggered: true,
+                reason: "ai_uncertain",
+                hit: null,
+                query: fb.query,
+                totalCount: fb.totalCount,
+              };
+            }
+          } catch (e) {
             fallback = {
               triggered: true,
               reason: "ai_uncertain",
-              hit: fb.hit,
-              scaled: fb.scaled ?? fb.hit,
-              query: fb.query,
-              totalCount: fb.totalCount,
-            };
-            // analysis의 macros를 fallback 값으로 덮어쓰기 (사용자가 보는 값)
-            const src = fb.scaled ?? fb.hit;
-            (analysis as Record<string, unknown>).kcal = src.kcal;
-            (analysis as Record<string, unknown>).carb_g = src.carb_g;
-            (analysis as Record<string, unknown>).protein_g = src.protein_g;
-            (analysis as Record<string, unknown>).fat_g = src.fat_g;
-            const existingRationale = String(a?.rationale ?? "");
-            (analysis as Record<string, unknown>).rationale =
-              `${existingRationale} · 식약처 DB "${fb.hit.name}" 기준 보강.`.trim();
-          } else {
-            fallback = {
-              triggered: true,
-              reason: "ai_uncertain",
-              hit: null,
-              query: fb.query,
-              totalCount: fb.totalCount,
+              error: e instanceof Error ? e.message : String(e),
             };
           }
-        } catch (e) {
-          fallback = {
-            triggered: true,
-            reason: "ai_uncertain",
-            error: e instanceof Error ? e.message : String(e),
-          };
         }
       }
 
       return new Response(
         JSON.stringify({
-          analysis,
+          candidates,
           refs: result.groundingChunks ?? [],
           fallback,
-          raw: {
-            text: result.rawText,
-          },
+          raw: { text: result.rawText },
         }),
         { status: 200, headers: NO_STORE_JSON_HEADERS },
       );
