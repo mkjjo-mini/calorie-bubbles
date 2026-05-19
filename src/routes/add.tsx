@@ -740,7 +740,8 @@ function AddFoodPage() {
       setFormInitial(null);
 
       // 신규 등록: 저장과 동시에 1인분으로 즉시 로그 추가 (수량 시트 건너뜀)
-      //  → 사용자가 /add에 머물러서 시각 변화가 없으니 추가 토스트 표시
+      //  → 사용자는 /add 페이지에 그대로 머물러 다른 음식 검색·추가 계속 가능
+      //  → 시각 변화 없으니 토스트로 추가 사실 알림
       // 편집: 그냥 폼만 닫음 (음식 정보 갱신만 의도)
       if (!existingRow) {
         try {
@@ -756,7 +757,6 @@ function AddFoodPage() {
           });
           pushRecent(food.id);
           toast.success(`${displayName(food.name)} 추가했어요`);
-          navigate({ to: "/", search: { date: loggedDate } });
         } catch (e) {
           if (e instanceof CloudAuthError) toast.error("로그인이 필요해요");
           else toast.error(`기록 추가 실패: ${e instanceof Error ? e.message : String(e)}`);

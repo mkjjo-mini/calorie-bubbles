@@ -237,10 +237,13 @@ function Index() {
     }
 
     // iOS 13+ Safari: DeviceMotionEvent.requestPermission() 필요. 반드시 user gesture 안에서 호출.
-    const dme = DeviceMotionEvent as unknown as {
-      requestPermission?: () => Promise<"granted" | "denied">;
-    };
-    if (typeof dme?.requestPermission === "function") {
+    // ⚠️ 일부 WebView (Toss 인앱 등)는 DeviceMotionEvent global 자체 없음 → ReferenceError 방지로 globalThis 경유.
+    const dme = (globalThis as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<"granted" | "denied"> } }).DeviceMotionEvent;
+    if (!dme) {
+      // DeviceMotion 자체 미지원 — 흔들기 기능 비활성
+      return;
+    }
+    if (typeof dme.requestPermission === "function") {
       const onFirstTouch = async () => {
         document.removeEventListener("click", onFirstTouch);
         document.removeEventListener("touchend", onFirstTouch);
