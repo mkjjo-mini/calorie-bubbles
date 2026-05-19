@@ -26,6 +26,7 @@ import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { resizeToThumbnail } from "@/lib/image-resize";
 import { useSession } from "@/hooks/useSession";
 import { inferMealSlot, type MealSlot } from "@/lib/foods";
+import { pushRecent } from "@/lib/recent-foods";
 
 interface Analysis {
   is_food: boolean;
@@ -254,6 +255,9 @@ export function AiAddSheet({
         const t = await lRes.text();
         throw new Error(`기록 추가 실패: ${t.slice(0, 200)}`);
       }
+
+      // 트레이의 "최근 사용"에 즉시 노출되도록 공용 store에 push
+      pushRecent(food.id);
 
       toast.success(`"${edit.name}" 기록됐어요`);
       onRegistered?.();
