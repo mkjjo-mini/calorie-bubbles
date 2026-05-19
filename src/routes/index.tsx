@@ -246,6 +246,8 @@ function Index() {
 
     toast(`${displayName(name)}을 지웠어요`, {
       id: tid,
+      // 되돌리기 토스트는 하단(엄지 닿기 좋은 위치) + 5초로 명시
+      position: "bottom-center",
       duration: 5000,
       action: {
         label: "되살리기",
