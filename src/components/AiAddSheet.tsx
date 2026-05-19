@@ -279,7 +279,7 @@ export function AiAddSheet({
 
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[90dvh]">
         <DrawerHeader className="text-left pb-2">
           <DrawerTitle className="flex items-center gap-1.5 text-base">
             <Sparkles className="h-4 w-4 text-amber-500" />

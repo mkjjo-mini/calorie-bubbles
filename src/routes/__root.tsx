@@ -76,7 +76,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // interactive-widget=resizes-content: iOS 17.4+ Safari가 키보드 만큼 viewport 축소
+      //   (Drawer/Sheet 등 bottom-anchored fixed 요소가 키보드 위로 올라타는 빈공간 문제 방지)
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" },
       { title: "탄단지 버블" },
       { name: "description", content: "탄·단·지 균형 체크 5초 트래커" },
     ],
