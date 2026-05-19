@@ -29,6 +29,7 @@ import { CloudAuthError, type FoodInsert, type FavoriteRow, type FoodRow } from 
 import { resolveFoodId } from "@/lib/foods-resolve";
 import { todayKST } from "@/lib/time";
 import { inferMealSlot } from "@/lib/foods";
+import { pushRecent } from "@/lib/recent-foods";
 
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -737,8 +738,30 @@ function AddFoodPage() {
 
       setFormOpen(false);
       setFormInitial(null);
-      // Continuous flow: open quantity sheet right after
-      setActiveFood(customFoodToPickable(food));
+
+      // 신규 등록: 저장과 동시에 1인분으로 즉시 로그 추가 (수량 시트 건너뜀)
+      //  → 사용자가 /add에 머물러서 시각 변화가 없으니 추가 토스트 표시
+      // 편집: 그냥 폼만 닫음 (음식 정보 갱신만 의도)
+      if (!existingRow) {
+        try {
+          await cloudRepository.foodLogs.create({
+            food_id: food.id,
+            logged_date: loggedDate,
+            meal_slot: inferMealSlot(Date.now()),
+            grams: food.serving_g,
+            kcal: food.kcal,
+            carb_g: food.carb_g,
+            protein_g: food.protein_g,
+            fat_g: food.fat_g,
+          });
+          pushRecent(food.id);
+          toast.success(`${displayName(food.name)} 추가했어요`);
+          navigate({ to: "/", search: { date: loggedDate } });
+        } catch (e) {
+          if (e instanceof CloudAuthError) toast.error("로그인이 필요해요");
+          else toast.error(`기록 추가 실패: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
     } catch (e) {
       if (e instanceof CloudAuthError) {
         toast.error("로그인이 필요해요");
