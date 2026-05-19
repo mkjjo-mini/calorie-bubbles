@@ -112,6 +112,8 @@ function Index() {
   // Cloud food logs for the selected date (defaults to today via search param)
   const [logs, setLogs] = useState<FoodLogRow[]>([]);
   const [aiSheetOpen, setAiSheetOpen] = useState(false);
+  /** bowl 좌우 스와이프 추적 (날짜 이동) */
+  const swipeStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const navigate = useNavigate();
   const { date: selectedDate } = Route.useSearch();
@@ -168,11 +170,18 @@ function Index() {
   const bowlControls = useAnimationControls();
   const prevLenRef = useRef(0);
   useEffect(() => {
-    if (entries.length > prevLenRef.current && stage === 4) {
+    const added = entries.length > prevLenRef.current;
+    if (added && stage === 4) {
       bowlControls.start({
         x: [0, -4, 4, -4, 4, 0],
         transition: { duration: 0.3 },
       });
+    }
+    // 목표 초과 후 음식 추가될 때마다 햅틱 — stage 3(100~120%)=짧게, stage 4(≥120%)=강하게.
+    // ⚠️ Android Chrome/PWA만 동작. iOS Safari는 navigator.vibrate 미지원.
+    //    Capacitor 도입 후 @capacitor/haptics로 교체 예정 (launch-roadmap Week 1).
+    if (added && stage >= 3 && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(stage === 4 ? [40, 30, 60] : 40);
     }
     prevLenRef.current = entries.length;
   }, [entries.length, stage, bowlControls]);
@@ -425,8 +434,31 @@ function Index() {
           </div>
         </header>
 
-        {/* Bubble field — bowl/stomach container */}
-        <section className="relative mx-auto px-5" style={{ width: fieldWidth }}>
+        {/* Bubble field — bowl/stomach container.
+            좌우 스와이프(60px 임계값, |dy|<40) → 전일/다음일 이동. 짧은 탭은 영향 X. */}
+        <section
+          className="relative mx-auto px-5 touch-pan-y"
+          style={{ width: fieldWidth }}
+          onPointerDown={(e) => {
+            swipeStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+          }}
+          onPointerUp={(e) => {
+            const s = swipeStartRef.current;
+            swipeStartRef.current = null;
+            if (!s) return;
+            const dx = e.clientX - s.x;
+            const dy = e.clientY - s.y;
+            const dt = Date.now() - s.t;
+            // 빠르고(700ms 이내) 가로 우세한(|dx|>60, |dy|<40) 움직임만 스와이프로 인정
+            if (dt > 700) return;
+            if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+            if (dx > 0) setSelectedDate(addDays(selectedDate, -1));
+            else setSelectedDate(addDays(selectedDate, 1));
+          }}
+          onPointerCancel={() => {
+            swipeStartRef.current = null;
+          }}
+        >
           <motion.div
             ref={bowlRef}
             animate={bowlControls}
