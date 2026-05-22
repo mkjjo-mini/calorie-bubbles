@@ -364,10 +364,12 @@ function AiFoodLab() {
         {/* 결과 */}
         {result && (
           <div className="px-4 mt-6 space-y-3">
-            <p className="text-xs text-neutral-600">
-              <b>{candidates.length}개</b>의 음식을 찾았어요.
-              {multi && " 원하는 것만 체크하세요."}
-            </p>
+            {candidates.some((c) => c.is_food) ? (
+              <p className="text-xs text-neutral-600">
+                <b>{candidates.filter((c) => c.is_food).length}개</b>의 음식을 찾았어요.
+                {multi && " 원하는 것만 체크하세요."}
+              </p>
+            ) : null}
 
             {/* 사진 + bbox 오버레이 */}
             {mode === "photo" && image && multi && (
@@ -581,8 +583,13 @@ function CandidateRow({
 
   if (!candidate.is_food) {
     return (
-      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-4 text-xs text-neutral-500">
-        음식 아님 — "{candidate.name || candidate.rationale}"
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-5 text-center">
+        <p className="text-sm font-semibold text-neutral-900">
+          음식을 찾지 못했어요
+        </p>
+        <p className="mt-1 text-xs text-neutral-500">
+          음식 사진이나 음식 이름을 입력해주세요.
+        </p>
       </div>
     );
   }
