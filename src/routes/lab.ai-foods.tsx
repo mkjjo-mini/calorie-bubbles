@@ -65,10 +65,16 @@ interface FallbackInfo {
   error?: string;
 }
 
+interface GuardrailInfo {
+  injectionSuspected: boolean;
+  rejectedCount: number;
+}
+
 interface AnalyzeResponse {
   candidates: Candidate[];
   refs?: Ref[];
   fallback?: FallbackInfo;
+  guardrails?: GuardrailInfo;
   raw?: { text: string };
 }
 
@@ -414,6 +420,21 @@ function AiFoodLab() {
             )}
 
             {result.fallback?.triggered && <FallbackBanner info={result.fallback} />}
+
+            {/* 가드레일 상태 (실험실 디버깅용) */}
+            {result.guardrails &&
+              (result.guardrails.injectionSuspected ||
+                result.guardrails.rejectedCount > 0) && (
+                <div className="rounded-xl border border-purple-200 bg-purple-50 px-3 py-2.5 text-[11px] text-purple-900 space-y-1">
+                  <p className="font-semibold">🛡️ 가드레일 작동</p>
+                  {result.guardrails.injectionSuspected && (
+                    <p>· prompt injection 의심 구문 감지·제거됨</p>
+                  )}
+                  {result.guardrails.rejectedCount > 0 && (
+                    <p>· 비정상 영양값 후보 {result.guardrails.rejectedCount}개 거부됨</p>
+                  )}
+                </div>
+              )}
 
             {result.refs && result.refs.length > 0 && (
               <div className="rounded-xl border border-neutral-100 bg-white px-3 py-3">
