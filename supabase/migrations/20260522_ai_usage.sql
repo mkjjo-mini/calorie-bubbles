@@ -1,8 +1,9 @@
 -- ============================================================================
 --  AI 가드레일 — 사용량 추적 테이블
 --
---  rate limit (사용자별 일일 호출 수) + 비용 한도 (전체 일일 호출 수) 용도.
---  사용자당 하루 1 row, count를 INCR.
+--  rate limit (사용자별 일일 호출 수) 용도. 사용자당 하루 1 row, count를 INCR.
+--  ※ 전체 비용 통제는 Google Cloud Console 예산 경보로 — 여기선 유저당 한도만.
+--  ※ 일별 호출 추이는 이 테이블을 SELECT로 집계해 분석 가능.
 --
 --  실행: Supabase Dashboard → SQL Editor → 본 파일 전체 → Run
 -- ============================================================================
@@ -14,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.ai_usage (
   PRIMARY KEY (user_id, used_on)
 );
 
--- 일별 전체 호출 수 집계 (비용 한도 체크) 빠르게
+-- 일별 호출 추이 분석용 (선택)
 CREATE INDEX IF NOT EXISTS ai_usage_date_idx ON public.ai_usage (used_on);
 
 ALTER TABLE public.ai_usage ENABLE ROW LEVEL SECURITY;
@@ -39,12 +40,3 @@ BEGIN
   RETURNING count INTO new_count;
   RETURN new_count;
 END $$;
-
--- 일별 전체 호출 수 합계 (비용 한도 체크용)
-CREATE OR REPLACE FUNCTION public.total_ai_usage(p_date date)
-RETURNS integer
-LANGUAGE sql
-SECURITY DEFINER
-AS $$
-  SELECT COALESCE(SUM(count), 0)::integer FROM public.ai_usage WHERE used_on = p_date;
-$$;

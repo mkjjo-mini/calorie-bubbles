@@ -3,7 +3,6 @@ import {
   sanitizeUserText,
   validateNutrition,
   PER_USER_DAILY_LIMIT,
-  GLOBAL_DAILY_LIMIT,
 } from "@/server/ai/guardrails";
 
 /* ============================================================
@@ -163,12 +162,10 @@ describe("validateNutrition", () => {
  *  한도 상수 — 합리적 범위인지 sanity check
  * ============================================================ */
 describe("guardrail 상수", () => {
-  it("사용자 한도는 양수, 전체 한도보다 작음", () => {
+  it("사용자 한도는 양수 — abuse 차단용 합리적 범위", () => {
     expect(PER_USER_DAILY_LIMIT).toBeGreaterThan(0);
-    expect(PER_USER_DAILY_LIMIT).toBeLessThan(GLOBAL_DAILY_LIMIT);
-  });
-
-  it("전체 한도는 Gemini 무료 티어(1500 RPD) 안쪽", () => {
-    expect(GLOBAL_DAILY_LIMIT).toBeLessThanOrEqual(1500);
+    // 정상 사용자(식사 3~5회 + 재시도)는 넘지 않을 만큼 넉넉, 폭주는 차단
+    expect(PER_USER_DAILY_LIMIT).toBeGreaterThanOrEqual(20);
+    expect(PER_USER_DAILY_LIMIT).toBeLessThanOrEqual(200);
   });
 });

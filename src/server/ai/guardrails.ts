@@ -11,18 +11,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /* ---------------- 한도 상수 ---------------- */
 
-/** 사용자 1명당 하루 AI 호출 한도. 정상 사용자는 식사 3~5회 + 재시도 고려해 넉넉히. */
+/**
+ * 사용자 1명당 하루 AI 호출 한도. 정상 사용자는 식사 3~5회 + 재시도 고려해 넉넉히.
+ * 한 사용자가 비정상적으로 폭주 호출하는 abuse만 차단하는 용도.
+ *
+ * ※ 전체 비용 통제는 "전체 한도로 사용자 차단"이 아니라 Google Cloud Console의
+ *   예산 경보(budget alert)로 한다 — 유료 사용자가 남의 사용량 때문에 막히지 않도록.
+ *   (launch-roadmap Week 2: Gemini API 예산 알림 설정)
+ */
 export const PER_USER_DAILY_LIMIT = 50;
 
-/** 전체 사용자 합산 하루 호출 한도. Gemini 무료 티어(1500 RPD) 안쪽 + 비용 안전판. */
-export const GLOBAL_DAILY_LIMIT = 1200;
-
-/* ---------------- 1+2. Rate limit & cost cap ---------------- */
+/* ---------------- Rate limit (유저당) ---------------- */
 
 export interface UsageCheckResult {
   ok: boolean;
   /** 차단 사유 (ok=false일 때) */
-  reason?: "USER_LIMIT" | "GLOBAL_LIMIT";
+  reason?: "USER_LIMIT";
   /** 사용자에게 보여줄 메시지 */
   message?: string;
   /** 호출 후 사용자의 오늘 누적 횟수 (ok=true일 때) */
@@ -30,9 +34,7 @@ export interface UsageCheckResult {
 }
 
 /**
- * 호출 직전 사용량 체크 + 카운트 증가.
- * - 전체 한도 먼저 확인 (비용 보호 우선)
- * - 통과하면 사용자 카운터 INCR → 한도 초과면 차단
+ * 호출 직전 사용량 체크 + 카운트 증가 (유저당 일일 한도).
  *
  * ⚠️ 카운터를 미리 올리므로, Gemini 호출이 실패해도 1회 소모됨.
  *    abuse 방어 측면에선 의도된 동작 (실패 유발 공격 차단).
@@ -43,22 +45,7 @@ export async function checkAndConsumeUsage(
 ): Promise<UsageCheckResult> {
   const today = todayKSTDate();
 
-  // (a) 전체 일일 한도
-  const { data: total, error: totalErr } = await admin.rpc("total_ai_usage", {
-    p_date: today,
-  });
-  if (totalErr) {
-    // 집계 실패 시 — 안전하게 통과시키되 로그 (가용성 > 엄격함)
-    console.error("[guardrails] total_ai_usage failed", totalErr.message);
-  } else if (typeof total === "number" && total >= GLOBAL_DAILY_LIMIT) {
-    return {
-      ok: false,
-      reason: "GLOBAL_LIMIT",
-      message: "오늘 AI 분석 요청이 많아 잠시 제한됐어요. 내일 다시 이용해주세요.",
-    };
-  }
-
-  // (b) 사용자 일일 한도 — INCR 후 반환값으로 판정
+  // 사용자 일일 한도 — INCR 후 반환값으로 판정
   const { data: userCount, error: userErr } = await admin.rpc(
     "increment_ai_usage",
     { p_user_id: userId, p_date: today },
