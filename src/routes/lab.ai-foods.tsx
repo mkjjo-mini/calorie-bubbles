@@ -65,10 +65,16 @@ interface FallbackInfo {
   error?: string;
 }
 
+interface GuardrailInfo {
+  injectionSuspected: boolean;
+  rejectedCount: number;
+}
+
 interface AnalyzeResponse {
   candidates: Candidate[];
   refs?: Ref[];
   fallback?: FallbackInfo;
+  guardrails?: GuardrailInfo;
   raw?: { text: string };
 }
 
@@ -358,10 +364,12 @@ function AiFoodLab() {
         {/* 결과 */}
         {result && (
           <div className="px-4 mt-6 space-y-3">
-            <p className="text-xs text-neutral-600">
-              <b>{candidates.length}개</b>의 음식을 찾았어요.
-              {multi && " 원하는 것만 체크하세요."}
-            </p>
+            {candidates.some((c) => c.is_food) ? (
+              <p className="text-xs text-neutral-600">
+                <b>{candidates.filter((c) => c.is_food).length}개</b>의 음식을 찾았어요.
+                {multi && " 원하는 것만 체크하세요."}
+              </p>
+            ) : null}
 
             {/* 사진 + bbox 오버레이 */}
             {mode === "photo" && image && multi && (
@@ -414,6 +422,21 @@ function AiFoodLab() {
             )}
 
             {result.fallback?.triggered && <FallbackBanner info={result.fallback} />}
+
+            {/* 가드레일 상태 (실험실 디버깅용) */}
+            {result.guardrails &&
+              (result.guardrails.injectionSuspected ||
+                result.guardrails.rejectedCount > 0) && (
+                <div className="rounded-xl border border-purple-200 bg-purple-50 px-3 py-2.5 text-[11px] text-purple-900 space-y-1">
+                  <p className="font-semibold">🛡️ 가드레일 작동</p>
+                  {result.guardrails.injectionSuspected && (
+                    <p>· prompt injection 의심 구문 감지·제거됨</p>
+                  )}
+                  {result.guardrails.rejectedCount > 0 && (
+                    <p>· 비정상 영양값 후보 {result.guardrails.rejectedCount}개 거부됨</p>
+                  )}
+                </div>
+              )}
 
             {result.refs && result.refs.length > 0 && (
               <div className="rounded-xl border border-neutral-100 bg-white px-3 py-3">
@@ -560,8 +583,13 @@ function CandidateRow({
 
   if (!candidate.is_food) {
     return (
-      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-4 text-xs text-neutral-500">
-        음식 아님 — "{candidate.name || candidate.rationale}"
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-5 text-center">
+        <p className="text-sm font-semibold text-neutral-900">
+          음식을 찾지 못했어요
+        </p>
+        <p className="mt-1 text-xs text-neutral-500">
+          음식 사진이나 음식 이름을 입력해주세요.
+        </p>
       </div>
     );
   }
