@@ -158,9 +158,7 @@ export function AiAddSheet({
         message?: string;
       };
       if (!res.ok) {
-        // 친절한 메시지가 있으면 그대로, 없으면 code 첨부
-        const msg = json.message ?? "분석 실패";
-        setErr(json.code === "OVERLOADED" ? msg : `${json.code ?? res.status}: ${msg}`);
+        setErr(translateAiError(json.code, json.message, res.status));
         return;
       }
       const first = json.candidates?.[0];
@@ -630,6 +628,36 @@ function SheetField({
 }
 
 /* ---------------- helpers ---------------- */
+
+/**
+ * AI 분석 API 에러를 사용자 친화 메시지로 변환.
+ * - 서버가 이미 친절한 한국어 메시지를 주는 code는 그대로 노출
+ * - 기술적 code(PARSE_ERROR 등)는 raw code 숨기고 일반 안내로 대체
+ */
+function translateAiError(
+  code: string | undefined,
+  message: string | undefined,
+  status: number,
+): string {
+  // 서버 메시지가 이미 사용자용으로 다듬어진 code들 — 그대로 표시
+  const FRIENDLY = new Set([
+    "USER_LIMIT", // 일일 한도 초과
+    "OVERLOADED", // Gemini 혼잡
+    "INVALID_OUTPUT", // AI 응답 신뢰 불가
+    "IMAGE_TOO_LARGE", // 사진 큼
+  ]);
+  if (code && FRIENDLY.has(code) && message) return message;
+
+  // 그 외 — 기술적 에러. raw code 노출 X, 상황별 일반 안내.
+  if (status === 429) {
+    return "AI 분석 요청이 많아요. 잠시 후 다시 시도해주세요.";
+  }
+  if (code === "GEMINI_NOT_CONFIGURED") {
+    return "AI 기능이 일시적으로 비활성화됐어요. 직접 입력으로 등록해주세요.";
+  }
+  return "AI 분석에 실패했어요. 잠시 후 다시 시도하거나 직접 입력해주세요.";
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
