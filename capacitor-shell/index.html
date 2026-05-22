@@ -1,0 +1,37 @@
+<!doctype html>
+<!--
+  Capacitor 원격 URL 모드 플레이스홀더.
+  실제 앱 콘텐츠는 capacitor.config.ts의 server.url(배포된 실사이트)에서 로드됨.
+  이 파일은 Capacitor가 webDir 디렉터리 존재를 요구해서 두는 최소 셸.
+  server.url 연결 전 잠깐 보이는 스플래시 역할.
+-->
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>탄단지버블</title>
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: -apple-system, system-ui, sans-serif;
+      }
+      .spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid #e5e7eb;
+        border-top-color: #111827;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div class="spinner" aria-label="로딩 중"></div>
+  </body>
+</html>

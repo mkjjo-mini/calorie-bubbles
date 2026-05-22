@@ -37,3 +37,12 @@ dist-ssr
 * 2.js
 * 2.json
 * 2.vars
+
+# Capacitor / iOS — 빌드 부산물은 cap sync로 재생성됨
+ios/App/App/public/
+ios/App/build/
+ios/App/Pods/
+ios/App/DerivedData/
+ios/.gitignore
+*.xcuserstate
+DerivedData/
