@@ -1,3 +1,4 @@
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 // @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
 // or the app will break with duplicate plugins:
 //   - tanstackStart, viteReact, tailwindcss, tsConfigPaths, cloudflare (build-only),
@@ -12,6 +13,7 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
+
   vite: {
     server: {
       port: 3000,
@@ -21,4 +23,15 @@ export default defineConfig({
       allowedHosts: true,
     },
   },
+
+  build: {
+    sourcemap: true,
+  },
+
+  plugins: [
+    sentryVitePlugin({
+      org: "imnaco805",
+      project: "tandanji-bubble",
+    }),
+  ],
 });
