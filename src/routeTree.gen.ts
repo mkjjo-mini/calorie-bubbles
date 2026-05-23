@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsGoalRouteImport } from './routes/settings.goal'
+import { Route as SettingsAccountRouteImport } from './routes/settings.account'
 import { Route as LegalTermsRouteImport } from './routes/legal/terms'
 import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy'
 import { Route as LabAiFoodsRouteImport } from './routes/lab.ai-foods'
@@ -57,6 +58,11 @@ const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
 const SettingsGoalRoute = SettingsGoalRouteImport.update({
   id: '/goal',
   path: '/goal',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAccountRoute = SettingsAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => SettingsRoute,
 } as any)
 const LegalTermsRoute = LegalTermsRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/lab/ai-foods': typeof LabAiFoodsRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
+  '/settings/account': typeof SettingsAccountRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/lab/ai-foods': typeof LabAiFoodsRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
+  '/settings/account': typeof SettingsAccountRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/lab/ai-foods': typeof LabAiFoodsRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
+  '/settings/account': typeof SettingsAccountRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/lab/ai-foods'
     | '/legal/privacy'
     | '/legal/terms'
+    | '/settings/account'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/lab/ai-foods'
     | '/legal/privacy'
     | '/legal/terms'
+    | '/settings/account'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/lab/ai-foods'
     | '/legal/privacy'
     | '/legal/terms'
+    | '/settings/account'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -260,6 +272,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsGoalRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/account': {
+      id: '/settings/account'
+      path: '/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof SettingsAccountRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/legal/terms': {
       id: '/legal/terms'
       path: '/legal/terms'
@@ -313,12 +332,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface SettingsRouteChildren {
+  SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsGoalRoute: typeof SettingsGoalRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsAccountRoute: SettingsAccountRoute,
   SettingsGoalRoute: SettingsGoalRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsProfileRoute: SettingsProfileRoute,
