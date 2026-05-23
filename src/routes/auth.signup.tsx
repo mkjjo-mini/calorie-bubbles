@@ -9,7 +9,7 @@ import {
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
-import { AppleIcon, GoogleIcon } from "@/components/auth/SocialIcons";
+import { AppleIcon, GoogleIcon, KakaoIcon } from "@/components/auth/SocialIcons";
 
 const searchSchema = z.object({
   next: z.string().optional(),
@@ -35,7 +35,7 @@ function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [loading, setLoading] = useState<null | "email" | "google" | "apple">(null);
+  const [loading, setLoading] = useState<null | "email" | "google" | "apple" | "kakao">(null);
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
@@ -94,7 +94,7 @@ function SignupPage() {
     }
   }
 
-  async function onOAuth(provider: "google" | "apple") {
+  async function onOAuth(provider: "google" | "apple" | "kakao") {
     if (loading) return;
     setErr(null);
     if (!hasConsent) {
@@ -264,6 +264,18 @@ function SignupPage() {
         </div>
 
         <div className="flex flex-col gap-2">
+          <button
+            onClick={() => onOAuth("kakao")}
+            disabled={loading !== null || !hasConsent}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#FEE500] text-sm font-semibold text-[rgba(0,0,0,0.85)] disabled:opacity-40 active:bg-[#FDD835]"
+          >
+            {loading === "kakao" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <KakaoIcon className="h-5 w-5" />
+            )}
+            카카오로 계속하기
+          </button>
           <button
             onClick={() => onOAuth("apple")}
             disabled={loading !== null || !hasConsent}

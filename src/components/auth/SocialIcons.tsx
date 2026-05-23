@@ -23,6 +23,14 @@ export function GoogleIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function KakaoIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" fill="currentColor" {...props}>
+      <path d="M9 1.5C4.582 1.5 1 4.249 1 7.642c0 2.176 1.476 4.083 3.696 5.16-.163.6-.591 2.181-.677 2.518-.106.418.155.412.327.301.135-.089 2.16-1.45 3.034-2.034.534.077 1.079.117 1.62.117 4.418 0 8-2.749 8-6.142S13.418 1.5 9 1.5z" />
+    </svg>
+  );
+}
+
 export function AppleIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg" fill="currentColor" {...props}>
