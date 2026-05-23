@@ -127,17 +127,20 @@ function RootComponent() {
 
 /**
  * 라우트 가드 + 레이아웃.
- *  - /auth/* : 인증 화면. BottomTabBar 숨김. 가드 X
- *  - 그 외   : 인증 필요. unauthenticated → /auth/login?next=<현재경로>
+ *  - /auth/*  : 인증 화면. BottomTabBar 숨김. 가드 X
+ *  - /legal/* : 약관·정책 페이지 (회원가입 전 비로그인 접근 필요). 가드 X
+ *  - 그 외    : 인증 필요. unauthenticated → /auth/login?next=<현재경로>
  */
 function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAuthRoute = pathname.startsWith("/auth/");
+  const isLegalRoute = pathname.startsWith("/legal/");
+  const isPublicRoute = isAuthRoute || isLegalRoute;
   const { session, status } = useSession();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthRoute) return;
+    if (isPublicRoute) return;
     if (status === "unauthenticated") {
       navigate({
         to: "/auth/login",
@@ -145,10 +148,10 @@ function AppShell() {
         replace: true,
       });
     }
-  }, [isAuthRoute, status, pathname, navigate]);
+  }, [isPublicRoute, status, pathname, navigate]);
 
-  // auth 화면은 가드 통과
-  if (isAuthRoute) {
+  // auth·legal 화면은 가드 통과
+  if (isPublicRoute) {
     return (
       <div
         className="min-h-screen w-full bg-white"
