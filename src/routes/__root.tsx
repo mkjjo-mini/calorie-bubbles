@@ -12,6 +12,7 @@ import {
 import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
+import { AdBanner } from "@/components/AdBanner";
 import { Toaster } from "@/components/ui/sonner";
 import { useSession } from "@/hooks/useSession";
 import { setStatusBarStyle } from "@/lib/native";
@@ -186,6 +187,7 @@ function AppShell() {
         <Outlet />
       </div>
       <BottomTabBar />
+      <AdBanner />
     </>
   );
 }

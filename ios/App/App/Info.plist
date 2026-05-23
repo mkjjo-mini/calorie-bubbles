@@ -47,5 +47,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-4925884449888755~4372529859</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>맞춤형 광고를 표시하기 위해 사용 패턴을 분석합니다. 거부해도 일반 광고가 노출됩니다.</string>
+	<key>GADDelayAppMeasurementInit</key>
+	<true/>
 </dict>
 </plist>
