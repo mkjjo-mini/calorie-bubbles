@@ -141,7 +141,7 @@ function Index() {
       setLogs(fetched);
     } catch (e) {
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error(`기록 로드 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -309,7 +309,7 @@ function Index() {
         // Revert on failure — add back to logs
         setLogs((prev) => [...prev, target]);
         if (e instanceof CloudAuthError) {
-          toast.error("로그인이 필요해요");
+          /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
         } else {
           toast.error("삭제 실패");
         }
@@ -387,7 +387,7 @@ function Index() {
       // Revert
       setLogs(toDelete);
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error("비우기 실패");
       }

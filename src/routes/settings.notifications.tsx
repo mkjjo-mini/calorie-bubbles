@@ -43,7 +43,7 @@ function NotificationsPage() {
       .catch((e) => {
         if (!alive) return;
         if (e instanceof CloudAuthError) {
-          toast.error("로그인이 필요해요");
+          /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
         } else {
           toast.error("알림 시간을 불러오지 못했어요");
         }
@@ -76,7 +76,7 @@ function NotificationsPage() {
       navigate({ to: "/settings" });
     } catch (e) {
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error("저장에 실패했어요");
       }

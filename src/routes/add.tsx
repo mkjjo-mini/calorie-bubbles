@@ -331,7 +331,7 @@ function AddFoodPage() {
       setFavFoodIds(new Set(favs.map((f: FavoriteRow) => f.food_id)));
     } catch (e) {
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error(`데이터 로드 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -379,7 +379,7 @@ function AddFoodPage() {
       // Revert optimistic update
       setFavFoodIds(favFoodIds);
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error("즐겨찾기 변경 실패");
       }
@@ -421,7 +421,7 @@ function AddFoodPage() {
       await toggleFav(resolvedId);
     } catch (e) {
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error("즐겨찾기 변경 실패");
       }
@@ -562,7 +562,7 @@ function AddFoodPage() {
                 // 자명한 변화 — 폼/카드의 g 값이 즉시 갱신됨
               } catch (e) {
                 if (e instanceof CloudAuthError) {
-                  toast.error("로그인이 필요해요");
+                  /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
                 } else {
                   toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
                 }
@@ -625,7 +625,7 @@ function AddFoodPage() {
               // 자명한 변화 — 폼/카드의 g 값이 즉시 갱신됨
             } catch (e) {
               if (e instanceof CloudAuthError) {
-                toast.error("로그인이 필요해요");
+                /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
               } else {
                 toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
               }
@@ -668,7 +668,7 @@ function AddFoodPage() {
       navigate({ to: "/", search: { date: loggedDate } });
     } catch (e) {
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error(`추가 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -758,13 +758,13 @@ function AddFoodPage() {
           pushRecent(food.id);
           toast.success(`${displayName(food.name)} 추가했어요`);
         } catch (e) {
-          if (e instanceof CloudAuthError) toast.error("로그인이 필요해요");
+          /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
           else toast.error(`기록 추가 실패: ${e instanceof Error ? e.message : String(e)}`);
         }
       }
     } catch (e) {
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error(`저장 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -792,7 +792,7 @@ function AddFoodPage() {
       setUserFoods(prevFoods);
       if (wasFav) setFavFoodIds((prev) => new Set([...prev, food.id]));
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error(`삭제 실패: ${e instanceof Error ? e.message : String(e)}`);
       }

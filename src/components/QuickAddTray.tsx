@@ -169,7 +169,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
       setFavFoods(foods.filter((f) => favFoodIdSet.has(f.id)));
     } catch (e) {
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       }
       // Non-auth failures silently swallowed — tray just won't show favorites
     }
@@ -313,7 +313,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
       fly(food, chipEl, newLog);
     } catch (e) {
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error(`추가 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -350,7 +350,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
           // 자명한 변화 — 카드 g 값이 즉시 갱신됨
         } catch (e) {
           persistLastQty(food.name, qty, mode);
-          if (e instanceof CloudAuthError) toast.error("로그인이 필요해요");
+          /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
           else toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
         }
       } else {
@@ -367,7 +367,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
       onAdded(newLog);
     } catch (e) {
       if (e instanceof CloudAuthError) {
-        toast.error("로그인이 필요해요");
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
       } else {
         toast.error(`추가 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
