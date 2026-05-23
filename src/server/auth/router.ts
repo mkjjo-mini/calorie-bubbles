@@ -10,7 +10,11 @@
  */
 import type { Env } from "./env";
 import { NO_STORE_JSON_HEADERS } from "./middleware";
-import { applyCookies, createServerSupabase } from "./supabase-server";
+import {
+  applyCookies,
+  createAdminSupabase,
+  createServerSupabase,
+} from "./supabase-server";
 
 export async function handleAuth(
   req: Request,
@@ -23,6 +27,9 @@ export async function handleAuth(
   }
   if (url.pathname === "/api/auth/logout") {
     return handleLogout(req, env);
+  }
+  if (url.pathname === "/api/auth/delete-account") {
+    return handleDeleteAccount(req, env);
   }
   if (url.pathname === "/api/auth/callback") {
     return handleCallback(req, env);
@@ -67,6 +74,55 @@ async function handleLogout(req: Request, env: Env): Promise<Response> {
   await ctx.supabase.auth.signOut();
   const res = new Response(null, { status: 204 });
   return applyCookies(res, ctx.cookiesToSet);
+}
+
+/**
+ * 회원 탈퇴 — Supabase auth.users 삭제 + CASCADE로 모든 사용자 데이터 자동 파기.
+ *
+ *  보안: 쿠키로 본인 확인 → admin client으로 본인 자신의 user만 삭제.
+ *  다른 사용자 ID를 body로 받지 않음 (탈취 방지).
+ *
+ *  PIPA "동의 철회" 권리도 사실상 이 흐름으로 처리됨 (별도 옵션이 없으므로).
+ */
+async function handleDeleteAccount(req: Request, env: Env): Promise<Response> {
+  if (req.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+  const ctx = createServerSupabase(req, env);
+  const {
+    data: { user },
+    error,
+  } = await ctx.supabase.auth.getUser();
+
+  if (error || !user) {
+    const res = new Response(
+      JSON.stringify({ code: "SESSION_EXPIRED", message: "no valid session" }),
+      { status: 401, headers: NO_STORE_JSON_HEADERS },
+    );
+    return applyCookies(res, ctx.cookiesToSet);
+  }
+
+  try {
+    const admin = createAdminSupabase(env);
+    const { error: deleteErr } = await admin.auth.admin.deleteUser(user.id);
+    if (deleteErr) {
+      console.error("[auth/delete-account]", deleteErr.message);
+      return new Response(
+        JSON.stringify({ code: "DELETE_FAILED", message: deleteErr.message }),
+        { status: 500, headers: NO_STORE_JSON_HEADERS },
+      );
+    }
+    // 서버측에서 세션도 함께 정리
+    await ctx.supabase.auth.signOut();
+    const res = new Response(null, { status: 204 });
+    return applyCookies(res, ctx.cookiesToSet);
+  } catch (e) {
+    console.error("[auth/delete-account] unexpected", e);
+    return new Response(
+      JSON.stringify({ code: "INTERNAL", message: (e as Error).message }),
+      { status: 500, headers: NO_STORE_JSON_HEADERS },
+    );
+  }
 }
 
 /**
