@@ -14,6 +14,7 @@ import { useEffect } from "react";
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { useSession } from "@/hooks/useSession";
+import { setStatusBarStyle } from "@/lib/native";
 
 function NotFoundComponent() {
   return (
@@ -111,6 +112,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // Capacitor 네이티브 환경에서만 동작 — 흰 배경에 검정 상태바 텍스트.
+  // 웹/SSR에선 native.ts가 no-op으로 처리.
+  useEffect(() => {
+    void setStatusBarStyle("dark");
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <AppShell />

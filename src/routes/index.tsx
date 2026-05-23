@@ -9,7 +9,8 @@ import { Wave } from "@/components/Wave";
 import { EmptyStomach } from "@/components/EmptyStomach";
 import { QuickAddTray } from "@/components/QuickAddTray";
 import { AiAddSheet } from "@/components/AiAddSheet";
-import { Plus, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { hapticHeavy, hapticLight } from "@/lib/native";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -180,10 +181,9 @@ function Index() {
       });
     }
     // 목표 초과 후 음식 추가될 때마다 햅틱 — stage 3(100~120%)=짧게, stage 4(≥120%)=강하게.
-    // ⚠️ Android Chrome/PWA만 동작. iOS Safari는 navigator.vibrate 미지원.
-    //    Capacitor 도입 후 @capacitor/haptics로 교체 예정 (launch-roadmap Week 1).
-    if (added && stage >= 3 && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-      navigator.vibrate(stage === 4 ? [40, 30, 60] : 40);
+    // 네이티브(Capacitor)는 @capacitor/haptics, 웹은 navigator.vibrate fallback (lib/native.ts)
+    if (added && stage >= 3) {
+      void (stage === 4 ? hapticHeavy() : hapticLight());
     }
     prevLenRef.current = entries.length;
   }, [entries.length, stage, bowlControls]);
