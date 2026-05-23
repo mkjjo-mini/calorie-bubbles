@@ -106,9 +106,12 @@ function SignupPage() {
       const supabase = getBrowserSupabase();
       const next = search.next ?? "/";
       const redirectTo = `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(next)}`;
+      // 카카오는 콘솔에서 활성화한 scope만 요청 가능 — 비활성화된 scope 요청 시 KOE205.
+      // 우리는 이메일만 받으니까 카카오 한정으로 scopes를 account_email로 제한.
+      const scopes = provider === "kakao" ? "account_email" : undefined;
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo },
+        options: { redirectTo, scopes },
       });
       if (error) {
         setErr(translateAuthError(error.message));
