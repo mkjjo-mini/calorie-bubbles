@@ -152,7 +152,7 @@ function AppShell() {
     return (
       <div
         className="min-h-screen w-full bg-white"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        style={{ paddingTop: "max(env(safe-area-inset-top), 1rem)" }}
       >
         <Outlet />
       </div>
@@ -178,7 +178,7 @@ function AppShell() {
       */}
       <div
         className="min-h-screen w-full bg-white pb-40"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        style={{ paddingTop: "max(env(safe-area-inset-top), 1rem)" }}
       >
         <Outlet />
       </div>

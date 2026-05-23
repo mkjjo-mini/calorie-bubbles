@@ -423,8 +423,8 @@ function Index() {
             swipeStartRef.current = null;
           }}
         >
-        {/* Header */}
-        <header className="px-5 pt-6 pb-3">
+        {/* Header — pt-2: root에서 safe-area-inset-top 이미 적용. 헤더 자체 padding은 최소화 */}
+        <header className="px-5 pt-2 pb-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1 min-w-0">
               <button
