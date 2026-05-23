@@ -150,7 +150,10 @@ function AppShell() {
   // auth 화면은 가드 통과
   if (isAuthRoute) {
     return (
-      <div className="min-h-screen w-full bg-white">
+      <div
+        className="min-h-screen w-full bg-white"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <Outlet />
       </div>
     );
@@ -169,8 +172,14 @@ function AppShell() {
   void session;
   return (
     <>
-      {/* pb-40(160px): BottomTabBar(~60px) + FAB(56pt at bottom+88) 모두 클리어 — 마지막 row의 ⋮ 액션 버튼 가림 방지 */}
-      <div className="min-h-screen w-full bg-white pb-40">
+      {/*
+        pt-[safe-area]: iOS 노치/다이내믹 아일랜드 영역 회피 (Capacitor WebView).
+        pb-40(160px): BottomTabBar(~60px) + FAB(56pt at bottom+88) 모두 클리어 — 마지막 row의 ⋮ 액션 버튼 가림 방지.
+      */}
+      <div
+        className="min-h-screen w-full bg-white pb-40"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <Outlet />
       </div>
       <BottomTabBar />
