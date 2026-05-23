@@ -22,16 +22,15 @@ export default defineConfig({
       // tunneling (cloudflared, ngrok 등) 통한 외부 host 허용 — dev only
       allowedHosts: true,
     },
+    build: {
+      // Sentry source maps 업로드용 — production 빌드 시 .map 파일 생성
+      sourcemap: true,
+    },
+    plugins: [
+      sentryVitePlugin({
+        org: "imnaco805",
+        project: "tandanji-bubble",
+      }),
+    ],
   },
-
-  build: {
-    sourcemap: true,
-  },
-
-  plugins: [
-    sentryVitePlugin({
-      org: "imnaco805",
-      project: "tandanji-bubble",
-    }),
-  ],
 });

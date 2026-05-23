@@ -16,6 +16,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsGoalRouteImport } from './routes/settings.goal'
+import { Route as LegalTermsRouteImport } from './routes/legal/terms'
+import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy'
 import { Route as LabAiFoodsRouteImport } from './routes/lab.ai-foods'
 import { Route as AuthSignupRouteImport } from './routes/auth.signup'
 import { Route as AuthResetRouteImport } from './routes/auth.reset'
@@ -57,6 +59,16 @@ const SettingsGoalRoute = SettingsGoalRouteImport.update({
   path: '/goal',
   getParentRoute: () => SettingsRoute,
 } as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LabAiFoodsRoute = LabAiFoodsRouteImport.update({
   id: '/lab/ai-foods',
   path: '/lab/ai-foods',
@@ -93,6 +105,8 @@ export interface FileRoutesByFullPath {
   '/auth/reset': typeof AuthResetRoute
   '/auth/signup': typeof AuthSignupRoute
   '/lab/ai-foods': typeof LabAiFoodsRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -107,6 +121,8 @@ export interface FileRoutesByTo {
   '/auth/reset': typeof AuthResetRoute
   '/auth/signup': typeof AuthSignupRoute
   '/lab/ai-foods': typeof LabAiFoodsRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -122,6 +138,8 @@ export interface FileRoutesById {
   '/auth/reset': typeof AuthResetRoute
   '/auth/signup': typeof AuthSignupRoute
   '/lab/ai-foods': typeof LabAiFoodsRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -138,6 +156,8 @@ export interface FileRouteTypes {
     | '/auth/reset'
     | '/auth/signup'
     | '/lab/ai-foods'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -152,6 +172,8 @@ export interface FileRouteTypes {
     | '/auth/reset'
     | '/auth/signup'
     | '/lab/ai-foods'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -166,6 +188,8 @@ export interface FileRouteTypes {
     | '/auth/reset'
     | '/auth/signup'
     | '/lab/ai-foods'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
@@ -181,6 +205,8 @@ export interface RootRouteChildren {
   AuthResetRoute: typeof AuthResetRoute
   AuthSignupRoute: typeof AuthSignupRoute
   LabAiFoodsRoute: typeof LabAiFoodsRoute
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalTermsRoute: typeof LegalTermsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -233,6 +259,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/goal'
       preLoaderRoute: typeof SettingsGoalRouteImport
       parentRoute: typeof SettingsRoute
+    }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/lab/ai-foods': {
       id: '/lab/ai-foods'
@@ -298,6 +338,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthResetRoute: AuthResetRoute,
   AuthSignupRoute: AuthSignupRoute,
   LabAiFoodsRoute: LabAiFoodsRoute,
+  LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalTermsRoute: LegalTermsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -39,11 +39,27 @@ function SignupPage() {
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
+  // 필수 동의 3종 — 약관·정책의 만 14세 미만 가입 차단 + PIPA 동의 근거
+  const [agreeAge14, setAgreeAge14] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
+  const hasConsent = agreeAge14 && agreeTerms && agreePrivacy;
+
+  function toggleAll(checked: boolean) {
+    setAgreeAge14(checked);
+    setAgreeTerms(checked);
+    setAgreePrivacy(checked);
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (loading) return;
     setErr(null);
     setInfo(null);
+    if (!hasConsent) {
+      setErr("필수 동의 항목을 모두 체크해주세요.");
+      return;
+    }
     if (password.length < 8) {
       setErr("비밀번호는 최소 8자 이상이어야 해요.");
       return;
@@ -81,6 +97,10 @@ function SignupPage() {
   async function onOAuth(provider: "google" | "apple") {
     if (loading) return;
     setErr(null);
+    if (!hasConsent) {
+      setErr("필수 동의 항목을 모두 체크해주세요.");
+      return;
+    }
     setLoading(provider);
     try {
       const supabase = getBrowserSupabase();
@@ -149,12 +169,87 @@ function SignupPage() {
             </div>
           </label>
 
+          {/* 약관 동의 그룹 — 필수 3종 */}
+          <div className="mt-2 rounded-xl border border-neutral-100 bg-neutral-50/60 p-4">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={hasConsent}
+                onChange={(e) => toggleAll(e.target.checked)}
+                className="h-4 w-4 rounded accent-neutral-900"
+              />
+              <span className="text-sm font-semibold text-neutral-900">
+                전체 동의
+              </span>
+            </label>
+
+            <div className="my-3 h-px bg-neutral-200/70" />
+
+            <div className="space-y-2.5">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={agreeAge14}
+                  onChange={(e) => setAgreeAge14(e.target.checked)}
+                  className="h-4 w-4 rounded accent-neutral-900"
+                />
+                <span className="text-xs text-neutral-700">
+                  <span className="font-semibold text-neutral-900">[필수]</span> 만 14세 이상입니다
+                </span>
+              </label>
+
+              <div className="flex items-center justify-between gap-3">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={agreeTerms}
+                    onChange={(e) => setAgreeTerms(e.target.checked)}
+                    className="h-4 w-4 rounded accent-neutral-900"
+                  />
+                  <span className="text-xs text-neutral-700">
+                    <span className="font-semibold text-neutral-900">[필수]</span> 이용약관 동의
+                  </span>
+                </label>
+                <Link
+                  to="/legal/terms"
+                  target="_blank"
+                  rel="noopener"
+                  className="text-[11px] text-neutral-500 underline underline-offset-2"
+                >
+                  보기
+                </Link>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={agreePrivacy}
+                    onChange={(e) => setAgreePrivacy(e.target.checked)}
+                    className="h-4 w-4 rounded accent-neutral-900"
+                  />
+                  <span className="text-xs text-neutral-700">
+                    <span className="font-semibold text-neutral-900">[필수]</span> 개인정보처리방침 동의
+                  </span>
+                </label>
+                <Link
+                  to="/legal/privacy"
+                  target="_blank"
+                  rel="noopener"
+                  className="text-[11px] text-neutral-500 underline underline-offset-2"
+                >
+                  보기
+                </Link>
+              </div>
+            </div>
+          </div>
+
           {err && <p className="text-xs text-red-600 mt-1">{err}</p>}
           {info && <p className="text-xs text-emerald-600 mt-1">{info}</p>}
 
           <button
             type="submit"
-            disabled={loading !== null || !email || !password}
+            disabled={loading !== null || !email || !password || !hasConsent}
             className="mt-2 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-neutral-900 text-sm font-semibold text-white disabled:opacity-40 active:bg-neutral-800"
           >
             {loading === "email" && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -171,7 +266,7 @@ function SignupPage() {
         <div className="flex flex-col gap-2">
           <button
             onClick={() => onOAuth("apple")}
-            disabled={loading !== null}
+            disabled={loading !== null || !hasConsent}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black text-sm font-semibold text-white disabled:opacity-40 active:bg-neutral-800"
           >
             {loading === "apple" ? (
@@ -183,7 +278,7 @@ function SignupPage() {
           </button>
           <button
             onClick={() => onOAuth("google")}
-            disabled={loading !== null}
+            disabled={loading !== null || !hasConsent}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white text-sm font-semibold text-neutral-900 disabled:opacity-40 active:bg-neutral-50"
           >
             {loading === "google" ? (
@@ -194,6 +289,11 @@ function SignupPage() {
             Google로 계속하기
           </button>
         </div>
+        {!hasConsent && (
+          <p className="mt-2 text-[11px] text-neutral-400 text-center">
+            소셜 가입도 약관 동의가 필요해요.
+          </p>
+        )}
 
         <p className="mt-8 text-xs text-neutral-500 text-center">
           이미 계정이 있나요?{" "}
