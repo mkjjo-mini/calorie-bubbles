@@ -10,10 +10,15 @@
 	// 세션은 Supabase Auth가 직접 쿠키로 관리.
 	//
 	// SUPABASE_URL, SUPABASE_ANON_KEY는 vars (공개 가능)
-	// SUPABASE_SERVICE_ROLE_KEY는 `npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY` (절대 vars X)
+	// SUPABASE_SERVICE_ROLE_KEY·FOOD_API_KEY·GEMINI_API_KEY는 wrangler secret put (vars X)
 	"vars": {
 		"ENVIRONMENT": "production",
-		"SUPABASE_URL": "",
-		"SUPABASE_ANON_KEY": ""
-	}
+		"SUPABASE_URL": "https://kjpxczdmlwfiefzpyuop.supabase.co",
+		"SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqcHhjemRtbHdmaWVmenB5dW9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTAxOTgsImV4cCI6MjA5NDU2NjE5OH0.roccTlrloUaBIlgHC_dAARez5WmTDyvZDoNUBmpMC04"
+	},
+	// 운영 도메인 → Worker route 매핑.
+	// tandanjibubble.app/* 모든 경로 (api·페이지·storage 프록시 등) Worker가 처리.
+	"routes": [
+		{ "pattern": "tandanjibubble.app/*", "zone_name": "tandanjibubble.app" }
+	]
 }

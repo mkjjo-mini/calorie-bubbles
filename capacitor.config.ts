@@ -18,10 +18,9 @@ const config: CapacitorConfig = {
   appName: "탄단지버블",
   webDir: "capacitor-shell",
   server: {
-    // ⚠️ TEMP: 로컬 빌드 검증용. 검증 후 https://tandanjibubble.app + cleartext:false 로 복구.
-    //    LAN IP라 같은 Wi-Fi의 시뮬레이터·실기기 모두 접근 가능. dev 서버 떠 있어야 함.
-    url: "http://192.168.45.222:3000",
-    cleartext: true,
+    // 운영 도메인 — Capacitor WebView가 직접 로드
+    url: "https://tandanjibubble.app",
+    cleartext: false,
   },
   ios: {
     // 콘텐츠가 노치/홈바 영역까지 안전하게 렌더되도록
