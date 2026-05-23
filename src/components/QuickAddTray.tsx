@@ -16,7 +16,7 @@ import { todayKST } from "@/lib/time";
 import type { FoodInsert } from "@/lib/repository/types";
 
 const LAST_QTY_KEY = "lastQtyByName";
-import { pushRecent as pushRecentShared, readRecents, subscribeRecentChange } from "@/lib/recent-foods";
+import { pushRecent as pushRecentShared, readRecents, subscribeRecentChange, syncFromServer } from "@/lib/recent-foods";
 
 type LastQtyMap = Record<string, LastQty>;
 
@@ -138,6 +138,8 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
       setLastQtyMap({});
     }
     void loadCloudData();
+    // DB sync — 다른 디바이스에서 추가한 최근 사용도 반영
+    void syncFromServer().then((ids) => setRecents(ids));
     // AI 시트 등 다른 컴포넌트에서 recents push되면 즉시 동기화
     return subscribeRecentChange(() => setRecents(readRecents()));
   }, []);

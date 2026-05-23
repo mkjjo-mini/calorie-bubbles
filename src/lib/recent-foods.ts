@@ -1,5 +1,8 @@
 /**
- * 최근 사용한 음식 — food_id 배열을 localStorage에 저장.
+ * 최근 사용한 음식 — food_id 배열.
+ *
+ * 저장소: localStorage (UX 즉시성) + DB (food_logs, 디바이스 간 sync).
+ * 진입 시 syncFromServer() 호출 → DB에서 가져와 localStorage 덮어씀.
  *
  * 동작 컴포넌트: 홈 QuickAddTray (표시), 음식추가 페이지(/add), AiAddSheet (등록 시 push).
  * 같은 탭 내 변경은 storage 이벤트가 안 발동하므로 custom event로 알린다.
@@ -7,6 +10,28 @@
 const RECENT_KEY = "recentFoods";
 const RECENT_CHANGED_EVENT = "tandanji:recent-foods-changed";
 const MAX_RECENTS = 10;
+
+/**
+ * DB(food_logs)에서 distinct food_id 최근 N개 가져와 localStorage 동기화.
+ * 멀티 디바이스 사용 시 마지막 디바이스의 기록을 반영하기 위해 진입 시 호출.
+ */
+export async function syncFromServer(): Promise<string[]> {
+  if (typeof window === "undefined") return [];
+  try {
+    const res = await fetch(`/api/food-logs?recent=${MAX_RECENTS}`, {
+      credentials: "include",
+    });
+    if (!res.ok) return readRecents();
+    const ids = (await res.json()) as unknown;
+    if (!Array.isArray(ids)) return readRecents();
+    const filtered = ids.filter((x): x is string => typeof x === "string");
+    localStorage.setItem(RECENT_KEY, JSON.stringify(filtered));
+    window.dispatchEvent(new CustomEvent(RECENT_CHANGED_EVENT));
+    return filtered;
+  } catch {
+    return readRecents();
+  }
+}
 
 export function readRecents(): string[] {
   if (typeof window === "undefined") return [];

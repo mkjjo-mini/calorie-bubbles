@@ -29,7 +29,7 @@ import { CloudAuthError, type FoodInsert, type FavoriteRow, type FoodRow } from 
 import { resolveFoodId } from "@/lib/foods-resolve";
 import { todayKST } from "@/lib/time";
 import { inferMealSlot } from "@/lib/foods";
-import { pushRecent } from "@/lib/recent-foods";
+import { pushRecent, syncFromServer as syncRecentsFromServer } from "@/lib/recent-foods";
 
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -290,6 +290,8 @@ function AddFoodPage() {
   // Load UX-only localStorage data + cloud data on mount
   useEffect(() => {
     setRecents(readArr<string>(RECENT_KEY));
+    // DB sync — 다른 디바이스에서 추가한 최근 사용도 반영
+    void syncRecentsFromServer().then((ids) => setRecents(ids));
     setSearchHistory(readArr<string>(SEARCH_HISTORY_KEY));
     try {
       setLastQtyMap(
