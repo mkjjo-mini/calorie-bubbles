@@ -13,7 +13,11 @@
 import type { Env } from "../auth/env";
 
 const MODEL = "gemini-2.5-flash";
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// Cloudflare AI Gateway 경유 — Workers outbound IP의 region 제한 우회 + 캐시·로깅·재시도.
+// 직접 호출(`generativelanguage.googleapis.com`) 시 "User location is not supported" 발생.
+const CF_ACCOUNT_ID = "0719cbc0852d8fee33d881aa1fe07fc1";
+const CF_GATEWAY_NAME = "tandanji-bubble-ai";
+const ENDPOINT = `https://gateway.ai.cloudflare.com/v1/${CF_ACCOUNT_ID}/${CF_GATEWAY_NAME}/google-ai-studio/v1beta/models/${MODEL}:generateContent`;
 
 export interface GeminiInlineImage {
   /** "image/jpeg" | "image/png" 등 */
@@ -106,9 +110,16 @@ export async function callGemini(
 
   // 503/429 시 지수 백오프로 최대 2회 retry — Flash 모델 일시 과부하 자주 있음
   const url = `${ENDPOINT}?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  // AI Gateway 인증 토큰 (Authenticated Gateway 활성화 시 필수)
+  if (env.CF_AIG_TOKEN) {
+    headers["cf-aig-authorization"] = `Bearer ${env.CF_AIG_TOKEN}`;
+  }
   const init: RequestInit = {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   };
 

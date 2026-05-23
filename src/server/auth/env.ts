@@ -25,6 +25,14 @@ export interface Env {
   FOOD_API_KEY?: string;
   /** Step 12 AI 음식 추가 — Google Gemini API key (https://aistudio.google.com) */
   GEMINI_API_KEY?: string;
+  /**
+   * Cloudflare AI Gateway 인증 토큰.
+   * Gemini API를 직접 호출하면 Workers의 outbound IP가 region 제한에 걸려서
+   * "User location is not supported" 에러 발생. AI Gateway 거치면 Cloudflare가
+   * 적절한 region에서 호출 → 우회.
+   * 발급: Cloudflare Dashboard → AI Gateway → tandanji-bubble-ai → Authentication
+   */
+  CF_AIG_TOKEN?: string;
   /** v1 mock — 유료 사용자 강제 토글 (BM 확정 전까지) */
   FORCE_PAID?: string;
 }
