@@ -9,12 +9,14 @@
 	// Standalone Auth — KV(SESSIONS) / mTLS binding 모두 제거.
 	// 세션은 Supabase Auth가 직접 쿠키로 관리.
 	//
-	// SUPABASE_URL, SUPABASE_ANON_KEY는 vars (공개 가능)
-	// SUPABASE_SERVICE_ROLE_KEY·FOOD_API_KEY·GEMINI_API_KEY는 wrangler secret put (vars X)
+	// 모든 Supabase 값은 wrangler secret put으로 등록 (vars로 JSONC 안에 두면 4.x에서 빈값으로 처리되는 이슈 회피).
+	//   wrangler secret put SUPABASE_URL
+	//   wrangler secret put SUPABASE_ANON_KEY
+	//   wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+	//   wrangler secret put FOOD_API_KEY
+	//   wrangler secret put GEMINI_API_KEY
 	"vars": {
-		"ENVIRONMENT": "production",
-		"SUPABASE_URL": "https://kjpxczdmlwfiefzpyuop.supabase.co",
-		"SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqcHhjemRtbHdmaWVmenB5dW9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTAxOTgsImV4cCI6MjA5NDU2NjE5OH0.roccTlrloUaBIlgHC_dAARez5WmTDyvZDoNUBmpMC04"
+		"ENVIRONMENT": "production"
 	},
 	// 운영 도메인 → Worker route 매핑.
 	// tandanjibubble.app/* 모든 경로 (api·페이지·storage 프록시 등) Worker가 처리.
