@@ -15,7 +15,7 @@
     "test:ui": "vitest --ui",
     "cap:sync": "cap sync ios",
     "cap:open": "cap open ios",
-    "deploy": "wrangler deploy --var SUPABASE_URL:https://kjpxczdmlwfiefzpyuop.supabase.co --var SUPABASE_ANON_KEY:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqcHhjemRtbHdmaWVmenB5dW9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTAxOTgsImV4cCI6MjA5NDU2NjE5OH0.roccTlrloUaBIlgHC_dAARez5WmTDyvZDoNUBmpMC04"
+    "deploy": "npm run build && wrangler deploy --var SUPABASE_URL:https://kjpxczdmlwfiefzpyuop.supabase.co --var SUPABASE_ANON_KEY:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqcHhjemRtbHdmaWVmenB5dW9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTAxOTgsImV4cCI6MjA5NDU2NjE5OH0.roccTlrloUaBIlgHC_dAARez5WmTDyvZDoNUBmpMC04"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",
