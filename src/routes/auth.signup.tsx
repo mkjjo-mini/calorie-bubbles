@@ -280,18 +280,6 @@ function SignupPage() {
             카카오로 계속하기
           </button>
           <button
-            onClick={() => onOAuth("apple")}
-            disabled={loading !== null || !hasConsent}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black text-sm font-semibold text-white disabled:opacity-40 active:bg-neutral-800"
-          >
-            {loading === "apple" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <AppleIcon className="h-5 w-5" />
-            )}
-            Apple로 계속하기
-          </button>
-          <button
             onClick={() => onOAuth("google")}
             disabled={loading !== null || !hasConsent}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white text-sm font-semibold text-neutral-900 disabled:opacity-40 active:bg-neutral-50"
@@ -302,6 +290,18 @@ function SignupPage() {
               <GoogleIcon className="h-5 w-5" />
             )}
             Google로 계속하기
+          </button>
+          <button
+            onClick={() => onOAuth("apple")}
+            disabled={loading !== null || !hasConsent}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black text-sm font-semibold text-white disabled:opacity-40 active:bg-neutral-800"
+          >
+            {loading === "apple" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <AppleIcon className="h-5 w-5" />
+            )}
+            Apple로 계속하기
           </button>
         </div>
         {!hasConsent && (
