@@ -14,6 +14,7 @@ import { useEffect } from "react";
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { useSession } from "@/hooks/useSession";
+import { setStatusBarStyle } from "@/lib/native";
 
 function NotFoundComponent() {
   return (
@@ -111,6 +112,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // Capacitor 네이티브 환경에서만 동작 — 흰 배경에 검정 상태바 텍스트.
+  // 웹/SSR에선 native.ts가 no-op으로 처리.
+  useEffect(() => {
+    void setStatusBarStyle("dark");
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <AppShell />
@@ -144,7 +150,10 @@ function AppShell() {
   // auth 화면은 가드 통과
   if (isAuthRoute) {
     return (
-      <div className="min-h-screen w-full bg-white">
+      <div
+        className="min-h-screen w-full bg-white"
+        style={{ paddingTop: "max(env(safe-area-inset-top), 1rem)" }}
+      >
         <Outlet />
       </div>
     );
@@ -163,8 +172,14 @@ function AppShell() {
   void session;
   return (
     <>
-      {/* pb-40(160px): BottomTabBar(~60px) + FAB(56pt at bottom+88) 모두 클리어 — 마지막 row의 ⋮ 액션 버튼 가림 방지 */}
-      <div className="min-h-screen w-full bg-white pb-40">
+      {/*
+        pt-[safe-area]: iOS 노치/다이내믹 아일랜드 영역 회피 (Capacitor WebView).
+        pb-40(160px): BottomTabBar(~60px) + FAB(56pt at bottom+88) 모두 클리어 — 마지막 row의 ⋮ 액션 버튼 가림 방지.
+      */}
+      <div
+        className="min-h-screen w-full bg-white pb-40"
+        style={{ paddingTop: "max(env(safe-area-inset-top), 1rem)" }}
+      >
         <Outlet />
       </div>
       <BottomTabBar />

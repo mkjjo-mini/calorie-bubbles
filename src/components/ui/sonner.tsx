@@ -10,6 +10,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // 되돌리기 토스트는 호출 시 position="bottom-center" + duration:5000 명시.
       position="top-center"
       duration={1500}
+      // 여러 개 삭제(undo) 누적 시 모두 펼쳐 보이도록 — 새 토스트가 위쪽에 쌓이고
+      // 오래된 토스트가 아래로 밀려남(top-center 기준). bottom-center도 동일하게 펼침.
+      expand
+      visibleToasts={5}
       toastOptions={{
         classNames: {
           toast:
