@@ -386,7 +386,6 @@ function InputStep({
           <input
             type="file"
             accept="image/*"
-            capture="environment"
             className="hidden"
             onChange={onPickImage}
           />
