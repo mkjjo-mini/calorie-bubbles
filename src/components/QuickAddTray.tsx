@@ -350,8 +350,11 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
           // 자명한 변화 — 카드 g 값이 즉시 갱신됨
         } catch (e) {
           persistLastQty(food.name, qty, mode);
-          /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
-          else toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
+          if (e instanceof CloudAuthError) {
+            /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
+          } else {
+            toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
+          }
         }
       } else {
         persistLastQty(food.name, qty, mode);

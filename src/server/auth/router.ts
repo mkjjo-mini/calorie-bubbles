@@ -104,6 +104,38 @@ async function handleDeleteAccount(req: Request, env: Env): Promise<Response> {
 
   try {
     const admin = createAdminSupabase(env);
+
+    // Storage 폴더 비우기 (food-photos/<user_id>/*.jpg)
+    // auth.users CASCADE는 storage.objects에 적용되지 않으므로 직접 정리.
+    // 베스트 에포트 — 실패해도 auth.users 삭제는 계속 진행 (사용자 권리 보장 우선).
+    try {
+      const { data: files, error: listErr } = await admin.storage
+        .from("food-photos")
+        .list(user.id, { limit: 1000 });
+      if (listErr) {
+        console.warn(
+          "[auth/delete-account] storage list failed",
+          listErr.message,
+        );
+      } else if (files && files.length > 0) {
+        const paths = files.map((f) => `${user.id}/${f.name}`);
+        const { error: removeErr } = await admin.storage
+          .from("food-photos")
+          .remove(paths);
+        if (removeErr) {
+          console.warn(
+            "[auth/delete-account] storage remove failed",
+            removeErr.message,
+          );
+        }
+      }
+    } catch (storageErr) {
+      console.warn(
+        "[auth/delete-account] storage cleanup error",
+        storageErr,
+      );
+    }
+
     const { error: deleteErr } = await admin.auth.admin.deleteUser(user.id);
     if (deleteErr) {
       console.error("[auth/delete-account]", deleteErr.message);

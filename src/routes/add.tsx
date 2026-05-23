@@ -758,8 +758,11 @@ function AddFoodPage() {
           pushRecent(food.id);
           toast.success(`${displayName(food.name)} 추가했어요`);
         } catch (e) {
-          /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
-          else toast.error(`기록 추가 실패: ${e instanceof Error ? e.message : String(e)}`);
+          if (e instanceof CloudAuthError) {
+            /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
+          } else {
+            toast.error(`기록 추가 실패: ${e instanceof Error ? e.message : String(e)}`);
+          }
         }
       }
     } catch (e) {
