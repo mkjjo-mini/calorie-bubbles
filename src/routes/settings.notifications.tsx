@@ -1,10 +1,12 @@
 import * as React from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { cloudRepository } from "@/lib/repository/cloud";
 import { CloudAuthError } from "@/lib/repository/types";
 import { Button } from "@/components/ui/button";
+import { useEntitlements } from "@/hooks/useEntitlements";
+import { PaywallModal } from "@/components/PaywallModal";
 
 export const Route = createFileRoute("/settings/notifications")({
   component: NotificationsPage,
@@ -15,9 +17,7 @@ function buildTimeSlots(): string[] {
   const slots: string[] = [];
   for (let h = 0; h < 24; h++) {
     for (const m of [0, 30]) {
-      slots.push(
-        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
-      );
+      slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
     }
   }
   return slots;
@@ -27,6 +27,8 @@ const TIME_SLOTS = buildTimeSlots();
 
 function NotificationsPage() {
   const navigate = useNavigate();
+  const { entitlements, isLoading: tierLoading } = useEntitlements();
+  const [paywallOpen, setPaywallOpen] = React.useState(false);
 
   const [times, setTimes] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -85,6 +87,9 @@ function NotificationsPage() {
     }
   }
 
+  // Step 17 P1 — Pro만 알림 설정 가능. 페이지 진입은 허용하되 UI 비활성 + paywall 카드.
+  const gated = !tierLoading && !entitlements.pushNotifications;
+
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[390px] flex flex-col">
@@ -100,16 +105,35 @@ function NotificationsPage() {
           <h1 className="text-base font-semibold text-neutral-900">알림 설정</h1>
         </header>
 
-        {loading ? (
+        {gated ? (
+          <div className="flex-1 px-4 pt-6 pb-12 space-y-4">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-5 text-center">
+              <Sparkles className="mx-auto h-6 w-6 text-amber-500" />
+              <p className="mt-2 text-sm font-semibold text-neutral-900">
+                식사 알림으로 습관 만들기
+              </p>
+              <p className="mt-1.5 text-[12px] leading-relaxed text-neutral-600">
+                원하는 시간에 알림을 받아 트래킹을 자연스럽게 이어가요.
+                <br />
+                Pro에서 이용할 수 있어요.
+              </p>
+              <button
+                type="button"
+                onClick={() => setPaywallOpen(true)}
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-neutral-900 px-5 text-sm font-semibold text-white active:bg-neutral-800"
+              >
+                Pro 보기
+              </button>
+            </div>
+          </div>
+        ) : loading ? (
           <div className="flex-1 flex items-center justify-center text-sm text-neutral-400">
             불러오는 중…
           </div>
         ) : (
           <div className="flex-1 px-4 pt-4 pb-12 space-y-4">
             <div className="rounded-2xl border border-neutral-100 bg-white p-4">
-              <p className="text-sm font-semibold text-neutral-900 mb-3">
-                매일 받을 시간
-              </p>
+              <p className="text-sm font-semibold text-neutral-900 mb-3">매일 받을 시간</p>
 
               {times.length === 0 ? (
                 <p className="text-sm text-neutral-400 text-center py-4">
@@ -122,9 +146,7 @@ function NotificationsPage() {
                       key={t}
                       className="flex items-center justify-between rounded-xl bg-neutral-50 px-3 py-2"
                     >
-                      <span className="text-sm font-medium text-neutral-900 tabular-nums">
-                        {t}
-                      </span>
+                      <span className="text-sm font-medium text-neutral-900 tabular-nums">{t}</span>
                       <button
                         type="button"
                         aria-label={`${t} 제거`}
@@ -175,6 +197,8 @@ function NotificationsPage() {
           </div>
         )}
       </main>
+
+      <PaywallModal feature="notifications" open={paywallOpen} onOpenChange={setPaywallOpen} />
     </div>
   );
 }

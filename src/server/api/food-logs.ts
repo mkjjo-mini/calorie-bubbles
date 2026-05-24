@@ -8,9 +8,17 @@
  * DELETE /api/food-logs?id=<uuid>
  */
 import type { Env } from "../auth/env";
+import { getEntitlements } from "@/lib/entitlements";
+import { getUserTier, jsonPaywall } from "../auth/entitlements";
 import { jsonError, withUser } from "../auth/middleware";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** KST 기준 오늘 YYYY-MM-DD */
+function todayKSTDate(): string {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+}
 
 export async function handleFoodLogs(req: Request, env: Env): Promise<Response> {
   return withUser(req, env, async ({ userId, admin }) => {
@@ -90,15 +98,26 @@ export async function handleFoodLogs(req: Request, env: Env): Promise<Response> 
       if (!body || typeof body !== "object") {
         return jsonError(400, "INVALID_BODY", "body must be object");
       }
-      const insert = { ...(body as Record<string, unknown>), user_id: userId };
-      delete (insert as Record<string, unknown>).id;
-      delete (insert as Record<string, unknown>).user_key;
-      delete (insert as Record<string, unknown>).created_at;
-      const { data, error } = await admin
-        .from("food_logs")
-        .insert(insert)
-        .select()
-        .single();
+      const insert: Record<string, unknown> = {
+        ...(body as Record<string, unknown>),
+        user_id: userId,
+      };
+      delete insert.id;
+      delete insert.user_key;
+      delete insert.created_at;
+
+      // Step 17 P1 — 과거 날짜 기록은 Pro만 허용.
+      // 미래 날짜는 별도 정책 없음 (현재 코드도 막지 않음). 오늘 미만만 가드.
+      const loggedDate = typeof insert.logged_date === "string" ? insert.logged_date : null;
+      if (loggedDate && DATE_RE.test(loggedDate) && loggedDate < todayKSTDate()) {
+        const tier = await getUserTier(env, admin, userId);
+        const ent = getEntitlements(tier);
+        if (!ent.pastDateEditAllowed) {
+          return jsonPaywall("past_edit", "지난 날의 기록을 편집하려면 Pro에서 함께해요.");
+        }
+      }
+
+      const { data, error } = await admin.from("food_logs").insert(insert).select().single();
       if (error) {
         if (error.code === "23503") {
           return jsonError(400, "INVALID_FOOD_ID", "food_id가 유효하지 않습니다");
@@ -111,11 +130,7 @@ export async function handleFoodLogs(req: Request, env: Env): Promise<Response> 
     if (req.method === "DELETE") {
       const id = url.searchParams.get("id");
       if (!id) return jsonError(400, "INVALID_BODY", "missing id");
-      const { error } = await admin
-        .from("food_logs")
-        .delete()
-        .eq("user_id", userId)
-        .eq("id", id);
+      const { error } = await admin.from("food_logs").delete().eq("user_id", userId).eq("id", id);
       if (error) return jsonError(500, "DB_ERROR", error.message);
       return new Response(null, { status: 204 });
     }

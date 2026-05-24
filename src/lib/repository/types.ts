@@ -33,10 +33,7 @@ export interface FoodRow {
   updated_at: string;
 }
 
-export type FoodInsert = Omit<
-  FoodRow,
-  "id" | "user_id" | "created_at" | "updated_at"
->;
+export type FoodInsert = Omit<FoodRow, "id" | "user_id" | "created_at" | "updated_at">;
 
 export interface FoodLogRow {
   id: string;
@@ -161,5 +158,35 @@ export class CloudAuthError extends Error {
   constructor() {
     super("CloudAuthError");
     this.name = "CloudAuthError";
+  }
+}
+
+/**
+ * Worker가 402 PAYMENT_REQUIRED 응답 시 — Step 17 entitlements 한도 초과.
+ * 호출 측이 catch해서 `feature`에 맞는 PaywallModal을 표시한다.
+ *
+ *   try { await cloudRepository.foods.create(insert); }
+ *   catch (e) {
+ *     if (e instanceof CloudPaywallError) {
+ *       setPaywall({ feature: e.feature, open: true });
+ *     } else { ... }
+ *   }
+ */
+export type PaywallFeature =
+  | "ai"
+  | "custom_food"
+  | "past_edit"
+  | "notifications"
+  | "goal_wizard"
+  | "ads";
+
+export class CloudPaywallError extends Error {
+  readonly feature: PaywallFeature;
+  readonly serverMessage: string;
+  constructor(feature: PaywallFeature, message: string) {
+    super(`CloudPaywallError(${feature})`);
+    this.name = "CloudPaywallError";
+    this.feature = feature;
+    this.serverMessage = message;
   }
 }

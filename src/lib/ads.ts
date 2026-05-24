@@ -12,9 +12,9 @@ import { Capacitor } from "@capacitor/core";
 let initialized = false;
 let initPromise: Promise<void> | null = null;
 
-/** SDK 초기화. 유료 사용자거나 web 환경이면 즉시 반환. */
-export async function initAdMob(isPaid: boolean): Promise<void> {
-  if (isPaid) return;
+/** SDK 초기화. showAds=false(Basic/Pro)거나 web 환경이면 즉시 반환. */
+export async function initAdMob(showAds: boolean): Promise<void> {
+  if (!showAds) return;
   if (!Capacitor.isNativePlatform()) return;
   if (initialized) return;
   if (initPromise) return initPromise;

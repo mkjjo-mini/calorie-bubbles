@@ -9,6 +9,8 @@
  * 모든 쿼리는 user_id = ? 강제로 본인 데이터만 접근.
  */
 import type { Env } from "../auth/env";
+import { getEntitlements } from "@/lib/entitlements";
+import { getUserTier, jsonPaywall } from "../auth/entitlements";
 import { jsonError, withUser } from "../auth/middleware";
 
 export async function handleFoods(req: Request, env: Env): Promise<Response> {
@@ -36,16 +38,39 @@ export async function handleFoods(req: Request, env: Env): Promise<Response> {
       if (!body || typeof body !== "object") {
         return jsonError(400, "INVALID_BODY", "body must be object");
       }
-      const insert = { ...(body as Record<string, unknown>), user_id: userId };
-      delete (insert as Record<string, unknown>).id;
-      delete (insert as Record<string, unknown>).user_key; // legacy 무시
-      delete (insert as Record<string, unknown>).created_at;
-      delete (insert as Record<string, unknown>).updated_at;
-      const { data, error } = await admin
-        .from("foods")
-        .insert(insert)
-        .select()
-        .single();
+      const insert: Record<string, unknown> = {
+        ...(body as Record<string, unknown>),
+        user_id: userId,
+      };
+      delete insert.id;
+      delete insert.user_key; // legacy 무시
+      delete insert.created_at;
+      delete insert.updated_at;
+
+      // Step 17 P1 — 커스텀 음식 활성 보유 한도 (Free/Basic: 3, Pro: 무제한).
+      // source='user'만 카운트. preset/api 자동 추가는 한도 외 (사용자가 의식적으로 등록한 게 아님).
+      // resolveFoodId 등에서 preset/api도 INSERT하지만 그건 cache 성격이라 카운트 X.
+      if (insert.source === "user") {
+        const tier = await getUserTier(env, admin, userId);
+        const ent = getEntitlements(tier);
+        if (Number.isFinite(ent.customFoodActiveLimit)) {
+          const { count, error: cntErr } = await admin
+            .from("foods")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", userId)
+            .eq("source", "user")
+            .is("deleted_at", null);
+          if (cntErr) return jsonError(500, "DB_ERROR", cntErr.message);
+          if ((count ?? 0) >= ent.customFoodActiveLimit) {
+            return jsonPaywall(
+              "custom_food",
+              `내 음식은 ${ent.customFoodActiveLimit}개까지 활성 보관할 수 있어요. Pro에서 무제한으로 모아두세요.`,
+            );
+          }
+        }
+      }
+
+      const { data, error } = await admin.from("foods").insert(insert).select().single();
       if (error) return jsonError(500, "DB_ERROR", error.message);
       return Response.json(data, { status: 201 });
     }
@@ -68,11 +93,7 @@ export async function handleFoods(req: Request, env: Env): Promise<Response> {
       delete update.user_key;
       delete update.created_at;
       update.updated_at = new Date().toISOString();
-      const { error } = await admin
-        .from("foods")
-        .update(update)
-        .eq("user_id", userId)
-        .eq("id", id);
+      const { error } = await admin.from("foods").update(update).eq("user_id", userId).eq("id", id);
       if (error) return jsonError(500, "DB_ERROR", error.message);
       return new Response(null, { status: 204 });
     }

@@ -13,23 +13,22 @@ import {
 } from "@/lib/customFoods";
 import { type FoodApiResult } from "@/lib/food-search";
 import { useFoodSearch } from "@/hooks/use-food-search";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  QuantitySheet,
-  type Pickable,
-  type LastQty,
-} from "@/components/QuantitySheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { QuantitySheet, type Pickable, type LastQty } from "@/components/QuantitySheet";
 import { cloudRepository } from "@/lib/repository/cloud";
-import { CloudAuthError, type FoodInsert, type FavoriteRow, type FoodRow } from "@/lib/repository/types";
+import {
+  CloudAuthError,
+  CloudPaywallError,
+  type FoodInsert,
+  type FavoriteRow,
+  type FoodRow,
+  type PaywallFeature,
+} from "@/lib/repository/types";
 import { resolveFoodId } from "@/lib/foods-resolve";
 import { todayKST } from "@/lib/time";
 import { inferMealSlot } from "@/lib/foods";
 import { pushRecent, syncFromServer as syncRecentsFromServer } from "@/lib/recent-foods";
+import { PaywallModal } from "@/components/PaywallModal";
 
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -135,10 +134,7 @@ function apiToPickable(a: FoodApiResult): Pickable {
  * 식약처 GROUP_NAME (FOOD_CAT1_NM) 한국어 텍스트를 우리 FoodCategory enum으로 매핑.
  * 매치 안 되면 "other". 음식 이름까지 fallback으로 검사.
  */
-function inferCategory(
-  rawCategory: string | undefined,
-  foodName: string,
-): FoodCategory {
+function inferCategory(rawCategory: string | undefined, foodName: string): FoodCategory {
   const blob = `${rawCategory ?? ""} ${foodName}`.toLowerCase();
   if (/도넛|과자|디저트|초콜릿|쿠키|케이크|아이스크림|시리얼바|머핀|와플|파이|빵/.test(blob))
     return "snack_dessert";
@@ -148,8 +144,7 @@ function inferCategory(
   if (/우유|요거트|요구르트|치즈|버터|유제품/.test(blob)) return "dairy";
   if (/채소|야채|해조류|김|미역|버섯|샐러드/.test(blob)) return "vegetable_seaweed";
   if (/과일|사과|바나나|딸기|포도|오렌지|배|복숭아/.test(blob)) return "fruit";
-  if (/음료|주류|커피|차|맥주|소주|와인|쥬스|콜라|사이다/.test(blob))
-    return "drink_alcohol";
+  if (/음료|주류|커피|차|맥주|소주|와인|쥬스|콜라|사이다/.test(blob)) return "drink_alcohol";
   return "other";
 }
 
@@ -286,6 +281,11 @@ function AddFoodPage() {
   const [formInitial, setFormInitial] = useState<Partial<CustomFood> | null>(null);
   const [actionTarget, setActionTarget] = useState<CustomFood | null>(null);
   const [lastQtyMap, setLastQtyMap] = useState<Record<string, LastQty>>({});
+  /** Step 17 P1 — 백엔드 402 paywall (custom_food, past_edit) */
+  const [paywall, setPaywall] = useState<{ feature: PaywallFeature; open: boolean }>({
+    feature: "custom_food",
+    open: false,
+  });
 
   // Load UX-only localStorage data + cloud data on mount
   useEffect(() => {
@@ -295,10 +295,7 @@ function AddFoodPage() {
     setSearchHistory(readArr<string>(SEARCH_HISTORY_KEY));
     try {
       setLastQtyMap(
-        JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}") as Record<
-          string,
-          LastQty
-        >,
+        JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}") as Record<string, LastQty>,
       );
     } catch {
       /* ignore */
@@ -316,7 +313,6 @@ function AddFoodPage() {
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadCloudData() {
@@ -437,9 +433,7 @@ function AddFoodPage() {
 
   const customMatches = useMemo(() => {
     if (!inSearch) return [];
-    return userFoods
-      .filter((f) => f.name.toLowerCase().includes(q))
-      .map(foodRowToCustomFood);
+    return userFoods.filter((f) => f.name.toLowerCase().includes(q)).map(foodRowToCustomFood);
   }, [userFoods, q, inSearch]);
 
   const presetMatches = useMemo(() => {
@@ -523,9 +517,7 @@ function AddFoodPage() {
     const carbG = Math.round(reconciled.carb * mult * 10) / 10;
     const proteinG = Math.round(reconciled.protein * mult * 10) / 10;
     const fatG = Math.round(reconciled.fat * mult * 10) / 10;
-    const kcal = Math.round(
-      carbG * 4 + proteinG * 4 + fatG * 9,
-    );
+    const kcal = Math.round(carbG * 4 + proteinG * 4 + fatG * 9);
     const grams = mode === "gram" ? qty : Math.round(food.serving_g * qty);
     const now = Date.now();
     // loggedDate from search params (defaults to today)
@@ -671,6 +663,9 @@ function AddFoodPage() {
     } catch (e) {
       if (e instanceof CloudAuthError) {
         /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
+      } else if (e instanceof CloudPaywallError) {
+        // Step 17 — past_edit(과거 날짜) 등 백엔드 가드 발동
+        setPaywall({ feature: e.feature, open: true });
       } else {
         toast.error(`추가 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -770,6 +765,11 @@ function AddFoodPage() {
     } catch (e) {
       if (e instanceof CloudAuthError) {
         /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
+      } else if (e instanceof CloudPaywallError) {
+        // Step 17 — 활성 커스텀 음식 ≥3 등 백엔드 가드 발동
+        setPaywall({ feature: e.feature, open: true });
+        setFormOpen(false);
+        setFormInitial(null);
       } else {
         toast.error(`저장 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -842,10 +842,7 @@ function AddFoodPage() {
   /* ---------------- render ---------------- */
 
   // For favorites grid display: use favUserFoods as CustomFood[]
-  const favCustomFoods = useMemo(
-    () => favUserFoods.map(foodRowToCustomFood),
-    [favUserFoods],
-  );
+  const favCustomFoods = useMemo(() => favUserFoods.map(foodRowToCustomFood), [favUserFoods]);
 
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
@@ -1006,9 +1003,7 @@ function AddFoodPage() {
 
           {inSearch && (
             <Section title="검색 결과">
-              {(customMatches.length > 0 ||
-                presetMatches.length > 0 ||
-                apiMatches.length > 0) && (
+              {(customMatches.length > 0 || presetMatches.length > 0 || apiMatches.length > 0) && (
                 <div className="grid grid-cols-2 gap-2">
                   {customMatches.map((c) => (
                     <CustomFoodCard
@@ -1051,9 +1046,7 @@ function AddFoodPage() {
                 </div>
               )}
               {apiLoading && (
-                <p className="text-[11px] text-neutral-400 mt-2 text-center">
-                  외부 검색 중…
-                </p>
+                <p className="text-[11px] text-neutral-400 mt-2 text-center">외부 검색 중…</p>
               )}
               {apiError && !apiLoading && apiMatches.length === 0 && (
                 <p className="text-[11px] text-amber-600 mt-2 text-center">
@@ -1093,9 +1086,7 @@ function AddFoodPage() {
           food={activeFood}
           last={lastQtyMap[activeFood.name]}
           onClose={() => setActiveFood(null)}
-          onAdd={(mode, qty, saveAsBase) =>
-            void handleAdd(activeFood, mode, qty, saveAsBase)
-          }
+          onAdd={(mode, qty, saveAsBase) => void handleAdd(activeFood, mode, qty, saveAsBase)}
         />
       )}
 
@@ -1121,19 +1112,19 @@ function AddFoodPage() {
           onDelete={() => void handleDelete(actionTarget)}
         />
       )}
+
+      <PaywallModal
+        feature={paywall.feature}
+        open={paywall.open}
+        onOpenChange={(o) => setPaywall((p) => ({ ...p, open: o }))}
+      />
     </div>
   );
 }
 
 /* ---------------- small UI pieces ---------------- */
 
-function Section({
-  title,
-  children,
-}: {
-  title: React.ReactNode;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <section>
       <h2 className="text-sm font-semibold text-neutral-800 mb-2 inline-flex items-center gap-1.5">
@@ -1155,9 +1146,7 @@ function DirectRegisterCard({ onClick }: { onClick: () => void }) {
       </div>
       <div>
         <div className="text-sm font-semibold text-neutral-900">직접 등록</div>
-        <div className="text-xs text-neutral-500 mt-0.5">
-          목록에 없는 음식을 직접 추가해요
-        </div>
+        <div className="text-xs text-neutral-500 mt-0.5">목록에 없는 음식을 직접 추가해요</div>
       </div>
     </button>
   );
@@ -1308,10 +1297,7 @@ function CustomFoodCard({
           <MoreVertical className="w-4 h-4 text-neutral-400" />
         </button>
       </div>
-      <button
-        onClick={onPick}
-        className="text-left w-full pr-14"
-      >
+      <button onClick={onPick} className="text-left w-full pr-14">
         <div className="text-[14px] font-bold text-neutral-900 leading-tight line-clamp-2">
           {food.name}
         </div>
@@ -1343,7 +1329,13 @@ function ActionSheet({
   onDelete: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      data-state="open"
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      onClick={onClose}
+    >
       <div className="absolute inset-0 bg-black/40" />
       <div
         className="relative w-full max-w-[375px] rounded-t-2xl bg-white p-3 pb-6 shadow-xl"
@@ -1428,8 +1420,7 @@ function CustomFoodFormSheet({
   const gramConvN = parseFloat(gramConv);
 
   const kcalFilled = !Number.isNaN(kcalN) && kcalN > 0;
-  const allMacrosFilled =
-    !Number.isNaN(carbN) && !Number.isNaN(proteinN) && !Number.isNaN(fatN);
+  const allMacrosFilled = !Number.isNaN(carbN) && !Number.isNaN(proteinN) && !Number.isNaN(fatN);
   const macrosEmpty = !carb && !protein && !fat;
   const servingG = isWeightUnit ? amountN : gramConvN;
   const servingGValid = !Number.isNaN(servingG) && servingG > 0;
@@ -1457,12 +1448,8 @@ function CustomFoodFormSheet({
     : allMacrosFilled
       ? kcalFromMacros({ carbs: carbN, protein: proteinN, fat: fatN })
       : 0;
-  const previewMacros =
-    macrosEmpty && kcalFilled
-      ? estimateMacrosFromKcal(kcalN, category)
-      : null;
-  const previewKcal =
-    !kcalFilled && allMacrosFilled ? previewEffectiveKcal : null;
+  const previewMacros = macrosEmpty && kcalFilled ? estimateMacrosFromKcal(kcalN, category) : null;
+  const previewKcal = !kcalFilled && allMacrosFilled ? previewEffectiveKcal : null;
   const previewGrams =
     !servingGValid && previewEffectiveKcal > 0
       ? estimateGramsFromKcal(previewEffectiveKcal, category)
@@ -1519,10 +1506,7 @@ function CustomFoodFormSheet({
     setIsEstimated(true);
   }
 
-  function handleManualMacroChange(
-    key: "carb" | "protein" | "fat",
-    value: string,
-  ) {
+  function handleManualMacroChange(key: "carb" | "protein" | "fat", value: string) {
     const setters = { carb: setCarb, protein: setProtein, fat: setFat };
     setters[key](value);
     if (isEstimated) setIsEstimated(false);
@@ -1607,8 +1591,7 @@ function CustomFoodFormSheet({
     mode === "estimate" ? (estimateMacros ? String(estimateMacros.carbs) : "") : carb;
   const proteinShown =
     mode === "estimate" ? (estimateMacros ? String(estimateMacros.protein) : "") : protein;
-  const fatShown =
-    mode === "estimate" ? (estimateMacros ? String(estimateMacros.fat) : "") : fat;
+  const fatShown = mode === "estimate" ? (estimateMacros ? String(estimateMacros.fat) : "") : fat;
 
   const showEstimateMacrosBtn =
     mode === "manual" && kcalFilled && !!category && categoryOpen && macrosEmpty;
@@ -1616,14 +1599,9 @@ function CustomFoodFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="h-[92vh] overflow-y-auto rounded-t-2xl p-0"
-      >
+      <SheetContent side="bottom" className="h-[92vh] overflow-y-auto rounded-t-2xl p-0">
         <SheetHeader className="px-5 pt-5 pb-3 border-b">
-          <SheetTitle className="text-base">
-            {initial?.id ? "음식 편집" : "직접 등록"}
-          </SheetTitle>
+          <SheetTitle className="text-base">{initial?.id ? "음식 편집" : "직접 등록"}</SheetTitle>
         </SheetHeader>
 
         <div className="px-5 py-4 space-y-4">
@@ -1661,7 +1639,8 @@ function CustomFoodFormSheet({
             {!isWeightUnit && (
               <div className="mt-2">
                 <label className="text-xs text-neutral-500 block mb-1">
-                  그램 환산 (g) <span className="text-neutral-400 text-[11px] font-normal">선택</span>
+                  그램 환산 (g){" "}
+                  <span className="text-neutral-400 text-[11px] font-normal">선택</span>
                 </label>
                 <input
                   type="number"
@@ -1726,13 +1705,26 @@ function CustomFoodFormSheet({
 
           <div>
             <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  { key: "carb" as const, label: "탄수화물 (g)", val: carbShown, preview: previewMacros?.carbs },
-                  { key: "protein" as const, label: "단백질 (g)", val: proteinShown, preview: previewMacros?.protein },
-                  { key: "fat" as const, label: "지방 (g)", val: fatShown, preview: previewMacros?.fat },
-                ]
-              ).map((row) => (
+              {[
+                {
+                  key: "carb" as const,
+                  label: "탄수화물 (g)",
+                  val: carbShown,
+                  preview: previewMacros?.carbs,
+                },
+                {
+                  key: "protein" as const,
+                  label: "단백질 (g)",
+                  val: proteinShown,
+                  preview: previewMacros?.protein,
+                },
+                {
+                  key: "fat" as const,
+                  label: "지방 (g)",
+                  val: fatShown,
+                  preview: previewMacros?.fat,
+                },
+              ].map((row) => (
                 <div key={row.key}>
                   <label className="text-xs text-neutral-600 font-medium mb-1.5 flex items-center gap-1">
                     {row.label}
@@ -1746,9 +1738,7 @@ function CustomFoodFormSheet({
                     type="number"
                     inputMode="decimal"
                     value={row.val}
-                    onChange={(e) =>
-                      handleManualMacroChange(row.key, e.target.value)
-                    }
+                    onChange={(e) => handleManualMacroChange(row.key, e.target.value)}
                     min={0}
                     placeholder={row.preview != null ? `≈ ${row.preview}` : "자동"}
                     className={`w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 ${
@@ -1769,19 +1759,19 @@ function CustomFoodFormSheet({
           >
             저장하기
           </button>
-          {!canSave && (() => {
-            const missing: string[] = [];
-            if (name.trim().length === 0) missing.push("음식 이름");
-            if (Number.isNaN(amountN) || amountN <= 0) missing.push("1회 제공량");
-            if (!kcalFilled && !allMacrosFilled)
-              missing.push("열량 또는 탄·단·지 g");
-            if (missing.length === 0) return null;
-            return (
-              <p className="text-[11px] text-neutral-500 text-center mt-1.5">
-                {missing.join(" · ")} 입력 후 저장할 수 있어요
-              </p>
-            );
-          })()}
+          {!canSave &&
+            (() => {
+              const missing: string[] = [];
+              if (name.trim().length === 0) missing.push("음식 이름");
+              if (Number.isNaN(amountN) || amountN <= 0) missing.push("1회 제공량");
+              if (!kcalFilled && !allMacrosFilled) missing.push("열량 또는 탄·단·지 g");
+              if (missing.length === 0) return null;
+              return (
+                <p className="text-[11px] text-neutral-500 text-center mt-1.5">
+                  {missing.join(" · ")} 입력 후 저장할 수 있어요
+                </p>
+              );
+            })()}
         </div>
       </SheetContent>
     </Sheet>

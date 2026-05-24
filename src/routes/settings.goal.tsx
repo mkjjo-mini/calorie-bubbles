@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { todayKST } from "@/lib/time";
 import { recommendGoal } from "@/lib/goal-recommendation";
 import type { UserProfileInsert, UserProfileRow } from "@/lib/repository/types";
+import { useEntitlements } from "@/hooks/useEntitlements";
+import { PaywallModal } from "@/components/PaywallModal";
 
 export const Route = createFileRoute("/settings/goal")({
   component: GoalPage,
@@ -70,13 +72,7 @@ function ReqStar() {
   return <span className="text-[#EF4444] ml-0.5">★</span>;
 }
 
-function FieldLabel({
-  children,
-  required,
-}: {
-  children: React.ReactNode;
-  required?: boolean;
-}) {
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
     <label className="block text-xs font-medium text-neutral-600 mb-1.5">
       {children}
@@ -103,9 +99,7 @@ function SegmentedControl<T extends string>({
           onClick={() => onChange(opt.value)}
           className={cn(
             "flex-1 py-2.5 text-sm font-medium transition-colors",
-            value === opt.value
-              ? "bg-neutral-900 text-white"
-              : "bg-white text-neutral-600",
+            value === opt.value ? "bg-neutral-900 text-white" : "bg-white text-neutral-600",
           )}
         >
           {opt.label}
@@ -135,9 +129,7 @@ function RadioCards({
             onClick={() => onChange(o.value)}
             className={cn(
               "flex w-full items-center justify-between rounded-2xl border bg-white p-4 text-left transition-colors",
-              active
-                ? "border-neutral-900 ring-1 ring-neutral-900"
-                : "border-neutral-100",
+              active ? "border-neutral-900 ring-1 ring-neutral-900" : "border-neutral-100",
             )}
           >
             <div>
@@ -150,9 +142,7 @@ function RadioCards({
                 active ? "border-neutral-900" : "border-neutral-300",
               )}
             >
-              {active && (
-                <span className="h-2.5 w-2.5 rounded-full bg-neutral-900" />
-              )}
+              {active && <span className="h-2.5 w-2.5 rounded-full bg-neutral-900" />}
             </span>
           </button>
         );
@@ -246,8 +236,12 @@ function RecommendWizard({
     birthYear: existingProfile ? String(existingProfile.birth_year) : "",
     activity: existingProfile?.activity_level ?? "light",
     goal: existingProfile?.goal ?? "maintain",
-    targetWeight: existingProfile?.target_weight_kg != null ? String(existingProfile.target_weight_kg) : "",
-    targetWeeks: existingProfile?.target_period_weeks != null ? String(existingProfile.target_period_weeks) : "",
+    targetWeight:
+      existingProfile?.target_weight_kg != null ? String(existingProfile.target_weight_kg) : "",
+    targetWeeks:
+      existingProfile?.target_period_weeks != null
+        ? String(existingProfile.target_period_weeks)
+        : "",
   }));
 
   const skipTarget = data.goal === "maintain";
@@ -324,8 +318,10 @@ function RecommendWizard({
       birth_year: Number(data.birthYear),
       activity_level: data.activity,
       goal: data.goal,
-      target_weight_kg: data.goal !== "maintain" && data.targetWeight ? Number(data.targetWeight) : null,
-      target_period_weeks: data.goal !== "maintain" && data.targetWeeks ? Number(data.targetWeeks) : null,
+      target_weight_kg:
+        data.goal !== "maintain" && data.targetWeight ? Number(data.targetWeight) : null,
+      target_period_weeks:
+        data.goal !== "maintain" && data.targetWeeks ? Number(data.targetWeeks) : null,
     };
   }
 
@@ -341,19 +337,18 @@ function RecommendWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  const age = data.birthYear
-    ? new Date().getFullYear() - Number(data.birthYear)
-    : null;
+  const age = data.birthYear ? new Date().getFullYear() - Number(data.birthYear) : null;
 
   const displayStep = getDisplayStep();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-hidden
-      />
+    <div
+      role="dialog"
+      aria-modal="true"
+      data-state="open"
+      className="fixed inset-0 z-50 flex items-end justify-center"
+    >
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
       <div className="relative w-full max-w-[390px] rounded-t-3xl bg-white max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
         {/* 핸들 */}
         <div className="flex justify-center pt-3 pb-1">
@@ -452,9 +447,7 @@ function RecommendWizard({
                   desc: o.desc,
                 }))}
                 value={data.activity}
-                onChange={(v) =>
-                  setData((d) => ({ ...d, activity: v as ActivityLevel }))
-                }
+                onChange={(v) => setData((d) => ({ ...d, activity: v as ActivityLevel }))}
               />
             </div>
           )}
@@ -470,9 +463,7 @@ function RecommendWizard({
                   desc: o.desc,
                 }))}
                 value={data.goal}
-                onChange={(v) =>
-                  setData((d) => ({ ...d, goal: v as GoalKey }))
-                }
+                onChange={(v) => setData((d) => ({ ...d, goal: v as GoalKey }))}
               />
             </div>
           )}
@@ -491,31 +482,25 @@ function RecommendWizard({
                   placeholder="60"
                 />
                 {Number(data.targetWeight) > 0 && Number(data.targetWeight) < 30 && (
-                  <p className="mt-1 text-xs text-red-500">
-                    목표 체중은 30kg 이상이어야 해요
-                  </p>
+                  <p className="mt-1 text-xs text-red-500">목표 체중은 30kg 이상이어야 해요</p>
                 )}
                 {Number(data.targetWeight) > 250 && (
-                  <p className="mt-1 text-xs text-red-500">
-                    목표 체중은 250kg 이하로 입력해주세요
-                  </p>
+                  <p className="mt-1 text-xs text-red-500">목표 체중은 250kg 이하로 입력해주세요</p>
                 )}
                 {Number(data.targetWeight) >= 30 &&
                   Number(data.targetWeight) <= 250 &&
                   Number(data.weight) > 0 && (
                     <>
-                      {data.goal === "loss" &&
-                        Number(data.targetWeight) >= Number(data.weight) && (
-                          <p className="mt-1 text-xs text-red-500">
-                            감량 목표는 현재 체중보다 낮아야 해요
-                          </p>
-                        )}
-                      {data.goal === "gain" &&
-                        Number(data.targetWeight) <= Number(data.weight) && (
-                          <p className="mt-1 text-xs text-red-500">
-                            증량 목표는 현재 체중보다 높아야 해요
-                          </p>
-                        )}
+                      {data.goal === "loss" && Number(data.targetWeight) >= Number(data.weight) && (
+                        <p className="mt-1 text-xs text-red-500">
+                          감량 목표는 현재 체중보다 낮아야 해요
+                        </p>
+                      )}
+                      {data.goal === "gain" && Number(data.targetWeight) <= Number(data.weight) && (
+                        <p className="mt-1 text-xs text-red-500">
+                          증량 목표는 현재 체중보다 높아야 해요
+                        </p>
+                      )}
                     </>
                   )}
               </div>
@@ -534,9 +519,7 @@ function RecommendWizard({
                   </p>
                 )}
                 {Number(data.targetWeeks) > 104 && (
-                  <p className="mt-1 text-xs text-red-500">
-                    기간은 104주(2년) 이하로 입력해주세요
-                  </p>
+                  <p className="mt-1 text-xs text-red-500">기간은 104주(2년) 이하로 입력해주세요</p>
                 )}
               </div>
             </div>
@@ -555,15 +538,11 @@ function RecommendWizard({
                   unit="kcal"
                   value={rec.daily_kcal.value}
                   onChange={(v) =>
-                    setRec((r) =>
-                      r ? { ...r, daily_kcal: { ...r.daily_kcal, value: v } } : r,
-                    )
+                    setRec((r) => (r ? { ...r, daily_kcal: { ...r.daily_kcal, value: v } } : r))
                   }
                   dir={rec.daily_kcal.dir}
                   onDirChange={(d) =>
-                    setRec((r) =>
-                      r ? { ...r, daily_kcal: { ...r.daily_kcal, dir: d } } : r,
-                    )
+                    setRec((r) => (r ? { ...r, daily_kcal: { ...r.daily_kcal, dir: d } } : r))
                   }
                   min={KCAL_RANGE.min}
                   max={KCAL_RANGE.max}
@@ -577,15 +556,11 @@ function RecommendWizard({
                   unit="g"
                   value={rec.protein_g.value}
                   onChange={(v) =>
-                    setRec((r) =>
-                      r ? { ...r, protein_g: { ...r.protein_g, value: v } } : r,
-                    )
+                    setRec((r) => (r ? { ...r, protein_g: { ...r.protein_g, value: v } } : r))
                   }
                   dir={rec.protein_g.dir}
                   onDirChange={(d) =>
-                    setRec((r) =>
-                      r ? { ...r, protein_g: { ...r.protein_g, dir: d } } : r,
-                    )
+                    setRec((r) => (r ? { ...r, protein_g: { ...r.protein_g, dir: d } } : r))
                   }
                   min={PROTEIN_RANGE.min}
                   max={PROTEIN_RANGE.max}
@@ -593,7 +568,9 @@ function RecommendWizard({
                 />
               </div>
               <div className="rounded-2xl border border-neutral-100 bg-white p-4">
-                <p className="text-xs text-neutral-400 mb-1">탄수화물 · 지방은 비활성 (적용 후 필요시 켤 수 있어요)</p>
+                <p className="text-xs text-neutral-400 mb-1">
+                  탄수화물 · 지방은 비활성 (적용 후 필요시 켤 수 있어요)
+                </p>
                 <p className="text-xs text-neutral-500">
                   탄수 {rec.carb_g.value}g / 지방 {rec.fat_g.value}g
                 </p>
@@ -647,10 +624,7 @@ function RecommendWizard({
               </Button>
               <Button
                 onClick={nextStep}
-                disabled={
-                  (step === 1 && !step1Valid) ||
-                  (step === 4 && !skipTarget && !step4Valid)
-                }
+                disabled={(step === 1 && !step1Valid) || (step === 4 && !skipTarget && !step4Valid)}
                 className="h-12 flex-[2] rounded-2xl bg-neutral-900 text-base font-semibold text-white hover:bg-neutral-800 disabled:opacity-40"
               >
                 다음
@@ -666,11 +640,22 @@ function RecommendWizard({
 /* ───────── 메인 목표 관리 페이지 ───────── */
 function GoalPage() {
   const navigate = useNavigate();
+  const { entitlements } = useEntitlements();
+  const [goalPaywallOpen, setGoalPaywallOpen] = React.useState(false);
 
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [existingProfile, setExistingProfile] = React.useState<UserProfileRow | null>(null);
   const [showWizard, setShowWizard] = React.useState(false);
+
+  // Step 17 P1 — 추천 마법사는 Pro만. 미허용 시 paywall, 직접 입력은 그대로 가능.
+  function handleRecommendClick() {
+    if (!entitlements.goalWizard) {
+      setGoalPaywallOpen(true);
+      return;
+    }
+    setShowWizard(true);
+  }
 
   /* 칼로리 (항상 활성) */
   const [kcal, setKcal] = React.useState(2000);
@@ -699,10 +684,7 @@ function GoalPage() {
 
   React.useEffect(() => {
     let alive = true;
-    Promise.all([
-      cloudRepository.userGoal.get(todayKST()),
-      cloudRepository.userProfile.get(),
-    ])
+    Promise.all([cloudRepository.userGoal.get(todayKST()), cloudRepository.userProfile.get()])
       .then(([goal, profile]) => {
         if (!alive) return;
         setExistingProfile(profile);
@@ -735,9 +717,7 @@ function GoalPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      const effective_from = applyToday
-        ? todayKST()
-        : format(effectiveDate, "yyyy-MM-dd");
+      const effective_from = applyToday ? todayKST() : format(effectiveDate, "yyyy-MM-dd");
 
       await cloudRepository.userGoal.put({
         daily_kcal_value: kcal,
@@ -781,7 +761,7 @@ function GoalPage() {
           </div>
           <button
             type="button"
-            onClick={() => setShowWizard(true)}
+            onClick={handleRecommendClick}
             className="rounded-full border border-neutral-900 px-3 py-1.5 text-xs font-semibold text-neutral-900 active:bg-neutral-100"
           >
             추천 받기
@@ -812,9 +792,7 @@ function GoalPage() {
               label="단백질"
               state={protein}
               range={PROTEIN_RANGE}
-              onToggle={() =>
-                setProtein((s) => ({ ...s, active: !s.active }))
-              }
+              onToggle={() => setProtein((s) => ({ ...s, active: !s.active }))}
               onValueChange={(v) => setProtein((s) => ({ ...s, value: v }))}
               onDirChange={(d) => setProtein((s) => ({ ...s, dir: d }))}
             />
@@ -842,18 +820,14 @@ function GoalPage() {
             {/* 적용 시점 */}
             <div className="rounded-2xl border border-neutral-100 bg-white p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-neutral-900">
-                  적용 시점
-                </span>
+                <span className="text-sm font-semibold text-neutral-900">적용 시점</span>
                 <div className="flex overflow-hidden rounded-full border border-neutral-200 text-[11px] font-medium">
                   <button
                     type="button"
                     onClick={() => setApplyToday(true)}
                     className={cn(
                       "px-3 py-1.5 transition-colors",
-                      applyToday
-                        ? "bg-neutral-900 text-white"
-                        : "bg-white text-neutral-500",
+                      applyToday ? "bg-neutral-900 text-white" : "bg-white text-neutral-500",
                     )}
                   >
                     오늘
@@ -863,9 +837,7 @@ function GoalPage() {
                     onClick={() => setApplyToday(false)}
                     className={cn(
                       "px-3 py-1.5 transition-colors",
-                      !applyToday
-                        ? "bg-neutral-900 text-white"
-                        : "bg-white text-neutral-500",
+                      !applyToday ? "bg-neutral-900 text-white" : "bg-white text-neutral-500",
                     )}
                   >
                     다른 날짜
@@ -932,6 +904,12 @@ function GoalPage() {
           onClose={() => setShowWizard(false)}
         />
       )}
+
+      <PaywallModal
+        feature="goal_wizard"
+        open={goalPaywallOpen}
+        onOpenChange={setGoalPaywallOpen}
+      />
     </div>
   );
 }

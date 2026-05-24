@@ -5,11 +5,13 @@
  */
 import {
   CloudAuthError,
+  CloudPaywallError,
   type FavoriteRow,
   type FoodInsert,
   type FoodLogInsert,
   type FoodLogRow,
   type FoodRow,
+  type PaywallFeature,
   type Repository,
   type UserGoalInsert,
   type UserNotifications,
@@ -18,10 +20,7 @@ import {
 } from "./types";
 import type { ResolvedGoal } from "@/lib/goal";
 
-async function api<T = unknown>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
+async function api<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     credentials: "include",
     // iOS WebView가 GET 응답을 적극 캐시 — 추가/삭제 후 stale 방지
@@ -39,6 +38,18 @@ async function api<T = unknown>(
       window.location.assign(`/auth/login?next=${encodeURIComponent(next)}`);
     }
     throw new CloudAuthError();
+  }
+  if (res.status === 402) {
+    // Step 17 entitlements 한도 초과 — feature를 담아 caller가 PaywallModal 표시.
+    const json = (await res.json().catch(() => ({}))) as {
+      code?: string;
+      feature?: PaywallFeature;
+      message?: string;
+    };
+    throw new CloudPaywallError(
+      json.feature ?? "ai",
+      json.message ?? "Pro 플랜에서 이용할 수 있어요.",
+    );
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -65,16 +76,12 @@ export const cloudRepository: Repository = {
         method: "PUT",
         body: JSON.stringify(patch),
       }),
-    remove: (id: string) =>
-      api<void>(`/foods?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
+    remove: (id: string) => api<void>(`/foods?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
   foodLogs: {
-    listByDate: (date: string) =>
-      api<FoodLogRow[]>(`/food-logs?date=${encodeURIComponent(date)}`),
+    listByDate: (date: string) => api<FoodLogRow[]>(`/food-logs?date=${encodeURIComponent(date)}`),
     listByRange: (from: string, to: string) =>
-      api<FoodLogRow[]>(
-        `/food-logs?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
-      ),
+      api<FoodLogRow[]>(`/food-logs?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
     create: (log: FoodLogInsert) =>
       api<FoodLogRow>("/food-logs", {
         method: "POST",
@@ -87,13 +94,9 @@ export const cloudRepository: Repository = {
   },
   userGoal: {
     get: (date?: string) =>
-      api<ResolvedGoal>(
-        `/user-goals${date ? `?date=${encodeURIComponent(date)}` : ""}`,
-      ),
+      api<ResolvedGoal>(`/user-goals${date ? `?date=${encodeURIComponent(date)}` : ""}`),
     getMonth: (yyyymm: string) =>
-      api<Record<string, ResolvedGoal>>(
-        `/user-goals/month?yyyymm=${encodeURIComponent(yyyymm)}`,
-      ),
+      api<Record<string, ResolvedGoal>>(`/user-goals/month?yyyymm=${encodeURIComponent(yyyymm)}`),
     put: (goal: UserGoalInsert) =>
       api<void>("/user-goals", {
         method: "POST",

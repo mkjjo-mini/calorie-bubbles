@@ -7,7 +7,7 @@
  * staleTime 5분 — tier는 거의 안 변하지만 aiLifetimeUsed가 호출마다 +1이라 짧게.
  * AI 분석 성공 시 AiAddSheet가 ENTITLEMENTS_QUERY_KEY로 invalidate.
  *
- * 기존 useIsPaidUser는 광고 분기에 그대로 사용 (P1: 단계적 마이그레이션).
+ * AdBanner는 entitlements.showAds로 광고 분기 (Step 17 P1 마이그레이션 완료).
  *
  * PRD §5.3.
  */
