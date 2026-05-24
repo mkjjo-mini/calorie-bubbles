@@ -25,7 +25,12 @@
  *  텍스트 모드는 거의 항상 length 1.
  */
 import type { Env } from "../auth/env";
-import { checkAiEntitlement, getUserTier, incrementAiLifetimeUsed } from "../auth/entitlements";
+import {
+  checkAiEntitlement,
+  getAiLifetimeUsed,
+  getUserTier,
+  incrementAiLifetimeUsed,
+} from "../auth/entitlements";
 import { jsonError, NO_STORE_JSON_HEADERS, withUser } from "../auth/middleware";
 import { callGemini, GeminiError } from "../ai/gemini";
 import { fetchFoodFallback, type FoodFallbackHit } from "../ai/food-fallback";
@@ -355,9 +360,13 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
       }
 
       // Step 17 — 분석 성공 시 lifetime 카운터 +1 (pro도 포함, 운영 분석용).
+      // 단 모든 candidate가 is_food=false면 사용자에겐 "음식을 찾지 못함"으로 보이므로
+      // 차감하지 않음 (체험 사용으로 보기 unfair). 일일 abuse 카운터는 이미 +1.
       // 호출 실패하면 0이 반환되지만 응답 자체는 막지 않음.
-      // entitlement check 통과 후이므로 race로 한도 + 1까지 허용될 수 있음 (수용).
-      const aiLifetimeUsed = await incrementAiLifetimeUsed(admin, userId);
+      const hasFoodCandidate = candidates.some((c) => c.is_food);
+      const aiLifetimeUsed = hasFoodCandidate
+        ? await incrementAiLifetimeUsed(admin, userId)
+        : await getAiLifetimeUsed(admin, userId);
 
       return new Response(
         JSON.stringify({
