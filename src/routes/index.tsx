@@ -38,6 +38,7 @@ import {
 import { cloudRepository } from "@/lib/repository/cloud";
 import { CloudAuthError, type FoodLogRow } from "@/lib/repository/types";
 import { todayKST } from "@/lib/time";
+import { ShareStoryButton } from "@/features/share-story/ShareStoryButton";
 
 const homeSearchSchema = z.object({
   date: fallback(z.string(), todayKST()).default(todayKST()),
@@ -485,6 +486,16 @@ function Index() {
               >
                 비우기
               </button>
+              <ShareStoryButton
+                data={{
+                  date: selectedDate,
+                  totalKcal,
+                  goalKcal: DAILY_GOAL_KCAL,
+                  carbG: totals.carbs,
+                  proteinG: totals.protein,
+                  fatG: totals.fat,
+                }}
+              />
             </div>
           </div>
 
@@ -526,6 +537,7 @@ function Index() {
         <section className="relative mx-auto px-5" style={{ width: fieldWidth }}>
           <motion.div
             ref={bowlRef}
+            data-share-bubble
             animate={bowlControls}
             className={`relative overflow-hidden shadow-inner ${
               stage === 3 ? "animate-pulse" : ""
