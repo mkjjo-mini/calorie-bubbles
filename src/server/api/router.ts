@@ -9,6 +9,7 @@ import { handleAiFood } from "./ai-food";
 import { handleFavorites } from "./favorites";
 import { handleFoodLogs } from "./food-logs";
 import { handleFoods } from "./foods";
+import { handleLegalDocuments } from "./legal";
 import { handleSubscriptionStatus } from "./subscription-status";
 import { handleUserGoals, handleUserGoalsMonth } from "./user-goals";
 import { handleUserNotifications } from "./user-notifications";
@@ -38,6 +39,8 @@ export async function handleApi(
       return handleUserNotifications(req, env);
     case "/api/ai-food/analyze":
       return handleAiFood(req, env);
+    case "/api/legal/documents":
+      return handleLegalDocuments(req, env);
     default:
       return null;
   }

@@ -47,6 +47,29 @@ function CallbackPage() {
       }
       if (data.session) {
         const next = search.next ?? "/";
+        // Step 18 — consent 가드.
+        //  OAuth implicit flow는 server /api/auth/callback을 거치지 않으므로
+        //  여기서 직접 consent-status 검사. 미통과면 /auth/consent로 우회.
+        //  fail-open — 검사 실패 시 next로 진행하고 AppShell이 다음 페이지에서
+        //  다시 catch (사용자가 막히지 않음).
+        try {
+          const res = await fetch("/api/auth/consent-status", {
+            credentials: "include",
+          });
+          if (res.ok) {
+            const status = (await res.json()) as { compliant?: boolean };
+            if (status.compliant === false) {
+              navigate({
+                to: "/auth/consent",
+                search: { next },
+                replace: true,
+              });
+              return;
+            }
+          }
+        } catch {
+          // 네트워크 실패 등 — AppShell이 catch.
+        }
         navigate({ to: next, replace: true });
         return;
       }
@@ -68,15 +91,11 @@ function CallbackPage() {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-white px-6">
         <div className="max-w-sm text-center">
-          <h2 className="text-base font-semibold text-neutral-900">
-            로그인할 수 없어요
-          </h2>
+          <h2 className="text-base font-semibold text-neutral-900">로그인할 수 없어요</h2>
           <p className="mt-2 text-xs text-red-600">{err}</p>
           <button
             type="button"
-            onClick={() =>
-              navigate({ to: "/auth/login", search: { error: err }, replace: true })
-            }
+            onClick={() => navigate({ to: "/auth/login", search: { error: err }, replace: true })}
             className="mt-5 inline-flex h-10 items-center rounded-lg bg-neutral-900 px-4 text-xs font-semibold text-white"
           >
             로그인 화면으로

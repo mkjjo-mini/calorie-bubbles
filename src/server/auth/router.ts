@@ -10,16 +10,15 @@
  */
 import type { Env } from "./env";
 import { NO_STORE_JSON_HEADERS } from "./middleware";
+import { applyCookies, createAdminSupabase, createServerSupabase } from "./supabase-server";
 import {
-  applyCookies,
-  createAdminSupabase,
-  createServerSupabase,
-} from "./supabase-server";
+  evaluateCompliance,
+  handleConsentGrant,
+  handleConsentStatus,
+  handleConsentWithdraw,
+} from "../api/consent";
 
-export async function handleAuth(
-  req: Request,
-  env: Env,
-): Promise<Response | null> {
+export async function handleAuth(req: Request, env: Env): Promise<Response | null> {
   const url = new URL(req.url);
 
   if (url.pathname === "/api/auth/me") {
@@ -33,6 +32,15 @@ export async function handleAuth(
   }
   if (url.pathname === "/api/auth/callback") {
     return handleCallback(req, env);
+  }
+  if (url.pathname === "/api/auth/consent-status") {
+    return handleConsentStatus(req, env);
+  }
+  if (url.pathname === "/api/auth/consent") {
+    return handleConsentGrant(req, env);
+  }
+  if (url.pathname === "/api/auth/consent/withdraw") {
+    return handleConsentWithdraw(req, env);
   }
   return null;
 }
@@ -113,36 +121,25 @@ async function handleDeleteAccount(req: Request, env: Env): Promise<Response> {
         .from("food-photos")
         .list(user.id, { limit: 1000 });
       if (listErr) {
-        console.warn(
-          "[auth/delete-account] storage list failed",
-          listErr.message,
-        );
+        console.warn("[auth/delete-account] storage list failed", listErr.message);
       } else if (files && files.length > 0) {
         const paths = files.map((f) => `${user.id}/${f.name}`);
-        const { error: removeErr } = await admin.storage
-          .from("food-photos")
-          .remove(paths);
+        const { error: removeErr } = await admin.storage.from("food-photos").remove(paths);
         if (removeErr) {
-          console.warn(
-            "[auth/delete-account] storage remove failed",
-            removeErr.message,
-          );
+          console.warn("[auth/delete-account] storage remove failed", removeErr.message);
         }
       }
     } catch (storageErr) {
-      console.warn(
-        "[auth/delete-account] storage cleanup error",
-        storageErr,
-      );
+      console.warn("[auth/delete-account] storage cleanup error", storageErr);
     }
 
     const { error: deleteErr } = await admin.auth.admin.deleteUser(user.id);
     if (deleteErr) {
       console.error("[auth/delete-account]", deleteErr.message);
-      return new Response(
-        JSON.stringify({ code: "DELETE_FAILED", message: deleteErr.message }),
-        { status: 500, headers: NO_STORE_JSON_HEADERS },
-      );
+      return new Response(JSON.stringify({ code: "DELETE_FAILED", message: deleteErr.message }), {
+        status: 500,
+        headers: NO_STORE_JSON_HEADERS,
+      });
     }
     // 서버측에서 세션도 함께 정리
     await ctx.supabase.auth.signOut();
@@ -150,10 +147,10 @@ async function handleDeleteAccount(req: Request, env: Env): Promise<Response> {
     return applyCookies(res, ctx.cookiesToSet);
   } catch (e) {
     console.error("[auth/delete-account] unexpected", e);
-    return new Response(
-      JSON.stringify({ code: "INTERNAL", message: (e as Error).message }),
-      { status: 500, headers: NO_STORE_JSON_HEADERS },
-    );
+    return new Response(JSON.stringify({ code: "INTERNAL", message: (e as Error).message }), {
+      status: 500,
+      headers: NO_STORE_JSON_HEADERS,
+    });
   }
 }
 
@@ -189,6 +186,41 @@ async function handleCallback(req: Request, env: Env): Promise<Response> {
     const loginUrl = new URL("/auth/login", url.origin);
     loginUrl.searchParams.set("error", error.message);
     return Response.redirect(loginUrl.toString(), 303);
+  }
+
+  // Step 18 — consent 가드.
+  //
+  //   /auth/login 진입 후 소셜 클릭 → callback. 이 경로엔 동의 체크박스가 없음.
+  //   신규 가입자(또는 약관 갱신 미동의 기존 사용자)를 여기서 catch해 /auth/consent로
+  //   강제 우회. 동의 완료 후 본래 next로 이동.
+  //
+  //   ⚠️ /auth/signup → 소셜 흐름도 같은 callback을 거치는데, signup 화면이
+  //   이미 클라가 약관 체크를 강제하지만 백엔드에 동의 row를 아직 안 만들었으면
+  //   여기서도 catch됨 → /auth/consent 한 번 더 거침. 이건 안전한 idempotent UX
+  //   (PRD는 사용자가 의도 임시 저장하는 옵션도 언급하지만, 최소 픽스로는 이
+  //   "한 번 더 동의" 흐름이 가장 단순·신뢰성 있음).
+  try {
+    const {
+      data: { user },
+    } = await ctx.supabase.auth.getUser();
+    if (user) {
+      const admin = createAdminSupabase(env);
+      const result = await evaluateCompliance(admin, user.id);
+      if ("error" in result) {
+        console.error("[auth/callback] compliance check failed", result.error);
+        // 검사 실패는 fail-open (가드 무력화) — 가입은 통과시키되 AppShell이
+        // 다음 페이지에서 다시 검사. 사용자가 막히지 않음.
+      } else if (!result.compliant) {
+        const consentUrl = new URL("/auth/consent", url.origin);
+        consentUrl.searchParams.set("next", next.startsWith("/") ? next : "/");
+        const redir = Response.redirect(consentUrl.toString(), 303);
+        const mutable = new Response(null, { status: 303, headers: redir.headers });
+        return applyCookies(mutable, ctx.cookiesToSet);
+      }
+    }
+  } catch (e) {
+    console.error("[auth/callback] consent guard error", e);
+    // fail-open — 가입은 통과 (AppShell이 catch).
   }
 
   const target = new URL(next.startsWith("/") ? next : "/", url.origin);

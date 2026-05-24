@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { AdBanner } from "@/components/AdBanner";
 import { Toaster } from "@/components/ui/sonner";
 import { useSession } from "@/hooks/useSession";
+import { useConsentStatus } from "@/lib/legal";
 import { setStatusBarStyle } from "@/lib/native";
 
 function NotFoundComponent() {
@@ -139,6 +140,10 @@ function AppShell() {
   const isLegalRoute = pathname.startsWith("/legal/");
   const isPublicRoute = isAuthRoute || isLegalRoute;
   const { session, status } = useSession();
+  // Step 18 — consent 가드.
+  //   인증 사용자에게만 hook이 의미 있음. enabled 분기 없이도 401이면 compliant=true
+  //   반환하므로(legal.ts) 안전. authenticated 일 때만 missing redirect 수행.
+  const { data: consent } = useConsentStatus();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -149,8 +154,18 @@ function AppShell() {
         search: pathname === "/" ? undefined : { next: pathname },
         replace: true,
       });
+      return;
     }
-  }, [isPublicRoute, status, pathname, navigate]);
+    // 인증 완료 + 약관 미준수 → /auth/consent로 우회. callback 가드가 놓친 우회로
+    // (예: 다른 기기에서 약관 갱신 후 첫 진입) 안전망.
+    if (status === "authenticated" && consent && !consent.compliant) {
+      navigate({
+        to: "/auth/consent",
+        search: pathname === "/" ? undefined : { next: pathname },
+        replace: true,
+      });
+    }
+  }, [isPublicRoute, status, pathname, navigate, consent]);
 
   // auth·legal 화면은 가드 통과
   if (isPublicRoute) {
