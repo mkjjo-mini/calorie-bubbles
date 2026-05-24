@@ -53,5 +53,9 @@
 	<string>맞춤형 광고를 표시하기 위해 사용 패턴을 분석합니다. 거부해도 일반 광고가 노출됩니다.</string>
 	<key>GADDelayAppMeasurementInit</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>음식 사진을 AI로 분석하기 위해 사진 라이브러리 접근이 필요합니다.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>음식 사진을 직접 촬영해 AI 분석에 사용하기 위해 카메라 접근이 필요합니다.</string>
 </dict>
 </plist>
