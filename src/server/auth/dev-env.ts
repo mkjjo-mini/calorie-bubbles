@@ -16,6 +16,10 @@ export function getDevEnv(): Env {
     FOOD_API_KEY: process.env.FOOD_API_KEY,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     FORCE_PAID: process.env.FORCE_PAID,
+    // Step 17 entitlements
+    FORCE_PRO_USERS: process.env.FORCE_PRO_USERS,
+    FORCE_BASIC_USERS: process.env.FORCE_BASIC_USERS,
+    AI_FEATURE_ENABLED: process.env.AI_FEATURE_ENABLED,
     ENVIRONMENT:
       (process.env.ENVIRONMENT as "development" | "production") ?? "development",
   };

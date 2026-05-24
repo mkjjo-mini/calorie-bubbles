@@ -24,6 +24,48 @@ export interface ResizedImage {
 const TARGET_SIZE = 200;
 const JPEG_QUALITY = 0.8;
 
+// AI 분석 전송용 cap. 1024 이상에서 Gemini 정확도 향상 거의 없음(영양표 OCR 안전 마진).
+// 원본이 더 작으면 upscale 안 함 — 토큰 낭비 방지 + 정보 손실 없음.
+const AI_MAX_DIMENSION = 1024;
+// 텍스트 디테일 보존 위해 thumbnail(0.8)보다 살짝 높임.
+const AI_JPEG_QUALITY = 0.9;
+
+/**
+ * AI 분석용 리사이즈.
+ *  - 비율 유지 (crop X) — 영양표·메뉴 텍스트 잘림 방지
+ *  - max(width, height)를 AI_MAX_DIMENSION으로 cap, 원본이 더 작으면 그대로
+ *  - 결과는 메모리에서만 사용하고 Gemini 호출 후 폐기 (Storage 무관)
+ */
+export async function resizeForAi(file: File): Promise<ResizedImage> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+
+    // 더 긴 변을 cap. 원본이 더 작으면 안 키움.
+    const longerSide = Math.max(img.naturalWidth, img.naturalHeight);
+    const scale = longerSide > AI_MAX_DIMENSION ? AI_MAX_DIMENSION / longerSide : 1;
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2d context 못 얻음");
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", AI_JPEG_QUALITY),
+    );
+    if (!blob) throw new Error("Canvas → Blob 변환 실패");
+
+    const dataUrl = await blobToDataUrl(blob);
+    return { blob, dataUrl, size: Math.max(w, h) };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export async function resizeToThumbnail(
   file: File,
   size: number = TARGET_SIZE,

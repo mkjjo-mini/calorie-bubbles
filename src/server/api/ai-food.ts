@@ -25,14 +25,11 @@
  *  텍스트 모드는 거의 항상 length 1.
  */
 import type { Env } from "../auth/env";
+import { checkAiEntitlement, getUserTier, incrementAiLifetimeUsed } from "../auth/entitlements";
 import { jsonError, NO_STORE_JSON_HEADERS, withUser } from "../auth/middleware";
 import { callGemini, GeminiError } from "../ai/gemini";
 import { fetchFoodFallback, type FoodFallbackHit } from "../ai/food-fallback";
-import {
-  checkAndConsumeUsage,
-  sanitizeUserText,
-  validateNutrition,
-} from "../ai/guardrails";
+import { checkAndConsumeUsage, sanitizeUserText, validateNutrition } from "../ai/guardrails";
 
 interface AnalyzeBody {
   mode: "photo" | "text";
@@ -160,6 +157,16 @@ interface FallbackResult {
 }
 
 export async function handleAiFood(req: Request, env: Env): Promise<Response> {
+  // 비상 스위치 — 인증 검증보다 먼저. 비용 폭주·Gemini 장애 시 토글로 즉시 차단.
+  // PRD §10 작업 14, §11.4 검증.
+  if (env.AI_FEATURE_ENABLED === "false") {
+    return jsonError(
+      503,
+      "AI_DISABLED",
+      "AI 기능을 일시 점검 중이에요. 잠시 후 다시 시도하거나 직접 입력으로 등록해주세요.",
+    );
+  }
+
   return withUser(req, env, async ({ userId, admin }) => {
     if (req.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -173,6 +180,15 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
     }
     if (!body || typeof body !== "object") {
       return jsonError(400, "INVALID_BODY", "body must be object");
+    }
+
+    // 가드레일 0 — Step 17 entitlements. tier·lifetime 한도 검사.
+    // Free/Basic이 평생 3회 초과면 402 PAYMENT_REQUIRED + paywall("ai").
+    // Pro는 아래 PER_USER_DAILY_LIMIT만 적용.
+    const tier = await getUserTier(env, admin, userId);
+    const ent = await checkAiEntitlement(admin, userId, tier);
+    if (!ent.ok) {
+      return ent.response;
     }
 
     // 가드레일 1+2 — rate limit & cost cap. 입력 검증 통과 후, Gemini 호출 전 체크.
@@ -247,7 +263,11 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
         const text = result.rawText.trim();
         const match = text.match(/\{[\s\S]*\}/);
         if (!match) {
-          return jsonError(500, "PARSE_ERROR", `검색 모드 응답에서 JSON 추출 실패: ${text.slice(0, 200)}`);
+          return jsonError(
+            500,
+            "PARSE_ERROR",
+            `검색 모드 응답에서 JSON 추출 실패: ${text.slice(0, 200)}`,
+          );
         }
         try {
           parsed = JSON.parse(match[0]);
@@ -260,7 +280,12 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
       let candidates: Candidate[] = Array.isArray(p?.candidates) ? p.candidates : [];
 
       // 빈 응답 fallback — 일부 모델은 candidates 안 감싸고 단일 객체로 응답할 수 있어 보정
-      if (candidates.length === 0 && parsed && typeof parsed === "object" && "name" in (parsed as object)) {
+      if (
+        candidates.length === 0 &&
+        parsed &&
+        typeof parsed === "object" &&
+        "name" in (parsed as object)
+      ) {
         candidates = [parsed as Candidate];
       }
 
@@ -291,7 +316,7 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
       if (candidates.length === 1) {
         const c = candidates[0];
         if (c.is_food && c.needs_fallback && env.FOOD_API_KEY) {
-          const query = (c.fallback_query?.trim()) || c.name || "";
+          const query = c.fallback_query?.trim() || c.name || "";
           const targetG = c.serving_g > 0 ? c.serving_g : undefined;
           try {
             const fb = await fetchFoodFallback(env, query, targetG);
@@ -329,6 +354,11 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
         }
       }
 
+      // Step 17 — 분석 성공 시 lifetime 카운터 +1 (pro도 포함, 운영 분석용).
+      // 호출 실패하면 0이 반환되지만 응답 자체는 막지 않음.
+      // entitlement check 통과 후이므로 race로 한도 + 1까지 허용될 수 있음 (수용).
+      const aiLifetimeUsed = await incrementAiLifetimeUsed(admin, userId);
+
       return new Response(
         JSON.stringify({
           candidates,
@@ -338,6 +368,8 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
             injectionSuspected,
             rejectedCount: rejected.length,
           },
+          // 클라이언트가 즉시 "체험 X/3회 남음" 갱신 (별도 fetch 불필요)
+          entitlement: { tier, aiLifetimeUsed },
           raw: { text: result.rawText },
         }),
         { status: 200, headers: NO_STORE_JSON_HEADERS },

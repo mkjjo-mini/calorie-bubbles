@@ -14,17 +14,15 @@
  */
 import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Camera, ExternalLink, Loader2, Sparkles, X } from "lucide-react";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { PaywallModal } from "@/components/PaywallModal";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
-import { resizeToThumbnail } from "@/lib/image-resize";
+import { resizeForAi, resizeToThumbnail } from "@/lib/image-resize";
 import { useSession } from "@/hooks/useSession";
+import { ENTITLEMENTS_QUERY_KEY, useEntitlements } from "@/hooks/useEntitlements";
 import { inferMealSlot, type MealSlot } from "@/lib/foods";
 import { pushRecent } from "@/lib/recent-foods";
 
@@ -72,15 +70,11 @@ interface Props {
   mealSlot?: MealSlot;
 }
 
-export function AiAddSheet({
-  open,
-  onOpenChange,
-  onRegistered,
-  loggedDate,
-  mealSlot,
-}: Props) {
+export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealSlot }: Props) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { session } = useSession();
+  const { entitlements, aiUsesRemaining } = useEntitlements();
   const [step, setStep] = useState<"input" | "preview">("input");
   const [text, setText] = useState("");
   const [image, setImage] = useState<{
@@ -92,6 +86,8 @@ export function AiAddSheet({
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   /** 사용자가 편집한 값 (preview 단계) */
   const [edit, setEdit] = useState<Analysis | null>(null);
+  /** Step 17 — AI lifetime 한도 paywall */
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
   function reset() {
     setStep("input");
@@ -129,13 +125,22 @@ export function AiAddSheet({
     setErr(null);
     setResult(null);
 
+    // Step 17 pre-flight — Free/Basic 평생 한도 소진 시 백엔드 호출 전에 paywall.
+    // 사용자가 입력·사진까지 마치고 분석 시도해야 paywall이 뜨도록 (FAB 진입 시점엔 X).
+    if (!entitlements.aiUnlimited && aiUsesRemaining <= 0) {
+      setPaywallOpen(true);
+      return;
+    }
+
     let body: Record<string, unknown>;
     if (image) {
-      // 분석은 큰 사진(원본)으로 — 정확도 ↑. 썸네일은 등록 시 별도.
-      const base64 = await fileToBase64(image.file);
+      // AI 전송용 1024px JPEG로 리사이즈 (비율 유지, 원본<1024면 그대로).
+      // 원본 12MP 그대로 보내면 토큰 ~9000개 → 비용 6배 + 정확도 향상 거의 없음.
+      const { blob } = await resizeForAi(image.file);
+      const base64 = await fileToBase64(blob);
       body = {
         mode: "photo",
-        image: { mimeType: image.file.type, data: base64 },
+        image: { mimeType: blob.type, data: base64 },
         ...(text.trim() ? { hint: text.trim() } : {}),
       };
     } else if (text.trim()) {
@@ -157,6 +162,14 @@ export function AiAddSheet({
         code?: string;
         message?: string;
       };
+
+      // Step 17 — 백엔드 402 PAYMENT_REQUIRED. race로 클라 캐시가 한 발 뒤처졌을 때.
+      if (res.status === 402 && json.code === "PAYMENT_REQUIRED") {
+        // 캐시도 invalidate해서 다음 조회 시 최신 카운트로 갱신
+        queryClient.invalidateQueries({ queryKey: ENTITLEMENTS_QUERY_KEY });
+        setPaywallOpen(true);
+        return;
+      }
       if (!res.ok) {
         setErr(translateAiError(json.code, json.message, res.status));
         return;
@@ -166,6 +179,8 @@ export function AiAddSheet({
         setErr("음식을 찾지 못했어요. 다른 사진/설명을 시도해보세요.");
         return;
       }
+      // 성공 — lifetime 카운터가 +1 됐으니 useEntitlements 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: ENTITLEMENTS_QUERY_KEY });
       setResult(json);
       setEdit({ ...first });
       setStep("preview");
@@ -192,12 +207,10 @@ export function AiAddSheet({
         const photoId = randomId();
         const path = `${session.userId}/${photoId}.jpg`;
         const supabase = getBrowserSupabase();
-        const { error: upErr } = await supabase.storage
-          .from("food-photos")
-          .upload(path, blob, {
-            contentType: "image/jpeg",
-            upsert: false,
-          });
+        const { error: upErr } = await supabase.storage.from("food-photos").upload(path, blob, {
+          contentType: "image/jpeg",
+          upsert: false,
+        });
         if (upErr) throw new Error(`사진 업로드 실패: ${upErr.message}`);
         photoPath = path;
       }
@@ -218,8 +231,7 @@ export function AiAddSheet({
         created_via: createdVia,
         photo_url: photoPath,
         source_text: image ? text.trim() || null : text.trim(),
-        source_refs:
-          result?.refs && result.refs.length > 0 ? result.refs : null,
+        source_refs: result?.refs && result.refs.length > 0 ? result.refs : null,
         ai_confidence: edit.confidence,
       };
       const fRes = await fetch("/api/foods", {
@@ -306,6 +318,10 @@ export function AiAddSheet({
               loading={loading === "analyze"}
               err={err}
               onManual={goManual}
+              aiUnlimited={entitlements.aiUnlimited}
+              aiUsesRemaining={aiUsesRemaining}
+              aiLifetimeFreeUses={entitlements.aiLifetimeFreeUses}
+              onShowPaywall={() => setPaywallOpen(true)}
             />
           )}
 
@@ -324,6 +340,9 @@ export function AiAddSheet({
           )}
         </div>
       </DrawerContent>
+
+      {/* Step 17 — AI 한도 paywall. Drawer 형제로 두어 시트 위에 겹쳐 노출 */}
+      <PaywallModal feature="ai" open={paywallOpen} onOpenChange={setPaywallOpen} />
     </Drawer>
   );
 }
@@ -339,6 +358,10 @@ function InputStep({
   loading,
   err,
   onManual,
+  aiUnlimited,
+  aiUsesRemaining,
+  aiLifetimeFreeUses,
+  onShowPaywall,
 }: {
   text: string;
   setText: (s: string) => void;
@@ -349,9 +372,35 @@ function InputStep({
   loading: boolean;
   err: string | null;
   onManual: () => void;
+  aiUnlimited: boolean;
+  aiUsesRemaining: number;
+  aiLifetimeFreeUses: number;
+  onShowPaywall: () => void;
 }) {
+  const exhausted = !aiUnlimited && aiUsesRemaining <= 0;
   return (
     <div className="flex flex-col gap-3">
+      {/* Step 17 — Free/Basic 한정 체험 카운터 (Pro는 노출 X) */}
+      {!aiUnlimited && (
+        <button
+          type="button"
+          onClick={exhausted ? onShowPaywall : undefined}
+          className={`flex items-center justify-between rounded-xl px-3 py-2 text-[11px] ${
+            exhausted
+              ? "bg-amber-50 border border-amber-200 text-amber-900 active:bg-amber-100"
+              : "bg-neutral-50 text-neutral-600"
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3" />
+            {exhausted
+              ? `무료 체험을 모두 사용하셨어요`
+              : `AI 체험 ${aiUsesRemaining}/${aiLifetimeFreeUses}회 남음`}
+          </span>
+          {exhausted && <span className="font-semibold text-amber-900">Pro 보기 →</span>}
+        </button>
+      )}
+
       <p className="text-[11px] text-neutral-500 leading-relaxed">
         음식 사진을 찍거나, 자연어로 적어주세요. (식당 메뉴도 OK)
       </p>
@@ -383,18 +432,11 @@ function InputStep({
         <label className="flex items-center justify-center gap-2 h-12 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 text-neutral-600 text-sm active:bg-neutral-100">
           <Camera className="h-4 w-4" />
           사진 추가 (선택)
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={onPickImage}
-          />
+          <input type="file" accept="image/*" className="hidden" onChange={onPickImage} />
         </label>
       )}
 
-      {err && (
-        <p className="text-xs text-red-600 px-1">{err}</p>
-      )}
+      {err && <p className="text-xs text-red-600 px-1">{err}</p>}
 
       <button
         onClick={onAnalyze}
@@ -484,9 +526,7 @@ function PreviewStep({
           />
         </div>
         <div className="mt-2">
-          <label className="text-xs text-neutral-500 block mb-1">
-            그램 (g)
-          </label>
+          <label className="text-xs text-neutral-500 block mb-1">그램 (g)</label>
           <input
             type="number"
             inputMode="decimal"
@@ -644,6 +684,7 @@ function translateAiError(
     "OVERLOADED", // Gemini 혼잡
     "INVALID_OUTPUT", // AI 응답 신뢰 불가
     "IMAGE_TOO_LARGE", // 사진 큼
+    "AI_DISABLED", // Step 17 비상 스위치 (AI_FEATURE_ENABLED=false)
   ]);
   if (code && FRIENDLY.has(code) && message) return message;
 
@@ -657,7 +698,7 @@ function translateAiError(
   return "AI 분석에 실패했어요. 잠시 후 다시 시도하거나 직접 입력해주세요.";
 }
 
-function fileToBase64(file: File): Promise<string> {
+function fileToBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {

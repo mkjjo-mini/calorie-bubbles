@@ -33,6 +33,21 @@ export interface Env {
    * 발급: Cloudflare Dashboard → AI Gateway → tandanji-bubble-ai → Authentication
    */
   CF_AIG_TOKEN?: string;
-  /** v1 mock — 유료 사용자 강제 토글 (BM 확정 전까지) */
+  /** v1 mock — 유료 사용자 강제 토글 (BM 확정 전까지). useIsPaidUser 호환용 */
   FORCE_PAID?: string;
+  /**
+   * Step 17 entitlements — 강제 Pro tier 사용자 ID 목록 (comma-separated).
+   * RevenueCat 미연동 동안 본인·베타테스터 강제 Pro 적용.
+   * 예: FORCE_PRO_USERS=uuid1,uuid2,uuid3
+   */
+  FORCE_PRO_USERS?: string;
+  /** Step 17 — 강제 Basic tier 사용자 ID 목록 (comma-separated) */
+  FORCE_BASIC_USERS?: string;
+  /**
+   * Step 17 비상 스위치 — AI 기능 전체 차단.
+   * "false" (문자열) → /api/ai-food/analyze가 503 응답.
+   * 비용 폭주·Gemini 장애 시 wrangler secret put으로 즉시 토글.
+   * 미설정 또는 "true" → AI 활성.
+   */
+  AI_FEATURE_ENABLED?: string;
 }
