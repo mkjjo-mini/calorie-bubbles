@@ -649,7 +649,14 @@ function Index() {
         onClick={() => setAiSheetOpen(true)}
         aria-label="AI로 음식 추가"
         className="fixed z-40 flex items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg active:scale-95 transition hover:bg-neutral-800"
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 88px)", right: 20, width: 56, height: 56 }}
+        style={{
+          // 탭바와 동일한 base 오프셋(max(safe-area, ad+8)) + 탭바 높이만큼 위로(56px).
+          bottom:
+            "calc(max(env(safe-area-inset-bottom), var(--ad-banner-height, 0px) + 8px) + 56px)",
+          right: 20,
+          width: 56,
+          height: 56,
+        }}
       >
         <Sparkles className="w-6 h-6" />
       </button>
