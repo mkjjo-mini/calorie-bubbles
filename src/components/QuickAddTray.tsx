@@ -10,10 +10,17 @@ import {
   type LastQty,
 } from "@/components/QuantitySheet";
 import { cloudRepository } from "@/lib/repository/cloud";
-import { CloudAuthError, type FoodRow, type FoodLogRow } from "@/lib/repository/types";
+import {
+  CloudAuthError,
+  CloudPaywallError,
+  type FoodRow,
+  type FoodLogRow,
+  type PaywallFeature,
+} from "@/lib/repository/types";
 import { resolveFoodId } from "@/lib/foods-resolve";
 import { todayKST } from "@/lib/time";
 import type { FoodInsert } from "@/lib/repository/types";
+import { PaywallModal } from "@/components/PaywallModal";
 
 const LAST_QTY_KEY = "lastQtyByName";
 import { pushRecent as pushRecentShared, readRecents, subscribeRecentChange, syncFromServer } from "@/lib/recent-foods";
@@ -129,6 +136,10 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
   const [sheet, setSheet] = useState<{ food: FoodRow; pickable: Pickable } | null>(null);
   const [flying, setFlying] = useState<FlyState[]>([]);
   const flyIdRef = useRef(0);
+  /** Step 17 — 백엔드 402 paywall (custom_food, past_edit 등) */
+  const [paywall, setPaywall] = useState<{ feature: PaywallFeature; open: boolean }>(
+    { feature: "past_edit", open: false },
+  );
 
   useEffect(() => {
     setRecents(readRecents());
@@ -316,6 +327,9 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
     } catch (e) {
       if (e instanceof CloudAuthError) {
         /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
+      } else if (e instanceof CloudPaywallError) {
+        // Step 17 — 백엔드 가드 발동 (예: 과거 날짜 + Free)
+        setPaywall({ feature: e.feature, open: true });
       } else {
         toast.error(`추가 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -373,6 +387,8 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
     } catch (e) {
       if (e instanceof CloudAuthError) {
         /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
+      } else if (e instanceof CloudPaywallError) {
+        setPaywall({ feature: e.feature, open: true });
       } else {
         toast.error(`추가 실패: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -469,6 +485,12 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
           onAdd={handleSheetAdd}
         />
       )}
+
+      <PaywallModal
+        feature={paywall.feature}
+        open={paywall.open}
+        onOpenChange={(o) => setPaywall((p) => ({ ...p, open: o }))}
+      />
     </>
   );
 }

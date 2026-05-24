@@ -86,8 +86,11 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   /** 사용자가 편집한 값 (preview 단계) */
   const [edit, setEdit] = useState<Analysis | null>(null);
-  /** Step 17 — AI lifetime 한도 paywall */
+  /** Step 17 — paywall (AI lifetime 한도 + 음식 등록/식사 기록 백엔드 가드) */
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallFeature, setPaywallFeature] = useState<
+    "ai" | "custom_food" | "past_edit"
+  >("ai");
 
   function reset() {
     setStep("input");
@@ -128,6 +131,7 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
     // Step 17 pre-flight — Free/Basic 평생 한도 소진 시 백엔드 호출 전에 paywall.
     // 사용자가 입력·사진까지 마치고 분석 시도해야 paywall이 뜨도록 (FAB 진입 시점엔 X).
     if (!entitlements.aiUnlimited && aiUsesRemaining <= 0) {
+      setPaywallFeature("ai");
       setPaywallOpen(true);
       return;
     }
@@ -167,6 +171,7 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
       if (res.status === 402 && json.code === "PAYMENT_REQUIRED") {
         // 캐시도 invalidate해서 다음 조회 시 최신 카운트로 갱신
         queryClient.invalidateQueries({ queryKey: ENTITLEMENTS_QUERY_KEY });
+        setPaywallFeature("ai");
         setPaywallOpen(true);
         return;
       }
@@ -240,6 +245,14 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
         headers: { "content-type": "application/json" },
         body: JSON.stringify(foodPayload),
       });
+      if (fRes.status === 402) {
+        // Step 17 — 활성 커스텀 음식 한도 초과
+        const body = (await fRes.json().catch(() => ({}))) as { feature?: typeof paywallFeature };
+        setPaywallFeature(body.feature ?? "custom_food");
+        setPaywallOpen(true);
+        handleOpenChange(false);
+        return;
+      }
       if (!fRes.ok) {
         const t = await fRes.text();
         throw new Error(`음식 등록 실패: ${t.slice(0, 200)}`);
@@ -264,6 +277,14 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
         headers: { "content-type": "application/json" },
         body: JSON.stringify(logPayload),
       });
+      if (lRes.status === 402) {
+        // Step 17 — 과거 날짜 등 백엔드 가드
+        const body = (await lRes.json().catch(() => ({}))) as { feature?: typeof paywallFeature };
+        setPaywallFeature(body.feature ?? "past_edit");
+        setPaywallOpen(true);
+        handleOpenChange(false);
+        return;
+      }
       if (!lRes.ok) {
         const t = await lRes.text();
         throw new Error(`기록 추가 실패: ${t.slice(0, 200)}`);
@@ -341,8 +362,12 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
         </div>
       </DrawerContent>
 
-      {/* Step 17 — AI 한도 paywall. Drawer 형제로 두어 시트 위에 겹쳐 노출 */}
-      <PaywallModal feature="ai" open={paywallOpen} onOpenChange={setPaywallOpen} />
+      {/* Step 17 — paywall. Drawer 형제로 두어 시트 위에 겹쳐 노출 */}
+      <PaywallModal
+        feature={paywallFeature}
+        open={paywallOpen}
+        onOpenChange={setPaywallOpen}
+      />
     </Drawer>
   );
 }
