@@ -79,6 +79,15 @@ function SignupPage() {
         setErr(translateAuthError(error.message));
         return;
       }
+      // Supabase의 email enumeration 방지 동작 — 이미 가입된 이메일은
+      // error를 던지지 않고 user 객체에 identities=[]로 응답. 보안상 누군가
+      // "이미 가입됨" 응답으로 가입자 명단을 추출하지 못하게 막는 정책.
+      // UX 측면에선 사용자가 가입 시도 → "메일 보냈어요" 표시 → 헷갈림.
+      // identities 빈 배열이면 친절히 로그인 유도.
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setErr("이미 가입된 이메일이에요. 로그인을 시도해보세요.");
+        return;
+      }
       // Supabase 프로젝트 설정에 따라:
       //  - confirm-email ON → data.session === null, 이메일 인증 필요
       //  - confirm-email OFF → data.session 즉시 발급
