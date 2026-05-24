@@ -134,6 +134,7 @@ function RootComponent() {
  */
 function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // /auth/callback도 인증 가드 대상에서 제외 (OAuth fragment 처리 중)
   const isAuthRoute = pathname.startsWith("/auth/");
   const isLegalRoute = pathname.startsWith("/legal/");
   const isPublicRoute = isAuthRoute || isLegalRoute;
@@ -178,11 +179,15 @@ function AppShell() {
     <>
       {/*
         pt-[safe-area]: iOS 노치/다이내믹 아일랜드 영역 회피 (Capacitor WebView).
-        pb-40(160px): BottomTabBar(~60px) + FAB(56pt at bottom+88) 모두 클리어 — 마지막 row의 ⋮ 액션 버튼 가림 방지.
+        pb-40(160px) + --ad-banner-height: 탭바·FAB·광고 배너 모두 클리어.
+        --ad-banner-height는 AdBanner가 native SizeChanged 이벤트로 px 세팅.
       */}
       <div
-        className="min-h-screen w-full bg-white pb-40"
-        style={{ paddingTop: "max(env(safe-area-inset-top), 1rem)" }}
+        className="min-h-screen w-full bg-white"
+        style={{
+          paddingTop: "max(env(safe-area-inset-top), 1rem)",
+          paddingBottom: "calc(10rem + var(--ad-banner-height, 0px))",
+        }}
       >
         <Outlet />
       </div>
@@ -234,7 +239,18 @@ function BottomTabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(env(safe-area-inset-bottom),16px)] pointer-events-none">
+    // bottom = AdBanner 높이만큼 위로 (없으면 0).
+    // padding-bottom 공식: max(safe-area - 광고높이, 8px)
+    //  - 광고 있을 때: safe-area는 광고가 흡수 → 8px만 (탭이 광고와 가깝게 붙음)
+    //  - 광고 없을 때(유료/웹): safe-area-inset-bottom 그대로 → home indicator 회피
+    <nav
+      className="fixed inset-x-0 z-40 flex justify-center px-4 pointer-events-none"
+      style={{
+        bottom: "var(--ad-banner-height, 0px)",
+        paddingBottom:
+          "max(calc(env(safe-area-inset-bottom) - var(--ad-banner-height, 0px)), 8px)",
+      }}
+    >
       <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-neutral-200/70 bg-white/90 p-1.5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         {TABS.map((tab) => {
           const active =

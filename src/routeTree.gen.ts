@@ -24,6 +24,7 @@ import { Route as AuthSignupRouteImport } from './routes/auth.signup'
 import { Route as AuthResetRouteImport } from './routes/auth.reset'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
 import { Route as AuthForgotRouteImport } from './routes/auth.forgot'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -100,12 +101,18 @@ const AuthForgotRoute = AuthForgotRouteImport.update({
   path: '/auth/forgot',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
   '/auth/forgot': typeof AuthForgotRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset': typeof AuthResetRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/add': typeof AddRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
   '/auth/forgot': typeof AuthForgotRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset': typeof AuthResetRoute
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/add': typeof AddRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
   '/auth/forgot': typeof AuthForgotRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset': typeof AuthResetRoute
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/add'
     | '/history'
     | '/settings'
+    | '/auth/callback'
     | '/auth/forgot'
     | '/auth/login'
     | '/auth/reset'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/add'
     | '/history'
     | '/settings'
+    | '/auth/callback'
     | '/auth/forgot'
     | '/auth/login'
     | '/auth/reset'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/add'
     | '/history'
     | '/settings'
+    | '/auth/callback'
     | '/auth/forgot'
     | '/auth/login'
     | '/auth/reset'
@@ -212,6 +224,7 @@ export interface RootRouteChildren {
   AddRoute: typeof AddRoute
   HistoryRoute: typeof HistoryRoute
   SettingsRoute: typeof SettingsRouteWithChildren
+  AuthCallbackRoute: typeof AuthCallbackRoute
   AuthForgotRoute: typeof AuthForgotRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthResetRoute: typeof AuthResetRoute
@@ -328,6 +341,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -354,6 +374,7 @@ const rootRouteChildren: RootRouteChildren = {
   AddRoute: AddRoute,
   HistoryRoute: HistoryRoute,
   SettingsRoute: SettingsRouteWithChildren,
+  AuthCallbackRoute: AuthCallbackRoute,
   AuthForgotRoute: AuthForgotRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthResetRoute: AuthResetRoute,
@@ -365,13 +386,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
