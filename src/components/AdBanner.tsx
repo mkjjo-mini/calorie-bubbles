@@ -39,10 +39,13 @@ function measureSafeAreaBottomPx(): number {
 }
 
 export function AdBanner() {
-  const { entitlements } = useEntitlements();
+  const { entitlements, isLoading } = useEntitlements();
   const showAds = entitlements.showAds;
 
   useEffect(() => {
+    // tier 응답 도착 전엔 init 보류 — race로 Pro 사용자가 광고 보는 문제 방지.
+    // (entitlements는 데이터 없을 때 free로 default → showAds=true → 잘못된 init)
+    if (isLoading) return;
     if (!showAds) return;
     if (!Capacitor.isNativePlatform()) return;
 
@@ -148,7 +151,7 @@ export function AdBanner() {
       // 화면 떠날 때 배너 제거 — 메모리·네트워크 절약
       AdMob.removeBanner().catch(() => {});
     };
-  }, [showAds]);
+  }, [showAds, isLoading]);
 
   // 배너는 native overlay라 React 트리에 렌더할 게 없음
   return null;
