@@ -601,7 +601,7 @@ function SheetShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+    <div role="dialog" aria-modal="true" data-state="open" className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
       <motion.div
         initial={{ y: 40, opacity: 0 }}
@@ -747,7 +747,7 @@ function EditQuantitySheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+    <div role="dialog" aria-modal="true" data-state="open" className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
       <motion.div
         initial={{ y: 40, opacity: 0 }}
