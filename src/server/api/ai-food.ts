@@ -27,7 +27,6 @@
 import type { Env } from "../auth/env";
 import {
   checkAiEntitlement,
-  getAiLifetimeUsed,
   getUserTier,
   incrementAiLifetimeUsed,
 } from "../auth/entitlements";
@@ -359,14 +358,11 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
         }
       }
 
-      // Step 17 — 분석 성공 시 lifetime 카운터 +1 (pro도 포함, 운영 분석용).
-      // 단 모든 candidate가 is_food=false면 사용자에겐 "음식을 찾지 못함"으로 보이므로
-      // 차감하지 않음 (체험 사용으로 보기 unfair). 일일 abuse 카운터는 이미 +1.
-      // 호출 실패하면 0이 반환되지만 응답 자체는 막지 않음.
-      const hasFoodCandidate = candidates.some((c) => c.is_food);
-      const aiLifetimeUsed = hasFoodCandidate
-        ? await incrementAiLifetimeUsed(admin, userId)
-        : await getAiLifetimeUsed(admin, userId);
+      // Step 17 — 200 응답 = Gemini 호출 + validate 통과. 비용 발생했으므로
+      // is_food 값과 무관하게 lifetime +1 (정직한 카운팅, abuse 방어).
+      // "음식 못 찾음"은 사용자 입력 책임 — 사용자 만족도와 카운팅 정책은 별개.
+      // 호출 실패는 0 반환되지만 응답 자체는 막지 않음.
+      const aiLifetimeUsed = await incrementAiLifetimeUsed(admin, userId);
 
       return new Response(
         JSON.stringify({
