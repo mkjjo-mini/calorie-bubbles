@@ -70,21 +70,30 @@ function LoginPage() {
     try {
       const supabase = getBrowserSupabase();
       const next = search.next ?? "/";
-      // implicit flow — token이 URL fragment로 오므로 server callback이 아닌
-      // client-side /auth/callback에서 처리. Capacitor WebView 호환.
+      // Capacitor WebView 호환:
+      //  - skipBrowserRedirect: true → supabase가 외부 Safari 안 띄움, url만 반환
+      //  - window.location.href로 WebView 자체가 navigate → PKCE verifier가
+      //    같은 storage(WebView cookie)에 유지됨 → callback 시 정상 교환
+      //  - redirectTo는 client /auth/callback (page 로드 시 detectSessionInUrl이
+      //    자동 ?code= 처리)
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
       // 카카오는 콘솔에서 활성화한 scope만 요청 가능 — 비활성화된 scope 요청 시 KOE205.
       // 우리는 이메일만 받으니까 카카오 한정으로 scopes를 account_email로 제한.
       const scopes = provider === "kakao" ? "account_email" : undefined;
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo, scopes },
+        options: { redirectTo, scopes, skipBrowserRedirect: true },
       });
       if (error) {
         setErr(translateAuthError(error.message));
         setLoading(null);
+        return;
       }
-      // 성공 시 브라우저가 provider로 redirect됨 — loading 유지
+      if (data?.url) {
+        // WebView가 직접 navigate — 외부 Safari로 빠지지 않음
+        window.location.href = data.url;
+      }
+      // 성공 시 navigate 후 loading 유지 (페이지 이동)
     } catch (e) {
       setErr(e instanceof Error ? e.message : "로그인 실패");
       setLoading(null);

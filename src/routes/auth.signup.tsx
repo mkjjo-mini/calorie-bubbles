@@ -105,19 +105,21 @@ function SignupPage() {
     try {
       const supabase = getBrowserSupabase();
       const next = search.next ?? "/";
-      // implicit flow — token이 URL fragment로 오므로 server callback이 아닌
-      // client-side /auth/callback에서 처리. Capacitor WebView 호환.
+      // Capacitor WebView 호환 — skipBrowserRedirect + manual navigate.
+      // auth.login.tsx의 onOAuth 주석 참조.
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
-      // 카카오는 콘솔에서 활성화한 scope만 요청 가능 — 비활성화된 scope 요청 시 KOE205.
-      // 우리는 이메일만 받으니까 카카오 한정으로 scopes를 account_email로 제한.
       const scopes = provider === "kakao" ? "account_email" : undefined;
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo, scopes },
+        options: { redirectTo, scopes, skipBrowserRedirect: true },
       });
       if (error) {
         setErr(translateAuthError(error.message));
         setLoading(null);
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "회원가입 실패");

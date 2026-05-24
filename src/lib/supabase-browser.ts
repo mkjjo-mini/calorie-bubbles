@@ -8,12 +8,12 @@
  *  Vite는 클라이언트 번들에 import.meta.env.VITE_* 만 주입함.
  *  → .env.local에 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY 필요.
  *
- *  ⚠️ flowType: 'implicit' — Capacitor iOS 호환.
- *    PKCE 기본값은 code_verifier를 storage(쿠키)에 저장하는데,
- *    Capacitor WebView가 OAuth를 외부 Safari로 열면 storage가 분리되어
- *    callback 시 "PKCE code verifier not found" 에러 발생.
- *    Implicit은 token을 URL fragment로 받아 storage 의존성 X.
- *    장기적으론 Universal Link + deep link로 PKCE 복원 검토.
+ *  PKCE flow (default). Capacitor 환경에선 OAuth가 외부 Safari로 빠지지 않게
+ *  signInWithOAuth({ skipBrowserRedirect: true }) + window.location.href 패턴
+ *  사용 (auth.login.tsx / auth.signup.tsx 참고). 이러면 verifier가 WebView
+ *  storage에 그대로 유지되어 callback 시 정상 교환.
+ *
+ *  카카오 provider는 implicit flow 미지원 — 코드 흐름만 동작.
  */
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -29,10 +29,6 @@ export function getBrowserSupabase(): SupabaseClient {
       "VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY 누락. .env.local 확인",
     );
   }
-  cached = createBrowserClient(url, anon, {
-    auth: {
-      flowType: "implicit",
-    },
-  });
+  cached = createBrowserClient(url, anon);
   return cached;
 }
