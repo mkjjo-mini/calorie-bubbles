@@ -151,8 +151,13 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
     void loadCloudData();
     // DB sync — 다른 디바이스에서 추가한 최근 사용도 반영
     void syncFromServer().then((ids) => setRecents(ids));
-    // AI 시트 등 다른 컴포넌트에서 recents push되면 즉시 동기화
-    return subscribeRecentChange(() => setRecents(readRecents()));
+    // AI 시트 등 다른 컴포넌트에서 recents push되면 즉시 동기화.
+    // recents change = 누가 새 음식 등록/추가했을 가능성 → allFoods도 reload해
+    // "최근 사용" chip이 새 food를 매칭하지 못해 누락되는 문제 방지.
+    return subscribeRecentChange(() => {
+      setRecents(readRecents());
+      void loadCloudData();
+    });
   }, []);
 
   // 다른 탭(add.tsx 등)에서 즐겨찾기/음식 변경 후 홈으로 돌아오면 최신화
