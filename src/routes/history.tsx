@@ -15,12 +15,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Wave } from "@/components/Wave";
 import {
+  DAILY_GOAL_KCAL,
   displayName,
   MACRO_COLORS,
   MACRO_KCAL,
   MACRO_LABELS,
   type Macro,
 } from "@/lib/foods";
+import { ShareWeekButton } from "@/features/share-week/ShareWeekButton";
 import {
   addFavorite,
   loadFavorites,
@@ -396,6 +398,20 @@ function HistoryPage() {
 
   const hasAnyRecord = perDay.some((arr) => arr.length > 0);
 
+  // 화면 중심에 보이는 일자 (스크롤 위치 기반) — ShareWeekButton에 전달
+  const centerDateIso = useMemo(() => {
+    if (month.length === 0 || colLayouts.length === 0) return null;
+    const centerX = scrollX + viewportW / 2;
+    for (let i = 0; i < colLayouts.length; i++) {
+      const col = colLayouts[i];
+      if (centerX >= col.start && centerX < col.start + col.width) {
+        const day = month[i];
+        if (day) return dateKeyToIso(day.dateKey);
+      }
+    }
+    return null;
+  }, [scrollX, viewportW, colLayouts, month]);
+
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[375px] flex flex-col">
@@ -422,12 +438,23 @@ function HistoryPage() {
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-            <button
-              onClick={goToToday}
-              className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
-            >
-              오늘
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={goToToday}
+                className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
+              >
+                오늘
+              </button>
+              {centerDateIso && (
+                <ShareWeekButton
+                  data={{
+                    centerDate: centerDateIso,
+                    mode,
+                    goalKcal: DAILY_GOAL_KCAL,
+                  }}
+                />
+              )}
+            </div>
           </div>
 
           {/* Segmented metric control */}
