@@ -494,6 +494,7 @@ function Index() {
                   carbG: totals.carbs,
                   proteinG: totals.protein,
                   fatG: totals.fat,
+                  bubbles: entries,
                 }}
               />
             </div>

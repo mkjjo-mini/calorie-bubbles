@@ -2,6 +2,15 @@
 @source "../src";
 @import "tw-animate-css";
 
+/* 온글잎 박다현체 — 공유 카드 카피 전용 (라이선스: 상업적 사용 OK / 수정·재판매 금지) */
+@font-face {
+  font-family: "Ownglyph PDH";
+  src: url("/fonts/ownglyph-pdh.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /*

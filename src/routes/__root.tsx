@@ -90,6 +90,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      // Pretendard — 한국어 SNS·UI 표준 폰트 (공유 카드 포함 전체에 적용)
+      {
+        rel: "stylesheet",
+        href: "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css",
+      },
+      // 온글잎 박다현체 — public/fonts에서 self-host. Gowun Dodum CDN 제거.
+      // @font-face는 src/styles.css에 정의됨.
     ],
   }),
   shellComponent: RootShell,
