@@ -125,10 +125,10 @@ export const cloudRepository: Repository = {
   },
   userNotifications: {
     get: () => api<UserNotifications>("/user-notifications"),
-    put: (times: string[]) =>
+    put: (times: string[], enabled?: boolean) =>
       api<UserNotifications>("/user-notifications", {
         method: "PUT",
-        body: JSON.stringify({ times }),
+        body: JSON.stringify({ times, ...(enabled !== undefined && { enabled }) }),
       }),
   },
 };

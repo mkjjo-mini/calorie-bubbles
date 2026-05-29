@@ -17,6 +17,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { useSession } from "@/hooks/useSession";
 import { useConsentStatus } from "@/lib/legal";
 import { setStatusBarStyle } from "@/lib/native";
+import { syncFromServer } from "@/lib/notifications";
+import { cloudRepository } from "@/lib/repository/cloud";
 
 function NotFoundComponent() {
   return (
@@ -152,6 +154,12 @@ function AppShell() {
   //   반환하므로(legal.ts) 안전. authenticated 일 때만 missing redirect 수행.
   const { data: consent } = useConsentStatus();
   const navigate = useNavigate();
+
+  // 로그인 완료 시 서버 알림 설정을 기기 로컬 알림과 동기화
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    void syncFromServer(() => cloudRepository.userNotifications.get());
+  }, [status]);
 
   useEffect(() => {
     if (isPublicRoute) return;

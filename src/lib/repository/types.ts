@@ -109,8 +109,10 @@ export interface UserProfileInsert {
 }
 
 export interface UserNotifications {
-  /** 30분 단위 "HH:MM" 시간 배열 (예: ["08:00","12:30"]). 빈 배열 = 알림 off */
+  /** "HH:MM" 시간 배열 (예: ["08:00","12:30"]). 최대 24개 */
   times: string[];
+  /** 마스터 on/off 토글. false면 times가 있어도 알림 비활성 */
+  enabled: boolean;
 }
 
 export interface Repository {
@@ -146,7 +148,7 @@ export interface Repository {
   };
   userNotifications: {
     get(): Promise<UserNotifications>;
-    put(times: string[]): Promise<UserNotifications>;
+    put(times: string[], enabled?: boolean): Promise<UserNotifications>;
   };
 }
 

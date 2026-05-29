@@ -1,29 +1,25 @@
 import * as React from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Bell, BellOff, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { cloudRepository } from "@/lib/repository/cloud";
 import { CloudAuthError } from "@/lib/repository/types";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useEntitlements } from "@/hooks/useEntitlements";
 import { PaywallModal } from "@/components/PaywallModal";
+import { isNative } from "@/lib/native";
+import {
+  rescheduleNotifications,
+  fireTestNotification,
+  getPermissionStatus,
+} from "@/lib/notifications";
 
 export const Route = createFileRoute("/settings/notifications")({
   component: NotificationsPage,
 });
 
-/** 30분 단위 시간 슬롯 배열 생성 (00:00 ~ 23:30) */
-function buildTimeSlots(): string[] {
-  const slots: string[] = [];
-  for (let h = 0; h < 24; h++) {
-    for (const m of [0, 30]) {
-      slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    }
-  }
-  return slots;
-}
-
-const TIME_SLOTS = buildTimeSlots();
+const MAX_TIMES = 24;
 
 function NotificationsPage() {
   const navigate = useNavigate();
@@ -31,39 +27,52 @@ function NotificationsPage() {
   const [paywallOpen, setPaywallOpen] = React.useState(false);
 
   const [times, setTimes] = React.useState<string[]>([]);
+  const [enabled, setEnabled] = React.useState(true);
+  const [permDenied, setPermDenied] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
-  const [selectedSlot, setSelectedSlot] = React.useState<string>(TIME_SLOTS[16] ?? "08:00"); // 기본값 08:00
+  const [testing, setTesting] = React.useState(false);
+  const [inputTime, setInputTime] = React.useState("08:00");
+
+  const gated = !tierLoading && !entitlements.pushNotifications;
 
   React.useEffect(() => {
     let alive = true;
     cloudRepository.userNotifications
       .get()
       .then((data) => {
-        if (alive) setTimes(data.times ?? []);
+        if (!alive) return;
+        setTimes(data.times ?? []);
+        setEnabled(data.enabled ?? true);
       })
       .catch((e) => {
         if (!alive) return;
-        if (e instanceof CloudAuthError) {
-          /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
-        } else {
-          toast.error("알림 시간을 불러오지 못했어요");
-        }
+        if (!(e instanceof CloudAuthError)) toast.error("알림 시간을 불러오지 못했어요");
       })
       .finally(() => {
         if (alive) setLoading(false);
       });
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
+  }, []);
+
+  // 권한 상태 확인 (네이티브만)
+  React.useEffect(() => {
+    if (!isNative()) return;
+    getPermissionStatus().then((status) => {
+      setPermDenied(status === "denied");
+    });
   }, []);
 
   function addTime() {
-    if (times.includes(selectedSlot)) {
+    if (times.length >= MAX_TIMES) {
+      toast.error(`최대 ${MAX_TIMES}개까지 추가할 수 있어요`);
+      return;
+    }
+    if (times.includes(inputTime)) {
       toast.error("이미 추가된 시간이에요");
       return;
     }
-    setTimes((prev) => [...prev, selectedSlot].sort());
+    setTimes((prev) => [...prev, inputTime].sort());
   }
 
   function removeTime(t: string) {
@@ -73,22 +82,28 @@ function NotificationsPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      await cloudRepository.userNotifications.put(times);
+      await cloudRepository.userNotifications.put(times, enabled);
+      await rescheduleNotifications(enabled, times);
       toast.success("알림 시간이 저장되었어요");
       navigate({ to: "/settings" });
     } catch (e) {
-      if (e instanceof CloudAuthError) {
-        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
-      } else {
-        toast.error("저장에 실패했어요");
-      }
+      if (!(e instanceof CloudAuthError)) toast.error("저장에 실패했어요. 잠시 후 다시 시도해주세요");
     } finally {
       setSaving(false);
     }
   }
 
-  // Step 17 P1 — Pro만 알림 설정 가능. 페이지 진입은 허용하되 UI 비활성 + paywall 카드.
-  const gated = !tierLoading && !entitlements.pushNotifications;
+  async function handleTest() {
+    setTesting(true);
+    try {
+      await fireTestNotification();
+      toast.success("3초 후 알림이 와요");
+    } catch {
+      toast.error("알림 전송에 실패했어요");
+    } finally {
+      setTesting(false);
+    }
+  }
 
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
@@ -110,7 +125,7 @@ function NotificationsPage() {
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-5 text-center">
               <Sparkles className="mx-auto h-6 w-6 text-amber-500" />
               <p className="mt-2 text-sm font-semibold text-neutral-900">
-                식사 알림으로 습관 만들기
+                식사 알림으로 트래킹 습관 만들기
               </p>
               <p className="mt-1.5 text-[12px] leading-relaxed text-neutral-600">
                 원하는 시간에 알림을 받아 트래킹을 자연스럽게 이어가요.
@@ -132,12 +147,44 @@ function NotificationsPage() {
           </div>
         ) : (
           <div className="flex-1 px-4 pt-4 pb-12 space-y-4">
-            <div className="rounded-2xl border border-neutral-100 bg-white p-4">
-              <p className="text-sm font-semibold text-neutral-900 mb-3">매일 받을 시간</p>
+
+            {/* 권한 거부 배너 */}
+            {permDenied && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
+                <BellOff className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-[12px] text-red-700 leading-relaxed">
+                  알림 권한이 꺼져 있어요. 설정 앱 → 탄단지버블 → 알림에서 허용해주세요.
+                </p>
+              </div>
+            )}
+
+            {/* 마스터 토글 */}
+            <div className="rounded-2xl border border-neutral-100 bg-white px-4 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-neutral-600" />
+                <span className="text-sm font-semibold text-neutral-900">알림 받기</span>
+              </div>
+              <Switch
+                checked={enabled}
+                onCheckedChange={setEnabled}
+                aria-label="알림 전체 켜기/끄기"
+              />
+            </div>
+
+            {/* 시간 목록 + 추가 */}
+            <div className={`rounded-2xl border border-neutral-100 bg-white p-4 transition-opacity ${!enabled ? "opacity-40 pointer-events-none" : ""}`}>
+              <p className="text-sm font-semibold text-neutral-900 mb-3">
+                매일 받을 시간
+                {times.length > 0 && (
+                  <span className="ml-1.5 text-xs font-normal text-neutral-400">
+                    {times.length}/{MAX_TIMES}
+                  </span>
+                )}
+              </p>
 
               {times.length === 0 ? (
                 <p className="text-sm text-neutral-400 text-center py-4">
-                  알림 시간이 없어요. 아래에서 추가하세요
+                  아래에서 시간을 추가해보세요
                 </p>
               ) : (
                 <ul className="space-y-2 mb-3">
@@ -160,32 +207,39 @@ function NotificationsPage() {
                 </ul>
               )}
 
-              {/* + 시간 추가 */}
               <div className="flex items-center gap-2">
-                <select
-                  value={selectedSlot}
-                  onChange={(e) => setSelectedSlot(e.target.value)}
+                <input
+                  type="time"
+                  value={inputTime}
+                  onChange={(e) => setInputTime(e.target.value)}
                   className="flex-1 h-10 px-3 rounded-xl border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-300"
-                >
-                  {TIME_SLOTS.map((slot) => (
-                    <option key={slot} value={slot}>
-                      {slot}
-                    </option>
-                  ))}
-                </select>
+                />
                 <button
                   type="button"
                   onClick={addTime}
-                  className="h-10 px-4 rounded-xl border border-neutral-900 text-sm font-semibold text-neutral-900 active:bg-neutral-100 shrink-0"
+                  disabled={times.length >= MAX_TIMES}
+                  className="h-10 px-4 rounded-xl border border-neutral-900 text-sm font-semibold text-neutral-900 active:bg-neutral-100 shrink-0 disabled:opacity-40 disabled:pointer-events-none"
                 >
                   + 추가
                 </button>
               </div>
 
               <p className="text-[11px] text-neutral-400 mt-2">
-                추가한 시간마다 매일 알림을 받아요
+                추가한 시간마다 매일 알림이 와요
               </p>
             </div>
+
+            {/* 시험 알림 (네이티브만) */}
+            {isNative() && (
+              <button
+                type="button"
+                onClick={handleTest}
+                disabled={testing || permDenied}
+                className="w-full h-11 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-600 active:bg-neutral-50 disabled:opacity-40"
+              >
+                {testing ? "전송 중…" : "시험 알림 보내기"}
+              </button>
+            )}
 
             <Button
               onClick={handleSave}
@@ -194,6 +248,10 @@ function NotificationsPage() {
             >
               {saving ? "저장 중…" : "저장"}
             </Button>
+
+            <p className="text-[11px] text-neutral-400 text-center leading-relaxed px-2">
+              ℹ️ 알림 도달은 기기 설정·집중 모드·제조사 정책의 영향을 받을 수 있어요.
+            </p>
           </div>
         )}
       </main>
