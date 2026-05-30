@@ -257,8 +257,8 @@ function NotificationsPage() {
               {saving ? "저장 중…" : "저장"}
             </Button>
 
-            <p className="text-[11px] text-neutral-400 text-center leading-relaxed px-2">
-              알림이 오지 않으면 설정 앱 → 알림 → 탄단지버블에서 허용 여부를 확인해보세요.
+            <p className="text-[11px] text-neutral-400 text-center whitespace-nowrap overflow-hidden text-ellipsis px-2">
+              알림이 안 오면 설정 앱 → 알림 → 탄단지버블을 확인해보세요
             </p>
           </div>
         )}
