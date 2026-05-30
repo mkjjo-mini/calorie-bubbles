@@ -273,12 +273,14 @@ export function layoutWeek(options: LayoutWeekOptions): LayoutWeekResult {
     }),
   }));
 
-  // 요약 계산
+  // 요약 계산 — 0인 날짜는 평균에서 제외 (실제 기록한 날만 평균에 반영)
   let totalMetric = 0;
+  let activeDayCount = 0; // metric > 0 인 일자 수
   let topDay: LayoutWeekResult["topDay"] = null;
   aggregated.forEach((day) => {
     const sum = day.bubbles.reduce((s, b) => s + metricValue(b, mode), 0);
     totalMetric += sum;
+    if (sum > 0) activeDayCount += 1;
     if (!topDay || sum > topDay.value) {
       topDay = { dateIso: day.dateIso, value: sum };
     }
@@ -287,7 +289,8 @@ export function layoutWeek(options: LayoutWeekOptions): LayoutWeekResult {
   return {
     columns,
     totalMetric: Math.round(totalMetric),
-    avgMetric: Math.round(totalMetric / Math.max(1, days.length)),
+    // 기록 있는 날만 분모로 — 0인 날짜 제외
+    avgMetric: Math.round(totalMetric / Math.max(1, activeDayCount)),
     topDay,
   };
 }
