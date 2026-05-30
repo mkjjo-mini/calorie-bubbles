@@ -231,14 +231,22 @@ function NotificationsPage() {
 
             {/* 시험 알림 (네이티브만) */}
             {isNative() && (
-              <button
-                type="button"
-                onClick={handleTest}
-                disabled={testing || permDenied}
-                className="w-full h-11 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-600 active:bg-neutral-50 disabled:opacity-40"
-              >
-                {testing ? "전송 중…" : "시험 알림 보내기"}
-              </button>
+              <div className="rounded-2xl border border-neutral-100 bg-neutral-50 px-4 py-4 space-y-3">
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  저장 전에 알림이 실제로 오는지 확인해보세요.
+                  <br />
+                  버튼을 누르면 3초 후 테스트 알림이 도착해요.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleTest}
+                  disabled={testing || permDenied}
+                  className="w-full h-11 rounded-xl bg-white border border-neutral-200 text-sm font-semibold text-neutral-800 active:bg-neutral-100 disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  <Bell className="h-4 w-4" />
+                  {testing ? "전송 중…" : "지금 테스트해보기"}
+                </button>
+              </div>
             )}
 
             <Button
@@ -250,7 +258,7 @@ function NotificationsPage() {
             </Button>
 
             <p className="text-[11px] text-neutral-400 text-center leading-relaxed px-2">
-              ℹ️ 알림 도달은 기기 설정·집중 모드·제조사 정책의 영향을 받을 수 있어요.
+              알림이 오지 않으면 설정 앱 → 알림 → 탄단지버블에서 허용 여부를 확인해보세요.
             </p>
           </div>
         )}
