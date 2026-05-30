@@ -25,6 +25,10 @@ const config: CapacitorConfig = {
   ios: {
     // 콘텐츠가 노치/홈바 영역까지 안전하게 렌더되도록
     contentInset: "always",
+    // 키보드 오픈 시 WebView 리사이즈 차단 — 레이아웃 깜박임 방지
+    keyboard: {
+      resize: "none",
+    },
   },
 };
 

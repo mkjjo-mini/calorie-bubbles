@@ -152,7 +152,7 @@ function AppShell() {
   // Step 18 — consent 가드.
   //   인증 사용자에게만 hook이 의미 있음. enabled 분기 없이도 401이면 compliant=true
   //   반환하므로(legal.ts) 안전. authenticated 일 때만 missing redirect 수행.
-  const { data: consent } = useConsentStatus();
+  const { data: consent, isLoading: isConsentLoading } = useConsentStatus();
   const navigate = useNavigate();
 
   // 로그인 완료 시 서버 알림 설정을 기기 로컬 알림과 동기화
@@ -194,8 +194,13 @@ function AppShell() {
     );
   }
 
-  // 부팅/리다이렉트 중
-  if (status === "loading" || status === "unauthenticated") {
+  // 부팅 중이거나 리다이렉트가 확정된 상태 — Outlet 렌더 자체를 막아 홈 깜박임 방지
+  if (
+    status === "loading" ||
+    status === "unauthenticated" ||
+    isConsentLoading ||
+    (status === "authenticated" && consent != null && !consent.compliant)
+  ) {
     return <SplashScreen />;
   }
 
@@ -207,6 +212,11 @@ function AppShell() {
   void session;
   return (
     <>
+      {/* 상태바 영역을 항상 흰색으로 덮어 스크롤 콘텐츠 비침 방지 */}
+      <div
+        className="fixed inset-x-0 top-0 z-50 bg-white"
+        style={{ height: "env(safe-area-inset-top)" }}
+      />
       {/*
         pt-[safe-area]: iOS 노치/다이내믹 아일랜드 영역 회피 (Capacitor WebView).
         pb-40(160px) + --ad-banner-height: 탭바·FAB·광고 배너 모두 클리어.

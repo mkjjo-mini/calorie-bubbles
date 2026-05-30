@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Minus, Plus } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,12 @@ export function MacroSlider({
   step = 1,
 }: MacroSliderProps) {
   const clamp = (v: number) => Math.max(min, Math.min(max, v));
+  const [inputVal, setInputVal] = React.useState(String(value));
+
+  React.useEffect(() => {
+    setInputVal(String(value));
+  }, [value]);
+
   return (
     <div className="rounded-2xl border border-neutral-100 bg-white p-4">
       <div className="flex items-center justify-between">
@@ -65,10 +72,17 @@ export function MacroSlider({
         <input
           type="number"
           inputMode="numeric"
-          value={value}
+          value={inputVal}
           onChange={(e) => {
+            setInputVal(e.target.value);
             const n = Number(e.target.value);
-            if (Number.isFinite(n)) onChange(clamp(n));
+            if (e.target.value !== "" && Number.isFinite(n)) onChange(clamp(n));
+          }}
+          onBlur={() => {
+            const n = Number(inputVal);
+            const clamped = inputVal !== "" && Number.isFinite(n) ? clamp(n) : value;
+            setInputVal(String(clamped));
+            onChange(clamped);
           }}
           className="w-20 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-center text-sm font-semibold tabular-nums text-neutral-900 focus:border-neutral-900 focus:outline-none"
         />

@@ -26,7 +26,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { MealLogList } from "@/components/MealLogList";
 import {
-  DAILY_GOAL_KCAL,
   displayName,
   MACRO_COLORS,
   MACRO_KCAL,
@@ -113,6 +112,7 @@ function logsToBubbles(logs: FoodLogRow[]): BubbleEntry[] {
 function Index() {
   // Cloud food logs for the selected date (defaults to today via search param)
   const [logs, setLogs] = useState<FoodLogRow[]>([]);
+  const [goalKcal, setGoalKcal] = useState(2000);
   const [aiSheetOpen, setAiSheetOpen] = useState(false);
   /** bowl 좌우 스와이프 추적 (날짜 이동) */
   const swipeStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
@@ -138,8 +138,12 @@ function Index() {
 
   async function loadLogsForDate(date: string) {
     try {
-      const fetched = await cloudRepository.foodLogs.listByDate(date);
+      const [fetched, goal] = await Promise.all([
+        cloudRepository.foodLogs.listByDate(date),
+        cloudRepository.userGoal.get(date),
+      ]);
       setLogs(fetched);
+      if (goal?.daily_kcal.value) setGoalKcal(goal.daily_kcal.value);
     } catch (e) {
       if (e instanceof CloudAuthError) {
         /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
@@ -165,7 +169,7 @@ function Index() {
       totals.protein * MACRO_KCAL.protein +
       totals.fat * MACRO_KCAL.fat,
   );
-  const rawPct = (totalKcal / DAILY_GOAL_KCAL) * 100;
+  const rawPct = (totalKcal / goalKcal) * 100;
   const pct = Math.min(100, rawPct);
 
   const stage = rawPct >= 120 ? 4 : rawPct >= 100 ? 3 : rawPct >= 50 ? 2 : 1;
@@ -401,32 +405,9 @@ function Index() {
   return (
     <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[375px] flex flex-col">
-        {/* 좌우 스와이프 영역 — header + bowl 전체 포함 (bowl이 꽉 차서 스와이프 공간 부족할 때 헤더에서도 가능).
-            아래 QuickAddTray·MealLogList는 가로 스크롤·dnd가 있어 제외. */}
-        <div
-          className="touch-pan-y"
-          onPointerDown={(e) => {
-            swipeStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
-          }}
-          onPointerUp={(e) => {
-            const s = swipeStartRef.current;
-            swipeStartRef.current = null;
-            if (!s) return;
-            const dx = e.clientX - s.x;
-            const dy = e.clientY - s.y;
-            const dt = Date.now() - s.t;
-            if (dt > 700) return;
-            if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
-            if (dx > 0) setSelectedDate(addDays(selectedDate, -1));
-            else setSelectedDate(addDays(selectedDate, 1));
-          }}
-          onPointerCancel={() => {
-            swipeStartRef.current = null;
-          }}
-        >
-        {/* Header — pt-2: root에서 safe-area-inset-top 이미 적용. 헤더 자체 padding은 최소화 */}
-        <header className="px-5 pt-2 pb-3">
-          <div className="flex items-center justify-between gap-2">
+        {/* 타이틀 행 — main의 직접 자식이어야 전체 스크롤 구간에서 sticky 고정 동작 */}
+        <div className="sticky top-[env(safe-area-inset-top)] z-20 bg-white px-5 py-2">
+          <div className="flex items-center justify-between gap-2 py-1">
             <div className="flex items-center gap-1 min-w-0">
               <button
                 type="button"
@@ -490,7 +471,7 @@ function Index() {
                 data={{
                   date: selectedDate,
                   totalKcal,
-                  goalKcal: DAILY_GOAL_KCAL,
+                  goalKcal: goalKcal,
                   carbG: totals.carbs,
                   proteinG: totals.protein,
                   fatG: totals.fat,
@@ -499,12 +480,37 @@ function Index() {
               />
             </div>
           </div>
+        </div>
 
-          <div className="mt-3 flex items-baseline gap-1">
+        {/* 좌우 스와이프 영역 — kcal·macros·bowl */}
+        <div
+          className="touch-pan-y"
+          onPointerDown={(e) => {
+            swipeStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+          }}
+          onPointerUp={(e) => {
+            const s = swipeStartRef.current;
+            swipeStartRef.current = null;
+            if (!s) return;
+            const dx = e.clientX - s.x;
+            const dy = e.clientY - s.y;
+            const dt = Date.now() - s.t;
+            if (dt > 700) return;
+            if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+            if (dx > 0) setSelectedDate(addDays(selectedDate, -1));
+            else setSelectedDate(addDays(selectedDate, 1));
+          }}
+          onPointerCancel={() => {
+            swipeStartRef.current = null;
+          }}
+        >
+        {/* 칼로리 · 진척바 · 탄단지 — 스크롤과 함께 */}
+        <div className="px-5 pb-3">
+          <div className="mt-1 flex items-baseline gap-1">
             <span className="text-3xl font-bold tabular-nums text-neutral-900">
               {totalKcal}
             </span>
-            <span className="text-sm text-neutral-400">/ {DAILY_GOAL_KCAL} kcal</span>
+            <span className="text-sm text-neutral-400">/ {goalKcal} kcal</span>
           </div>
 
           <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100">
@@ -532,7 +538,7 @@ function Index() {
               </div>
             ))}
           </div>
-        </header>
+        </div>
 
         {/* Bubble field — bowl/stomach container (스와이프는 상위 div에서 처리) */}
         <section className="relative mx-auto px-5" style={{ width: fieldWidth }}>
@@ -571,7 +577,7 @@ function Index() {
                 width={fieldWidth - 40}
                 height={fieldHeight}
                 onRemove={removeBubble}
-                goalKcal={DAILY_GOAL_KCAL}
+                goalKcal={goalKcal}
                 compression={compression}
               />
             </AnimatePresence>

@@ -39,13 +39,13 @@ interface FeatureCopy {
 
 const FEATURE_COPY: Record<PaywallFeature, FeatureCopy> = {
   ai: {
-    headline: "AI 무제한으로 더 빠르게",
-    body: "AI 음식 추가 체험 3회를 다 사용하셨어요. Pro에서 무광고로 무제한 이용할 수 있어요.",
+    headline: "AI로 더 빠르게 기록해요",
+    body: "AI 음식 추가 체험 3회를 다 사용하셨어요. Pro에서 무광고로 계속 이용할 수 있어요.",
     recommended: "pro",
   },
   custom_food: {
-    headline: "내 음식을 무제한으로",
-    body: "활성 커스텀 음식 3개 한도에 도달했어요. Pro에서 무제한으로 모아두세요.",
+    headline: "내 음식을 자유롭게",
+    body: "활성 커스텀 음식 3개 한도에 도달했어요. Pro에서 더 많이 모아두세요.",
     recommended: "pro",
   },
   past_edit: {
@@ -65,7 +65,7 @@ const FEATURE_COPY: Record<PaywallFeature, FeatureCopy> = {
   },
   ads: {
     headline: "광고 없이 깨끗하게",
-    body: "Basic은 광고만 제거, Pro는 AI까지 무제한이에요.",
+    body: "Basic은 광고만 제거, Pro는 AI 기록까지 함께해요.",
     recommended: "basic",
   },
 };
@@ -75,8 +75,8 @@ interface TierPlan {
   name: string;
   monthly: string;
   yearly: string;
-  /** "월 ₩4,900 = 하루 ₩163" 식의 가치 인식 */
   dailyEquivalent: string;
+  yearlyDailyEquivalent: string;
   bullets: string[];
 }
 
@@ -87,7 +87,8 @@ const PLANS: TierPlan[] = [
     monthly: "₩1,900",
     yearly: "₩18,000",
     dailyEquivalent: "월 ₩1,900 · 하루 ₩63",
-    bullets: ["광고 제거", "AI 체험 3회까지", "기본 기능 그대로"],
+    yearlyDailyEquivalent: "하루 ₩49",
+    bullets: ["광고 제거"],
   },
   {
     key: "pro",
@@ -95,9 +96,10 @@ const PLANS: TierPlan[] = [
     monthly: "₩4,900",
     yearly: "₩47,000",
     dailyEquivalent: "월 ₩4,900 · 하루 ₩163",
+    yearlyDailyEquivalent: "하루 ₩129",
     bullets: [
-      "AI 음식 추가 무제한",
-      "커스텀 음식 무제한",
+      "AI 음식 추가",
+      "커스텀 음식 등록",
       "지난 날 기록 편집",
       "식사 알림 · 목표 자동 추천",
       "광고 제거",
@@ -178,7 +180,7 @@ function PlanCard({ plan, recommended }: { plan: TierPlan; recommended: boolean 
       <div className="mt-1 text-[11px] text-neutral-500">{plan.dailyEquivalent}</div>
 
       <div className="mt-2 flex items-center gap-1.5">
-        <span className="text-[11px] text-neutral-600">연 결제 {plan.yearly}</span>
+        <span className="text-[11px] text-neutral-600">연 결제 {plan.yearly} · {plan.yearlyDailyEquivalent}</span>
         <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded px-1.5 py-0.5">
           20% 할인
         </span>

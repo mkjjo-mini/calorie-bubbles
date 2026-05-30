@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Wave } from "@/components/Wave";
 import {
-  DAILY_GOAL_KCAL,
   displayName,
   MACRO_COLORS,
   MACRO_KCAL,
@@ -31,6 +30,7 @@ import {
   removeFavorite,
   type DayData,
 } from "@/lib/history";
+import { cloudRepository } from "@/lib/repository/cloud";
 
 export const Route = createFileRoute("/history")({
   component: HistoryPage,
@@ -180,6 +180,13 @@ function HistoryPage() {
     return () => {
       alive = false;
     };
+  }, []);
+
+  const [goalKcal, setGoalKcal] = useState(2000);
+  useEffect(() => {
+    cloudRepository.userGoal.get().then((g) => {
+      if (g?.daily_kcal.value) setGoalKcal(g.daily_kcal.value);
+    }).catch(() => {});
   }, []);
 
   const [month, setMonth] = useState<DayData[]>([]);
@@ -416,8 +423,8 @@ function HistoryPage() {
     <div className="min-h-screen w-full bg-white flex justify-center">
       <main className="w-full max-w-[375px] flex flex-col">
         {/* HEADER */}
-        <header className="sticky top-0 z-30 border-b border-neutral-200/70 bg-white/95 backdrop-blur">
-          <div className="flex items-center justify-between px-5 pt-6 pb-3">
+        <header className="sticky top-[env(safe-area-inset-top)] z-30 border-b border-neutral-200/70 bg-white/95 backdrop-blur">
+          <div className="flex items-center justify-between px-5 pt-3 pb-3">
             <div className="flex items-center gap-1 min-w-0">
               <button
                 onClick={() => navMonth(-1)}
@@ -450,7 +457,7 @@ function HistoryPage() {
                   data={{
                     centerDate: centerDateIso,
                     mode,
-                    goalKcal: DAILY_GOAL_KCAL,
+                    goalKcal: goalKcal,
                   }}
                 />
               )}

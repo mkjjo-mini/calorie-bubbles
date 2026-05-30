@@ -13,7 +13,7 @@ import {
 } from "@/lib/customFoods";
 import { type FoodApiResult } from "@/lib/food-search";
 import { useFoodSearch } from "@/hooks/use-food-search";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { QuantitySheet, type Pickable, type LastQty } from "@/components/QuantitySheet";
 import { cloudRepository } from "@/lib/repository/cloud";
 import {
@@ -1598,11 +1598,11 @@ function CustomFoodFormSheet({
   void showEstimateMacrosBtn;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[92vh] overflow-y-auto rounded-t-2xl p-0">
-        <SheetHeader className="px-5 pt-5 pb-3 border-b">
-          <SheetTitle className="text-base">{initial?.id ? "음식 편집" : "직접 등록"}</SheetTitle>
-        </SheetHeader>
+    <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
+      <DrawerContent className="max-h-[92dvh] overflow-y-auto p-0">
+        <DrawerHeader className="px-5 pt-5 pb-3 border-b text-left">
+          <DrawerTitle className="text-base">{initial?.id ? "음식 편집" : "직접 등록"}</DrawerTitle>
+        </DrawerHeader>
 
         <div className="px-5 py-4 space-y-4">
           <Field label="음식 이름" required>
@@ -1773,8 +1773,8 @@ function CustomFoodFormSheet({
               );
             })()}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 }
 

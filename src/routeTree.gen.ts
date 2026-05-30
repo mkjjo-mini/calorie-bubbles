@@ -13,6 +13,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AddRouteImport } from './routes/add'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsIndexRouteImport } from './routes/settings.index'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsGoalRouteImport } from './routes/settings.goal'
@@ -46,6 +47,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsProfileRoute = SettingsProfileRouteImport.update({
   id: '/profile',
@@ -131,12 +137,12 @@ export interface FileRoutesByFullPath {
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
   '/history': typeof HistoryRoute
-  '/settings': typeof SettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/consent': typeof AuthConsentRoute
   '/auth/forgot': typeof AuthForgotRoute
@@ -150,6 +156,7 @@ export interface FileRoutesByTo {
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings': typeof SettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -170,6 +177,7 @@ export interface FileRoutesById {
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -191,12 +199,12 @@ export interface FileRouteTypes {
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/add'
     | '/history'
-    | '/settings'
     | '/auth/callback'
     | '/auth/consent'
     | '/auth/forgot'
@@ -210,6 +218,7 @@ export interface FileRouteTypes {
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings'
   id:
     | '__root__'
     | '/'
@@ -229,6 +238,7 @@ export interface FileRouteTypes {
     | '/settings/goal'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -276,6 +286,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
     }
     '/settings/profile': {
       id: '/settings/profile'
@@ -376,6 +393,7 @@ interface SettingsRouteChildren {
   SettingsGoalRoute: typeof SettingsGoalRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
@@ -383,6 +401,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsGoalRoute: SettingsGoalRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsProfileRoute: SettingsProfileRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
 }
 
 const SettingsRouteWithChildren = SettingsRoute._addFileChildren(

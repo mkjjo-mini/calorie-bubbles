@@ -131,7 +131,7 @@ export function AdBanner() {
           position: BannerAdPosition.BOTTOM_CENTER,
           // 음수 margin = safe area 상쇄 → home indicator 영역까지 배너로 채움
           margin: -safeBottom,
-          isTesting: import.meta.env.DEV,
+          isTesting: true, // TODO: 앱스토어 제출 전 import.meta.env.DEV 로 원복
         });
         isBannerShown = true;
         // 첫 노출 시점에 이미 열려있던 모달이 있었으면 즉시 숨김 처리

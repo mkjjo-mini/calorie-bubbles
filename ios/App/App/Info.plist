@@ -46,7 +46,7 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<true/>
+	<false/>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-4925884449888755~4372529859</string>
 	<key>NSUserTrackingUsageDescription</key>

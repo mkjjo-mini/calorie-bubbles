@@ -15,7 +15,7 @@
     "test:ui": "vitest --ui",
     "cap:sync": "cap sync ios",
     "cap:open": "cap open ios",
-    "deploy": "npm run build && wrangler deploy --var SUPABASE_URL:https://kjpxczdmlwfiefzpyuop.supabase.co --var SUPABASE_ANON_KEY:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqcHhjemRtbHdmaWVmenB5dW9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTAxOTgsImV4cCI6MjA5NDU2NjE5OH0.roccTlrloUaBIlgHC_dAARez5WmTDyvZDoNUBmpMC04"
+    "deploy": "npm run build && wrangler deploy --var SUPABASE_URL:https://kjpxczdmlwfiefzpyuop.supabase.co --var SUPABASE_ANON_KEY:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqcHhjemRtbHdmaWVmenB5dW9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTAxOTgsImV4cCI6MjA5NDU2NjE5OH0.roccTlrloUaBIlgHC_dAARez5WmTDyvZDoNUBmpMC04 --var FORCE_PRO_USERS:0b11afff-75eb-4738-974b-a0927e1212ba --var FORCE_BASIC_USERS:aa4e8dff-058c-4e29-bc82-f7ace8d5848e"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.0.0",
