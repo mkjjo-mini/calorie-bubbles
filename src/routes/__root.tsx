@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { AdBanner } from "@/components/AdBanner";
 import { Toaster } from "@/components/ui/sonner";
 import { useSession } from "@/hooks/useSession";
+import { ENTITLEMENTS_QUERY_KEY } from "@/hooks/useEntitlements";
 import { useConsentStatus } from "@/lib/legal";
 import { setStatusBarStyle } from "@/lib/native";
 import { syncFromServer } from "@/lib/notifications";
@@ -154,12 +155,16 @@ function AppShell() {
   //   반환하므로(legal.ts) 안전. authenticated 일 때만 missing redirect 수행.
   const { data: consent, isLoading: isConsentLoading } = useConsentStatus();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  // 로그인 완료 시 서버 알림 설정을 기기 로컬 알림과 동기화
+  // 로그인 완료 시 서버 알림 설정을 기기 로컬 알림과 동기화 +
+  // entitlements 캐시 무효화 (비로그인 시 401→free로 캐시된 값을 Pro/Basic으로 갱신).
+  // 모든 로그인 경로(이메일·OAuth·세션 복원)를 한 곳에서 커버.
   useEffect(() => {
     if (status !== "authenticated") return;
     void syncFromServer(() => cloudRepository.userNotifications.get());
-  }, [status]);
+    void queryClient.invalidateQueries({ queryKey: ENTITLEMENTS_QUERY_KEY });
+  }, [status, queryClient]);
 
   useEffect(() => {
     if (isPublicRoute) return;

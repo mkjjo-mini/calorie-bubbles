@@ -127,6 +127,22 @@ export async function handleFoodLogs(req: Request, env: Env): Promise<Response> 
       return Response.json(data, { status: 201 });
     }
 
+    if (req.method === "PATCH") {
+      const id = url.searchParams.get("id");
+      if (!id) return jsonError(400, "INVALID_BODY", "missing id");
+      let body: unknown;
+      try { body = await req.json(); } catch { return jsonError(400, "INVALID_BODY", "body must be JSON"); }
+      if (!body || typeof body !== "object") return jsonError(400, "INVALID_BODY", "body must be object");
+      const b = body as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      if ("meal_slot" in b) patch.meal_slot = b.meal_slot;
+      if ("qty_g" in b) patch.qty_g = b.qty_g;
+      if (Object.keys(patch).length === 0) return jsonError(400, "INVALID_BODY", "nothing to patch");
+      const { error } = await admin.from("food_logs").update(patch).eq("user_id", userId).eq("id", id);
+      if (error) return jsonError(500, "DB_ERROR", error.message);
+      return new Response(null, { status: 204 });
+    }
+
     if (req.method === "DELETE") {
       const id = url.searchParams.get("id");
       if (!id) return jsonError(400, "INVALID_BODY", "missing id");

@@ -136,6 +136,14 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
+  // 설정에서 목표 변경 후 홈 복귀 시 항상 최신 goal 반영
+  useEffect(() => {
+    cloudRepository.userGoal.get(todayKST()).then((goal) => {
+      if (goal?.daily_kcal.value) setGoalKcal(goal.daily_kcal.value);
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function loadLogsForDate(date: string) {
     try {
       const [fetched, goal] = await Promise.all([
@@ -280,6 +288,10 @@ function Index() {
         log.id === foodLogId ? { ...log, meal_slot: slot } : log,
       ),
     );
+    cloudRepository.foodLogs.patch(foodLogId, { meal_slot: slot }).catch(() => {
+      toast.error("슬롯 변경 저장 실패");
+      void loadLogsForDate(selectedDate);
+    });
   }
 
   const lastToastIdRef = useRef<string | number | null>(null);

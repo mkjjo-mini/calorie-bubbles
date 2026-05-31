@@ -25,6 +25,7 @@ export async function handleUserGoals(req: Request, env: Env): Promise<Response>
         .lte("effective_from", date)
         .or(`effective_to.is.null,effective_to.gte.${date}`)
         .order("effective_from", { ascending: false })
+        .order("id", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) return jsonError(500, "DB_ERROR", error.message);
@@ -70,6 +71,14 @@ export async function handleUserGoals(req: Request, env: Env): Promise<Response>
         .is("effective_to", null)
         .lt("effective_from", newEffectiveFrom);
       if (closeError) return jsonError(500, "DB_ERROR", closeError.message);
+
+      // 같은 날 중복 행 방지 — effective_from이 동일한 기존 행 삭제 후 신규 삽입
+      const { error: deleteError } = await admin
+        .from("user_goals")
+        .delete()
+        .eq("user_id", userId)
+        .eq("effective_from", newEffectiveFrom);
+      if (deleteError) return jsonError(500, "DB_ERROR", deleteError.message);
 
       const insert = {
         user_id: userId,

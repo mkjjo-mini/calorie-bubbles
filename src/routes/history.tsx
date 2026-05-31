@@ -37,9 +37,14 @@ export const Route = createFileRoute("/history")({
 });
 
 /* ---------- layout constants (mirrors home bowl) ---------- */
-const MIN_COL_W = 88;
-const MAX_COL_W = 176;
-const PER_FOOD_W = 18; // extra width per merged food bubble on a day
+const EMPTY_COL_W = 80; // 기록 없는 빈 날 폭
+const MIN_COL_W = 110; // 기록 있는 날 최소 폭
+const MAX_COL_W = 150; // 기록 있는 날 기본 상한 (세로 넘치면 아래 로직으로 초과 확장)
+const HARD_MAX_COL_W = 280; // 세로 확장 절대 상한 (무한 확장 방지)
+const AREA_COEF = 0.8; // 면적합 √ 에 곱하는 계수. <1일수록 폭 좁아져 위로 쌓임
+const FILL_PACK = 0.68; // 원 패킹 밀도 근사 (세로 넘침 폭 계산용)
+const FILL_HEIGHT_RATIO = 0.78; // 탱크 높이 중 버블이 실제로 쌓이는 유효 비율
+const DAY_INSET = 4; // 컬럼 좌우 안쪽 여백 (DayBubbles의 dayInset과 일치)
 const TANK_H_DEFAULT = 440;
 const WAVE_H = 140; // higher water level
 const BUBBLE_MIN = 20;
@@ -229,14 +234,46 @@ function HistoryPage() {
         if (v > max) max = v;
       }
     });
-    // Column width grows with number of foods that day, clamped.
+    // Column width = √(그 날 버블 면적 합) × AREA_COEF.
+    //   → 버블 크기를 그대로 반영(천차만별 OK). 면적은 2D라 폭은 √로 천천히 늘고
+    //     나머지는 위로 쌓인다. 계수 0.8(<1)로 폭을 더 좁혀 위로 쌓이는 느낌 강조.
+    //   → 큰 버블 1개는 그 지름을 폭 하한으로 보장(안 잘림). 작은 날은 MIN_COL_W로 수렴.
+    const denom = max || 1;
+    const sizeOf = (value: number) => {
+      const ratio = denom > 0 ? value / denom : 0;
+      return Math.max(
+        BUBBLE_MIN,
+        Math.min(BUBBLE_MAX, BUBBLE_MIN + ratio * (BUBBLE_MAX - BUBBLE_MIN)),
+      );
+    };
     const _colLayouts: { start: number; width: number }[] = [];
     let cursorX = 0;
+    // 세로 한 컬럼에 버블이 쌓일 수 있는 유효 높이 (TANK_H_DEFAULT 기준 근사)
+    const availH = TANK_H_DEFAULT * FILL_HEIGHT_RATIO;
     _perDay.forEach((arr) => {
-      const w = Math.min(
-        MAX_COL_W,
-        Math.max(MIN_COL_W, MIN_COL_W + arr.length * PER_FOOD_W),
+      // mode와 일치하는 visible 버블만 (탄/단/지 모드에선 0인 버블 제외)
+      const vis = mode === "kcal" ? arr : arr.filter((b) => b[mode] > 0);
+      if (vis.length === 0) {
+        // 기록 없는 빈 날 — 좁은 고정 폭
+        _colLayouts.push({ start: cursorX, width: EMPTY_COL_W });
+        cursorX += EMPTY_COL_W;
+        return;
+      }
+      const sizes = vis.map((b) => sizeOf(metricValue(b, mode)));
+      const maxBubble = Math.max(...sizes);
+      const areaSum = sizes.reduce((s, d) => s + d * d, 0); // 지름² 합 (면적 ∝)
+      const packW = Math.sqrt(areaSum) * AREA_COEF;
+      // 기본 폭: 면적기반(150 cap) + 기록날 최소 110 + 큰 버블 안 잘림 보장
+      let w = Math.max(
+        MIN_COL_W,
+        maxBubble + 2 * DAY_INSET,
+        Math.min(MAX_COL_W, packW),
       );
+      // 세로 넘침 방지: 이 폭으로 쌓으면 탱크 높이를 넘칠 만큼 버블이 많으면
+      //   폭을 면적÷가용높이로 확장 (MAX_COL_W를 초과해도 됨, HARD_MAX까지)
+      const realArea = areaSum * (Math.PI / 4); // 버블 실제 면적 합
+      const fillW = realArea / (availH * FILL_PACK);
+      if (fillW > w) w = Math.min(HARD_MAX_COL_W, fillW);
       _colLayouts.push({ start: cursorX, width: w });
       cursorX += w;
     });

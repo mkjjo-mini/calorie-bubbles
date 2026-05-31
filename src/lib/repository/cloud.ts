@@ -91,6 +91,11 @@ export const cloudRepository: Repository = {
       api<void>(`/food-logs?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       }),
+    patch: (id: string, patch: { meal_slot?: string; qty_g?: number }) =>
+      api<void>(`/food-logs?id=${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
   },
   userGoal: {
     get: (date?: string) =>
