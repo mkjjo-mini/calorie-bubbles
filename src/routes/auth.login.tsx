@@ -246,9 +246,6 @@ function translateAuthError(msg: string): string {
   if (m.includes("rate limit")) {
     return "잠시 후 다시 시도해주세요.";
   }
-  // PKCE storage mismatch — 가입 시작 browser와 confirm 클릭 browser가 다를 때.
-  // 이메일 인증은 성공한 상태(Supabase에선 user confirmed)지만 자동 로그인 실패.
-  // 사용자가 직접 로그인하면 정상 진입.
   if (m.includes("pkce code verifier") || m.includes("code verifier not found")) {
     return "이메일 인증이 완료됐어요. 아래에서 이메일·비밀번호로 로그인해주세요.";
   }
