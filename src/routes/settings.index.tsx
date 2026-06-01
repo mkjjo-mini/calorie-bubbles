@@ -1,6 +1,6 @@
 import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, Sparkles } from "lucide-react";
+import { ChevronRight, MessageSquare, Sparkles } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
 
 export const Route = createFileRoute("/settings/")({
@@ -78,6 +78,23 @@ function SettingsMenuPage() {
               </React.Fragment>
             ))}
           </div>
+        </div>
+
+        {/* 피드백 */}
+        <div className="px-5 pt-2 pb-2">
+          <Link
+            to="/settings/feedback"
+            className="flex w-full items-center justify-between rounded-2xl border border-neutral-100 bg-white px-4 py-4 active:bg-neutral-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <MessageSquare className="h-4 w-4 text-neutral-500" />
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">피드백 보내기</p>
+                <p className="mt-0.5 text-xs text-neutral-500">오류 신고 · 기능 요청</p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
+          </Link>
         </div>
 
         {/* 실험실(AI 테스트) — 평소 숨김. 직원 테스트 필요 시 false→true 로 복구.
