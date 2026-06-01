@@ -16,7 +16,7 @@ import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, ExternalLink, Loader2, Sparkles, X } from "lucide-react";
+import { Camera, ChevronDown, ChevronUp, ExternalLink, Loader2, Sparkles, X } from "lucide-react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { PaywallModal } from "@/components/PaywallModal";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
@@ -25,6 +25,7 @@ import { useSession } from "@/hooks/useSession";
 import { ENTITLEMENTS_QUERY_KEY, useEntitlements } from "@/hooks/useEntitlements";
 import { inferMealSlot, type MealSlot } from "@/lib/foods";
 import { pushRecent } from "@/lib/recent-foods";
+import { pushAiSearchHistory, getAiSearchHistory, type AiSearchHistoryItem } from "@/lib/ai-search-history";
 
 interface Analysis {
   is_food: boolean;
@@ -186,6 +187,20 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
       }
       // 성공 — lifetime 카운터가 +1 됐으니 useEntitlements 캐시 무효화
       queryClient.invalidateQueries({ queryKey: ENTITLEMENTS_QUERY_KEY });
+      // 최근 AI 검색 이력 저장 (분석 성공 시점, 등록 여부 무관)
+      pushAiSearchHistory({
+        inputType: image ? "photo" : "text",
+        inputText: image ? null : text.trim() || null,
+        name: first.name,
+        kcal: first.kcal,
+        carb_g: first.carb_g,
+        protein_g: first.protein_g,
+        fat_g: first.fat_g,
+        serving_g: first.serving_g,
+        serving_amount: first.serving_amount,
+        serving_unit: first.serving_unit,
+        confidence: first.confidence,
+      });
       setResult(json);
       setEdit({ ...first });
       setStep("preview");
@@ -343,6 +358,23 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
               aiUsesRemaining={aiUsesRemaining}
               aiLifetimeFreeUses={entitlements.aiLifetimeFreeUses}
               onShowPaywall={() => setPaywallOpen(true)}
+              onRestoreHistory={(item) => {
+                setEdit({
+                  is_food: true,
+                  name: item.name,
+                  serving_unit: item.serving_unit,
+                  serving_amount: item.serving_amount,
+                  serving_g: item.serving_g,
+                  kcal: item.kcal,
+                  carb_g: item.carb_g,
+                  protein_g: item.protein_g,
+                  fat_g: item.fat_g,
+                  confidence: item.confidence,
+                  rationale: "최근 검색 결과를 복원했어요.",
+                });
+                setResult(null);
+                setStep("preview");
+              }}
             />
           )}
 
@@ -387,6 +419,7 @@ function InputStep({
   aiUsesRemaining,
   aiLifetimeFreeUses,
   onShowPaywall,
+  onRestoreHistory,
 }: {
   text: string;
   setText: (s: string) => void;
@@ -401,8 +434,12 @@ function InputStep({
   aiUsesRemaining: number;
   aiLifetimeFreeUses: number;
   onShowPaywall: () => void;
+  onRestoreHistory: (item: AiSearchHistoryItem) => void;
 }) {
   const exhausted = !aiUnlimited && aiUsesRemaining <= 0;
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const history = getAiSearchHistory();
+
   return (
     <div className="flex flex-col gap-3">
       {/* Step 17 — Free/Basic 한정 체험 카운터 (Pro는 노출 X) */}
@@ -478,6 +515,39 @@ function InputStep({
       >
         수동으로 입력
       </button>
+
+      {history.length > 0 && (
+        <div className="border-t border-neutral-100 pt-3">
+          <button
+            type="button"
+            onClick={() => setHistoryOpen((v) => !v)}
+            className="flex w-full items-center justify-between text-xs font-semibold text-neutral-500 py-1 active:text-neutral-900"
+          >
+            <span>최근 검색</span>
+            {historyOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+          {historyOpen && (
+            <div className="mt-1 space-y-1">
+              {history.map((item) => {
+                const label = item.inputType === "photo"
+                  ? `${item.name} 사진`
+                  : (item.inputText ?? item.name);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onRestoreHistory(item)}
+                    className="flex w-full items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2.5 text-left active:bg-neutral-100"
+                  >
+                    <span className="truncate text-sm text-neutral-800 mr-2">{label}</span>
+                    <span className="shrink-0 text-xs text-neutral-400">{Math.round(item.kcal)} kcal</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
