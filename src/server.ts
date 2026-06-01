@@ -112,7 +112,21 @@ export default {
       // 3) 그 외 — TanStack Start로 위임
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      // HTML 앱 셸은 캐시 금지 — WKWebView가 옛 셸+옛 JS 번들을 잡아 업데이트가
+      // 반영되지 않는 문제 방지. JS/CSS는 해시 파일명이라 캐시돼도 안전(셸이
+      // 최신이면 최신 해시를 참조). HTML만 no-store.
+      const ct = normalized.headers.get("content-type") || "";
+      if (ct.includes("text/html")) {
+        const h = new Headers(normalized.headers);
+        h.set("Cache-Control", "no-store, must-revalidate");
+        return new Response(normalized.body, {
+          status: normalized.status,
+          statusText: normalized.statusText,
+          headers: h,
+        });
+      }
+      return normalized;
     } catch (error) {
       console.error(error);
       return brandedErrorResponse();

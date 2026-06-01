@@ -80,6 +80,9 @@ function SettingsMenuPage() {
           </div>
         </div>
 
+        {/* 실험실(AI 테스트) — 평소 숨김. 직원 테스트 필요 시 false→true 로 복구.
+            라우트 /lab/ai-foods 는 유지되므로 URL 직접 접근은 계속 가능. */}
+        {false && (
         <div className="px-5 pt-2 pb-2">
           <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-2 px-1">
             실험실
@@ -104,6 +107,7 @@ function SettingsMenuPage() {
             </Link>
           </div>
         </div>
+        )}
       </main>
     </div>
   );

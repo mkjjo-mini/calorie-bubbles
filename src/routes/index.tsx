@@ -318,7 +318,7 @@ function Index() {
     lastToastIdRef.current = tid;
     const name = label ?? target.food?.name ?? "음식";
 
-    // Schedule deferred cloud DELETE after 5 s
+    // Schedule deferred cloud DELETE after 3 s
     const timerId = setTimeout(() => {
       pendingDeleteRef.current.delete(logId);
       lastToastIdRef.current = null;
@@ -331,15 +331,15 @@ function Index() {
           toast.error("삭제 실패");
         }
       });
-    }, 5000);
+    }, 3000);
 
     pendingDeleteRef.current.set(logId, { log: target, timerId });
 
     toast(`${displayName(name)}을 지웠어요`, {
       id: tid,
-      // 되돌리기 토스트는 하단(엄지 닿기 좋은 위치) + 5초로 명시
+      // 되돌리기 토스트는 하단(엄지 닿기 좋은 위치) + 3초로 명시
       position: "bottom-center",
-      duration: 5000,
+      duration: 3000,
       action: {
         label: "되살리기",
         onClick: () => {
@@ -362,7 +362,7 @@ function Index() {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     undoTimerRef.current = setTimeout(() => {
       undoTimerRef.current = null;
-    }, 5000);
+    }, 3000);
   }
 
   function removeBubble(id: string) {

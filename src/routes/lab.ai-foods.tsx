@@ -722,22 +722,22 @@ function FallbackBanner({ info }: { info: FallbackInfo }) {
   if (info.error) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-900">
-        🔁 {reasonLabel} 식약처 DB 보강을 시도했지만 실패: {info.error}
+        🔁 {reasonLabel} 영양 DB 보강을 시도했지만 실패: {info.error}
       </div>
     );
   }
   if (!info.hit) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-900">
-        🔁 {reasonLabel} 식약처 DB "{info.query}" 검색 — 일치 항목 없음 (총 {info.totalCount}건)
+        🔁 {reasonLabel} 영양 DB "{info.query}" 검색 — 일치 항목 없음 (총 {info.totalCount}건)
       </div>
     );
   }
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[11px] text-emerald-900">
-      <p className="font-semibold">🔁 식약처 DB 보강 적용됨</p>
+      <p className="font-semibold">🔁 영양 DB 보강 적용됨</p>
       <p className="mt-1 leading-relaxed">
-        {reasonLabel}, 식약처에서 "<b>{info.hit.name}</b>" ({info.hit.serving_g}g 기준) 데이터로 매크로를 채웠어요.
+        {reasonLabel}, 영양에서 "<b>{info.hit.name}</b>" ({info.hit.serving_g}g 기준) 데이터로 매크로를 채웠어요.
       </p>
     </div>
   );

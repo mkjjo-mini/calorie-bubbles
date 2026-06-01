@@ -613,11 +613,6 @@ function PreviewStep({
       {/* AI rationale + fallback */}
       <div className="rounded-xl bg-neutral-50 px-3 py-2.5 text-[11px] text-neutral-600 leading-relaxed">
         💭 {edit.rationale}
-        {fallback?.triggered && fallback.hit && (
-          <span className="block mt-1 text-emerald-700">
-            🔁 식약처 DB "{fallback.hit.name}" 기준 보강.
-          </span>
-        )}
       </div>
 
       {/* 참조 출처 (식당) */}
