@@ -37,6 +37,13 @@ const CF_API_TOKEN = process.env.CF_API_TOKEN ?? "";
 const VECTORIZE_INDEX = "food-items";
 const EMBED_MODEL = "@cf/baai/bge-m3";
 
+// --limit N 또는 SEED_LIMIT=N 으로 테스트 실행 가능
+// 예: npx tsx scripts/seed-food-vectors.ts --limit 500
+const limitArg = process.argv.indexOf("--limit");
+const SEED_LIMIT = limitArg !== -1
+  ? Number(process.argv[limitArg + 1])
+  : Number(process.env.SEED_LIMIT ?? 0); // 0 = 전체
+
 // Excel 컬럼 인덱스 (음식DB·가공식품 공통 구조)
 const COL = {
   id:       0,   // 식품코드
@@ -220,14 +227,21 @@ async function main() {
     const rows = await parseExcelToJson(f.path, f.label);
     allFoods.push(...rows);
   }
-  console.log(`\n총 ${allFoods.length.toLocaleString()}건 로드 완료\n`);
+  console.log(`\n총 ${allFoods.length.toLocaleString()}건 로드 완료`);
+
+  const foods = SEED_LIMIT > 0 ? allFoods.slice(0, SEED_LIMIT) : allFoods;
+  if (SEED_LIMIT > 0) {
+    console.log(`⚠️  테스트 모드: 상위 ${SEED_LIMIT.toLocaleString()}건만 처리\n`);
+  } else {
+    console.log();
+  }
 
   // 3. 임베딩 생성 + Vectorize 적재
   const pending: Array<{ id: string; values: number[]; metadata: Record<string, unknown> }> = [];
   let done = 0;
 
-  for (let i = 0; i < allFoods.length; i += EMBED_BATCH) {
-    const batch = allFoods.slice(i, i + EMBED_BATCH);
+  for (let i = 0; i < foods.length; i += EMBED_BATCH) {
+    const batch = foods.slice(i, i + EMBED_BATCH);
     const vectors = await embedTexts(batch.map((f) => f.embedText));
 
     for (let j = 0; j < batch.length; j++) {
@@ -249,7 +263,7 @@ async function main() {
     }
 
     done += batch.length;
-    progress(done, allFoods.length, "임베딩·업로드");
+    progress(done, foods.length, "임베딩·업로드");
 
     if (pending.length >= UPSERT_BATCH) {
       await upsertVectors(pending.splice(0, UPSERT_BATCH));
