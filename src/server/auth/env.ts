@@ -50,4 +50,39 @@ export interface Env {
    * 미설정 또는 "true" → AI 활성.
    */
   AI_FEATURE_ENABLED?: string;
+  /**
+   * Cloudflare Workers AI binding — bge-m3 임베딩 (1024dim, 한국어 지원).
+   * wrangler.jsonc `"ai": { "binding": "AI" }` 으로 주입.
+   * 로컬 dev: wrangler dev 실행 시 자동 원격 AI 사용.
+   */
+  AI?: {
+    run(
+      model: string,
+      input: Record<string, unknown>,
+    ): Promise<{ data: number[][] } | Record<string, unknown>>;
+  };
+  /**
+   * Cloudflare Vectorize — 식약처 식품영양성분 벡터 인덱스 (food-items).
+   * wrangler.jsonc `"vectorize": [{ "binding": "FOOD_VECTORIZE", ... }]` 으로 주입.
+   * 인덱스 생성: npx wrangler vectorize create food-items --dimensions=1024 --metric=cosine
+   */
+  FOOD_VECTORIZE?: {
+    query(
+      vector: number[],
+      options: { topK?: number; returnMetadata?: "all" | "indexed" | "none" },
+    ): Promise<{
+      matches: Array<{
+        id: string;
+        score: number;
+        metadata?: Record<string, unknown>;
+      }>;
+    }>;
+    upsert(
+      vectors: Array<{
+        id: string;
+        values: number[];
+        metadata?: Record<string, unknown>;
+      }>,
+    ): Promise<{ count: number }>;
+  };
 }
