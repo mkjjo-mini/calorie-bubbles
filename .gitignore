@@ -50,3 +50,6 @@ DerivedData/
 # Sentry Config File
 .env.sentry-build-plugin
 test-images/
+
+# 식약처 식품영양성분 DB (대용량 Excel, git 제외)
+data/food-db/

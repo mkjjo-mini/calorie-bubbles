@@ -210,10 +210,10 @@ async function main() {
   }
 
   // 1. Excel 파일 경로 확인
-  const DOWNLOADS = path.resolve(process.env.HOME ?? "~", "Downloads");
+  const DATA_DIR = path.resolve(process.cwd(), "data/food-db");
   const FILES = [
-    { path: path.join(DOWNLOADS, "20251229_음식DB 19495건.xlsx"),       label: "음식DB" },
-    { path: path.join(DOWNLOADS, "20260429_가공식품_277074건.xlsx"),     label: "가공식품" },
+    { path: path.join(DATA_DIR, "20251229_음식DB 19495건.xlsx"),     label: "음식DB" },
+    { path: path.join(DATA_DIR, "20260429_가공식품_277074건.xlsx"),   label: "가공식품" },
   ];
 
   for (const f of FILES) {
