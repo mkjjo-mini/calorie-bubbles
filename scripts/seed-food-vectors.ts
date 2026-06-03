@@ -77,10 +77,10 @@ interface FoodRow {
 
 // ─── Excel 파싱 (xlsx를 직접 파싱하기보다 python으로 처리 후 JSON 읽기) ────
 
-async function parseExcelToJson(xlsxPath: string, label: string): Promise<FoodRow[]> {
+async function parseExcelToJson(xlsxPath: string, label: string, limit = 0): Promise<FoodRow[]> {
   const tmpJson = `/tmp/food_${label}_${Date.now()}.json`;
 
-  // Python으로 Excel → JSON 변환
+  // Python으로 Excel → JSON 변환 (limit > 0이면 상위 N건만)
   const pythonScript = `
 import openpyxl, json, sys
 
@@ -88,10 +88,13 @@ wb = openpyxl.load_workbook('${xlsxPath}', read_only=True, data_only=True)
 ws = wb.active
 rows = []
 first = True
+limit = ${limit}
 for row in ws.iter_rows(values_only=True):
     if first:
         first = False
         continue  # 헤더 스킵
+    if limit > 0 and len(rows) >= limit:
+        break
     if row[1] is None:
         continue  # 식품명 없는 행 스킵
     kcal = float(row[17] or 0)
@@ -142,7 +145,7 @@ print(len(rows))
 
 async function embedTexts(texts: string[]): Promise<number[][]> {
   const res = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${encodeURIComponent(EMBED_MODEL)}`,
+    `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${EMBED_MODEL}`,
     {
       method: "POST",
       headers: {
@@ -223,9 +226,13 @@ async function main() {
   // 2. Excel 파싱
   console.log("\n📂 Excel 파싱 중...");
   const allFoods: FoodRow[] = [];
+  let remaining = SEED_LIMIT; // 0 = 전체
   for (const f of FILES) {
-    const rows = await parseExcelToJson(f.path, f.label);
+    if (SEED_LIMIT > 0 && allFoods.length >= SEED_LIMIT) break;
+    const perFileLimit = SEED_LIMIT > 0 ? Math.max(0, remaining) : 0;
+    const rows = await parseExcelToJson(f.path, f.label, perFileLimit);
     allFoods.push(...rows);
+    remaining = Math.max(0, SEED_LIMIT - allFoods.length);
   }
   console.log(`\n총 ${allFoods.length.toLocaleString()}건 로드 완료`);
 
