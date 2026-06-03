@@ -25,6 +25,7 @@ export const VECTOR_MID_THRESHOLD = 0.75;
 export interface VectorFoodHit {
   id: string;
   name: string;
+  brand: string;   // 업체명 (없으면 빈 문자열)
   kcal: number;
   carb_g: number;
   protein_g: number;
@@ -75,6 +76,7 @@ export async function searchFoodVector(
   return {
     id: top.id,
     name: String(m.name ?? ""),
+    brand: String(m.brand ?? ""),
     kcal: Number(m.kcal ?? 0),
     carb_g: Number(m.carb_g ?? 0),
     protein_g: Number(m.protein_g ?? 0),
@@ -86,8 +88,9 @@ export async function searchFoodVector(
 
 /** VectorFoodHit → Gemini RAG 컨텍스트 문자열 */
 export function vectorHitToContext(hit: VectorFoodHit): string {
+  const label = hit.brand ? `${hit.name} (${hit.brand})` : hit.name;
   return (
-    `[식약처 DB] ${hit.name}: ` +
+    `[식약처 DB] ${label}: ` +
     `칼로리 ${hit.kcal}kcal, 탄수화물 ${hit.carb_g}g, ` +
     `단백질 ${hit.protein_g}g, 지방 ${hit.fat_g}g (1인분 ${hit.serving_g}g 기준)`
   );

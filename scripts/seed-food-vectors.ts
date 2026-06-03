@@ -48,6 +48,7 @@ const COL = {
   fat:     20,   // 지방(g) — 100g 기준
   carb:    22,   // 탄수화물(g) — 100g 기준
   serving: 153,  // 1인(회)분량 참고량
+  brand:   155,  // 업체명 (가공식품에 "농심", "오뚜기" 등 실 업체명 포함)
 } as const;
 
 // 배치 크기
@@ -57,6 +58,8 @@ const UPSERT_BATCH = 500;  // Vectorize upsert 한 번에
 interface FoodRow {
   id: string;
   name: string;
+  brand: string;       // 업체명 ("해당없음" 또는 실제 업체명)
+  embedText: string;   // 임베딩용: "식품명 업체명" 또는 "식품명"
   source: "food" | "processed";
   kcal: number;
   carb_g: number;
@@ -93,15 +96,21 @@ for row in ws.iter_rows(values_only=True):
         if serving_g <= 0: serving_g = 100
     except:
         serving_g = 100
+    name  = str(row[1] or '').strip()
+    brand = str(row[155] or '').strip()
+    brand = '' if brand in ('해당없음', 'None', '') else brand
+    embed_text = f'{name} {brand}'.strip() if brand else name
     rows.append({
-        'id':        str(row[0] or ''),
-        'name':      str(row[1] or '').strip(),
-        'source':    'food' if str(row[2] or '') == 'D' else 'processed',
-        'kcal':      round(kcal * serving_g / 100),
-        'carb_g':    round(float(row[22] or 0) * serving_g / 100, 1),
-        'protein_g': round(float(row[19] or 0) * serving_g / 100, 1),
-        'fat_g':     round(float(row[20] or 0) * serving_g / 100, 1),
-        'serving_g': serving_g,
+        'id':         str(row[0] or ''),
+        'name':       name,
+        'brand':      brand,
+        'embedText':  embed_text,
+        'source':     'food' if str(row[2] or '') == 'D' else 'processed',
+        'kcal':       round(kcal * serving_g / 100),
+        'carb_g':     round(float(row[22] or 0) * serving_g / 100, 1),
+        'protein_g':  round(float(row[19] or 0) * serving_g / 100, 1),
+        'fat_g':      round(float(row[20] or 0) * serving_g / 100, 1),
+        'serving_g':  serving_g,
     })
 wb.close()
 json.dump(rows, open('${tmpJson}', 'w', encoding='utf-8'), ensure_ascii=False)
@@ -219,7 +228,7 @@ async function main() {
 
   for (let i = 0; i < allFoods.length; i += EMBED_BATCH) {
     const batch = allFoods.slice(i, i + EMBED_BATCH);
-    const vectors = await embedTexts(batch.map((f) => f.name));
+    const vectors = await embedTexts(batch.map((f) => f.embedText));
 
     for (let j = 0; j < batch.length; j++) {
       const f = batch[j];
@@ -228,6 +237,7 @@ async function main() {
         values: vectors[j],
         metadata: {
           name:      f.name,
+          brand:     f.brand,   // 업체명 (없으면 빈 문자열)
           source:    f.source,
           kcal:      f.kcal,
           carb_g:    f.carb_g,
