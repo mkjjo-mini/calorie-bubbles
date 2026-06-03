@@ -76,11 +76,11 @@ function LoginPage() {
       const next = search.next ?? "/";
       // Capacitor WebView 호환:
       //  - skipBrowserRedirect: true → supabase가 외부 Safari 안 띄움, url만 반환
-      //  - window.location.href로 WebView 자체가 navigate → PKCE verifier가
-      //    같은 storage(WebView cookie)에 유지됨 → callback 시 정상 교환
-      //  - redirectTo는 client /auth/callback (page 로드 시 detectSessionInUrl이
-      //    자동 ?code= 처리)
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      //  - window.location.href로 WebView 자체가 navigate
+      //  - redirectTo를 서버 콜백(/api/auth/callback)으로 설정 →
+      //    서버가 PKCE code exchange + 쿠키 발급 후 next로 redirect.
+      //    클라이언트 PKCE verifier 스토리지 유실 문제 완전 우회.
+      const redirectTo = `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(next)}`;
       // 카카오는 콘솔에서 활성화한 scope만 요청 가능 — 비활성화된 scope 요청 시 KOE205.
       // 우리는 이메일만 받으니까 카카오 한정으로 scopes를 account_email로 제한.
       const scopes = provider === "kakao" ? "account_email" : undefined;
