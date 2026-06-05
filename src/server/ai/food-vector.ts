@@ -18,9 +18,9 @@ import type { Env } from "../auth/env";
 const EMBED_MODEL = "@cf/baai/bge-m3";
 
 /** score ≥ 이 값이면 Gemini 완전 스킵, 벡터 결과 직접 반환 */
-export const VECTOR_HIGH_THRESHOLD = 0.87;
+export const VECTOR_HIGH_THRESHOLD = 0.78;
 /** score ≥ 이 값이면 RAG 컨텍스트로 Gemini에 주입 (Search OFF) */
-export const VECTOR_MID_THRESHOLD = 0.75;
+export const VECTOR_MID_THRESHOLD = 0.65;
 
 export interface VectorFoodHit {
   id: string;

@@ -123,7 +123,10 @@ for row in ws.iter_rows(values_only=True):
         'serving_g':  serving_g,
     })
 wb.close()
-json.dump(rows, open('${tmpJson}', 'w', encoding='utf-8'), ensure_ascii=False)
+# NDJSON으로 저장 (한 줄에 하나 — 대용량 JSON.parse 스택 오버플로우 방지)
+with open('${tmpJson}', 'w', encoding='utf-8') as f:
+    for r in rows:
+        f.write(json.dumps(r, ensure_ascii=False) + '\\n')
 print(len(rows))
 `;
 
@@ -134,7 +137,15 @@ print(len(rows))
   const count = execSync(`python3 ${scriptPath}`, { encoding: "utf8" }).trim();
   fs.unlinkSync(scriptPath);
 
-  const rows = JSON.parse(fs.readFileSync(tmpJson, "utf8")) as FoodRow[];
+  // NDJSON 스트림으로 읽기 (대용량 JSON.parse 스택 오버플로우 방지)
+  const rows: FoodRow[] = [];
+  const rl = readline.createInterface({
+    input: fs.createReadStream(tmpJson, { encoding: "utf8" }),
+    crlfDelay: Infinity,
+  });
+  for await (const line of rl) {
+    if (line.trim()) rows.push(JSON.parse(line) as FoodRow);
+  }
   fs.unlinkSync(tmpJson);
 
   console.log(`  ${label}: ${count}건 파싱 완료`);
@@ -231,7 +242,7 @@ async function main() {
     if (SEED_LIMIT > 0 && allFoods.length >= SEED_LIMIT) break;
     const perFileLimit = SEED_LIMIT > 0 ? Math.max(0, remaining) : 0;
     const rows = await parseExcelToJson(f.path, f.label, perFileLimit);
-    allFoods.push(...rows);
+    for (const r of rows) allFoods.push(r); // spread 대신 루프 (275k+ spread → 스택 오버플로우)
     remaining = Math.max(0, SEED_LIMIT - allFoods.length);
   }
   console.log(`\n총 ${allFoods.length.toLocaleString()}건 로드 완료`);
@@ -254,7 +265,7 @@ async function main() {
     for (let j = 0; j < batch.length; j++) {
       const f = batch[j];
       pending.push({
-        id: f.id || `food_${i + j}`,
+        id: f.id ? `${f.id}_${i + j}` : `food_${i + j}`,
         values: vectors[j],
         metadata: {
           name:      f.name,
