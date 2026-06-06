@@ -125,6 +125,8 @@ export function AdBanner() {
       try {
         const safeBottom = measureSafeAreaBottomPx();
         console.log("[ads] safe-area-inset-bottom =", safeBottom, "→ margin", -safeBottom);
+        // 광고 표시 전 미리 추정 높이 세팅 → 탭바가 미리 위로 회피 (타이밍 겹침 방지)
+        setHeight(50);
         await AdMob.showBanner({
           adId: getAdUnitId("banner"),
           adSize: BannerAdSize.ADAPTIVE_BANNER,
