@@ -446,6 +446,8 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
         costUsd: result.costUsd,
         inputTokens: result.inputTokens,
         outputTokens: result.outputTokens,
+        latencyMs: result.latencyMs,
+        model: result.model,
         query: body.mode === "text" ? body.text : undefined,
       });
 

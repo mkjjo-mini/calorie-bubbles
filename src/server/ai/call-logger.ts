@@ -16,6 +16,7 @@ export interface AiCallLogEntry {
   outputTokens?: number;
   latencyMs?: number;
   query?: string;
+  model?: string;
 }
 
 export async function logAiCall(
@@ -33,6 +34,7 @@ export async function logAiCall(
       input_tokens:  entry.inputTokens ?? null,
       output_tokens: entry.outputTokens ?? null,
       latency_ms:    entry.latencyMs ?? null,
+      model:         entry.model ?? null,
       query:         entry.query ?? null,
     });
   } catch (e) {

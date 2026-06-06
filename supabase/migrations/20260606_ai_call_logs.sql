@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.ai_call_logs (
   input_tokens  integer,   -- 입력 토큰 수 (디버깅용)
   output_tokens integer,   -- 출력 토큰 수
   latency_ms   integer,    -- 호출 소요 시간 (ms)
+  model        text,       -- 사용 모델 (예: gemini-2.5-flash)
   query        text        -- 텍스트 검색어 (photo 모드는 NULL)
 );
 

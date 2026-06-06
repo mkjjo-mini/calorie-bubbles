@@ -13,6 +13,16 @@
 import type { Env } from "../auth/env";
 
 const MODEL = "gemini-2.5-flash";
+
+// 모델별 단가 테이블 (USD/M tokens, ≤200k tokens 기준)
+// 출처: https://ai.google.dev/gemini-api/docs/pricing
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  "gemini-2.5-flash":      { input: 0.30,  output: 2.50 },
+  "gemini-2.5-pro":        { input: 1.25,  output: 10.00 },
+  "gemini-2.0-flash":      { input: 0.10,  output: 0.40 },
+  "gemini-1.5-flash":      { input: 0.075, output: 0.30 },
+  "gemini-1.5-pro":        { input: 1.25,  output: 5.00 },
+};
 // Cloudflare AI Gateway 경유 — Workers outbound IP의 region 제한 우회 + 캐시·로깅·재시도.
 // 직접 호출(`generativelanguage.googleapis.com`) 시 "User location is not supported" 발생.
 const CF_ACCOUNT_ID = "0719cbc0852d8fee33d881aa1fe07fc1";
@@ -52,12 +62,16 @@ export interface GeminiCallResult {
   groundingChunks?: Array<{ title?: string; url?: string; snippet?: string }>;
   /** Gemini 전체 응답 (디버깅·로깅용) */
   raw: unknown;
+  /** 사용된 모델 ID */
+  model: string;
   /** 입력 토큰 수 */
   inputTokens: number;
   /** 출력 토큰 수 */
   outputTokens: number;
-  /** 호출 비용 (USD). gemini-2.5-flash 단가 기준 */
+  /** 호출 비용 (USD). 모델별 단가 테이블 기준 추정값 */
   costUsd: number;
+  /** 실제 API 호출 소요 시간 (ms) */
+  latencyMs: number;
 }
 
 export class GeminiError extends Error {
@@ -132,6 +146,7 @@ export async function callGemini(
   let res: Response | null = null;
   let lastErrText = "";
   const RETRY_DELAYS_MS = [1000, 3000, 7000]; // 지수 백오프: 1s → 3s → 7s (총 ~11s)
+  const startMs = Date.now();
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     res = await fetch(url, init);
     if (res.ok) break;
@@ -140,6 +155,7 @@ export async function callGemini(
     if (attempt === RETRY_DELAYS_MS.length) break; // retry 다 썼음
     await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
   }
+  const latencyMs = Date.now() - startMs;
 
   if (!res || !res.ok) {
     const errText = lastErrText || (res ? await res.text().catch(() => "") : "");
@@ -209,12 +225,12 @@ export async function callGemini(
     | Array<{ title?: string; url?: string; snippet?: string }>
     | undefined;
 
-  // 토큰·비용 계산 (gemini-2.5-flash 단가, ≤200k tokens)
-  // 입력: $0.30/M tokens, 출력: $2.50/M tokens
+  // 토큰·비용 계산 (모델별 단가 테이블 기준, ≤200k tokens)
   // AI Gateway 실측 역산으로 검증: 740in * 0.30/M + 169out * 2.50/M = $0.00064450 ✅
   const inputTokens = raw.usageMetadata?.promptTokenCount ?? 0;
   const outputTokens = raw.usageMetadata?.candidatesTokenCount ?? 0;
-  const costUsd = (inputTokens * 0.30 + outputTokens * 2.50) / 1_000_000;
+  const pricing = MODEL_PRICING[MODEL] ?? { input: 0.30, output: 2.50 };
+  const costUsd = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
 
-  return { parsed, rawText, groundingChunks, raw, inputTokens, outputTokens, costUsd };
+  return { parsed, rawText, groundingChunks, raw, model: MODEL, inputTokens, outputTokens, costUsd, latencyMs };
 }
