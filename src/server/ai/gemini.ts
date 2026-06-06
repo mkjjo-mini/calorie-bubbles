@@ -125,7 +125,7 @@ export async function callGemini(
 
   let res: Response | null = null;
   let lastErrText = "";
-  const RETRY_DELAYS_MS = [500, 1500]; // 1st retry 500ms, 2nd retry 1500ms (총 ~2s)
+  const RETRY_DELAYS_MS = [1000, 3000, 7000]; // 지수 백오프: 1s → 3s → 7s (총 ~11s)
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     res = await fetch(url, init);
     if (res.ok) break;
