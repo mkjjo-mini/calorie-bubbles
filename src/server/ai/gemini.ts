@@ -209,11 +209,12 @@ export async function callGemini(
     | Array<{ title?: string; url?: string; snippet?: string }>
     | undefined;
 
-  // 토큰·비용 계산 (gemini-2.5-flash 단가)
-  // 입력: $0.075/M tokens, 출력: $0.30/M tokens
+  // 토큰·비용 계산 (gemini-2.5-flash 단가, ≤200k tokens)
+  // 입력: $0.30/M tokens, 출력: $2.50/M tokens
+  // AI Gateway 실측 역산으로 검증: 740in * 0.30/M + 169out * 2.50/M = $0.00064450 ✅
   const inputTokens = raw.usageMetadata?.promptTokenCount ?? 0;
   const outputTokens = raw.usageMetadata?.candidatesTokenCount ?? 0;
-  const costUsd = (inputTokens * 0.075 + outputTokens * 0.30) / 1_000_000;
+  const costUsd = (inputTokens * 0.30 + outputTokens * 2.50) / 1_000_000;
 
   return { parsed, rawText, groundingChunks, raw, inputTokens, outputTokens, costUsd };
 }
