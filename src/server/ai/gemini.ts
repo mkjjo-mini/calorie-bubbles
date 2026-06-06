@@ -52,6 +52,12 @@ export interface GeminiCallResult {
   groundingChunks?: Array<{ title?: string; url?: string; snippet?: string }>;
   /** Gemini 전체 응답 (디버깅·로깅용) */
   raw: unknown;
+  /** 입력 토큰 수 */
+  inputTokens: number;
+  /** 출력 토큰 수 */
+  outputTokens: number;
+  /** 호출 비용 (USD). gemini-2.5-flash 단가 기준 */
+  costUsd: number;
 }
 
 export class GeminiError extends Error {
@@ -163,6 +169,11 @@ export async function callGemini(
       };
     }>;
     promptFeedback?: { blockReason?: string };
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+      totalTokenCount?: number;
+    };
   };
 
   if (raw.promptFeedback?.blockReason) {
@@ -198,5 +209,11 @@ export async function callGemini(
     | Array<{ title?: string; url?: string; snippet?: string }>
     | undefined;
 
-  return { parsed, rawText, groundingChunks, raw };
+  // 토큰·비용 계산 (gemini-2.5-flash 단가)
+  // 입력: $0.075/M tokens, 출력: $0.30/M tokens
+  const inputTokens = raw.usageMetadata?.promptTokenCount ?? 0;
+  const outputTokens = raw.usageMetadata?.candidatesTokenCount ?? 0;
+  const costUsd = (inputTokens * 0.075 + outputTokens * 0.30) / 1_000_000;
+
+  return { parsed, rawText, groundingChunks, raw, inputTokens, outputTokens, costUsd };
 }
