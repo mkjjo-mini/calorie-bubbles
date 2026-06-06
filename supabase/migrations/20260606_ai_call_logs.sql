@@ -48,3 +48,8 @@ CREATE POLICY ai_call_logs_owner_read ON public.ai_call_logs
 --   '0 3 * * *',  -- 매일 새벽 3시
 --   $$DELETE FROM public.ai_call_logs WHERE called_at < now() - interval '90 days'$$
 -- );
+
+
+ALTER TABLE public.ai_call_logs
+    ADD COLUMN IF NOT EXISTS latency_ms integer,
+    ADD COLUMN IF NOT EXISTS model text;
