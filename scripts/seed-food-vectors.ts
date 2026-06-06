@@ -7,7 +7,7 @@
  *   ※ 건강기능식품 제외 (컬럼 구조 다름, mg 단위)
  *
  * 실행 전 필요 환경 변수 (.env.local):
- *   CF_API_TOKEN  — Cloudflare API 토큰 (Workers AI write + Vectorize edit 권한)
+ *   FOOD_SEED_API_TOKEN  — Cloudflare API 토큰 (Workers AI write + Vectorize edit 권한)
  *                   https://dash.cloudflare.com/profile/api-tokens
  *
  * 실행:
@@ -33,7 +33,7 @@ function loadEnvLocal() {
 loadEnvLocal();
 
 const CF_ACCOUNT_ID = "0719cbc0852d8fee33d881aa1fe07fc1";
-const CF_API_TOKEN = process.env.CF_API_TOKEN ?? "";
+const FOOD_SEED_API_TOKEN = process.env.FOOD_SEED_API_TOKEN ?? "";
 const VECTORIZE_INDEX = "food-items";
 const EMBED_MODEL = "@cf/baai/bge-m3";
 
@@ -160,7 +160,7 @@ async function embedTexts(texts: string[]): Promise<number[][]> {
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${CF_API_TOKEN}`,
+        Authorization: `Bearer ${FOOD_SEED_API_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ text: texts }),
@@ -190,7 +190,7 @@ async function upsertVectors(
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${CF_API_TOKEN}`,
+        Authorization: `Bearer ${FOOD_SEED_API_TOKEN}`,
         "Content-Type": "application/x-ndjson",
       },
       body: ndjson,
@@ -215,8 +215,8 @@ function progress(done: number, total: number, label: string) {
 // ─── 메인 ─────────────────────────────────────────────────────────────────
 
 async function main() {
-  if (!CF_API_TOKEN) {
-    console.error("❌ CF_API_TOKEN 미설정. .env.local에 CF_API_TOKEN=xxx 추가");
+  if (!FOOD_SEED_API_TOKEN) {
+    console.error("❌ FOOD_SEED_API_TOKEN 미설정. .env.local에 FOOD_SEED_API_TOKEN=xxx 추가");
     process.exit(1);
   }
 

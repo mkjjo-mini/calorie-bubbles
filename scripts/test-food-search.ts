@@ -22,7 +22,7 @@ function loadEnvLocal() {
 loadEnvLocal();
 
 const CF_ACCOUNT_ID = "0719cbc0852d8fee33d881aa1fe07fc1";
-const CF_API_TOKEN = process.env.CF_API_TOKEN ?? "";
+const FOOD_SEED_API_TOKEN = process.env.FOOD_SEED_API_TOKEN ?? "";
 const EMBED_MODEL = "@cf/baai/bge-m3";
 const VECTORIZE_INDEX = "food-items";
 const TOP_K = 5;
@@ -33,7 +33,7 @@ async function embed(text: string): Promise<number[]> {
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${CF_API_TOKEN}`,
+        Authorization: `Bearer ${FOOD_SEED_API_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ text: [text] }),
@@ -50,7 +50,7 @@ async function query(vector: number[]) {
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${CF_API_TOKEN}`,
+        Authorization: `Bearer ${FOOD_SEED_API_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -78,8 +78,8 @@ async function main() {
     console.error('사용법: npx tsx scripts/test-food-search.ts "검색어"');
     process.exit(1);
   }
-  if (!CF_API_TOKEN) {
-    console.error("CF_API_TOKEN 미설정");
+  if (!FOOD_SEED_API_TOKEN) {
+    console.error("FOOD_SEED_API_TOKEN 미설정");
     process.exit(1);
   }
 
