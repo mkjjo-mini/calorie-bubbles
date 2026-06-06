@@ -271,7 +271,7 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
       // 고신뢰도 (≥0.87): Gemini 완전 스킵 → 식약처 데이터 직접 반환
       if (vectorHit && vectorHit.score >= VECTOR_HIGH_THRESHOLD) {
         const aiLifetimeUsed = await incrementAiLifetimeUsed(admin, userId);
-        void logAiCall(admin, {
+        await logAiCall(admin, {
           userId, mode: "text", source: "vector_db",
           success: true, costUsd: 0, query: clean,
         });
@@ -437,8 +437,8 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
       // 호출 실패는 0 반환되지만 응답 자체는 막지 않음.
       const aiLifetimeUsed = await incrementAiLifetimeUsed(admin, userId);
 
-      // AI 호출 로그 저장 (비동기, 실패해도 응답에 영향 없음)
-      void logAiCall(admin, {
+      // AI 호출 로그 저장 (응답 전 await — Workers는 응답 후 promise 취소)
+      await logAiCall(admin, {
         userId,
         mode: body.mode,
         source: llmSource,
