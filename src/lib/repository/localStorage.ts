@@ -28,6 +28,7 @@ export const localRepository: Repository = {
     listByDate: async () => [],
     listByRange: async () => [],
     create: async () => notImplemented("foodLogs.create"),
+    patch: async () => notImplemented("foodLogs.patch"),
     remove: async () => notImplemented("foodLogs.remove"),
   },
   userGoal: {

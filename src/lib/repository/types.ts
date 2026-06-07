@@ -128,6 +128,8 @@ export interface Repository {
     /** from/to: "YYYY-MM-DD" (KST), inclusive — 캘린더 월별 일괄 조회 */
     listByRange(from: string, to: string): Promise<FoodLogRow[]>;
     create(log: FoodLogInsert): Promise<FoodLogRow>;
+    /** 부분 수정 — meal_slot 변경·grams 조정 등 */
+    patch(id: string, patch: { meal_slot?: string; qty_g?: number }): Promise<void>;
     remove(id: string): Promise<void>;
   };
   userGoal: {
