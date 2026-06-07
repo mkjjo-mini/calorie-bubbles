@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { Fragment, useEffect, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouterState } from "@tanstack/react-router";
-import { Star, Clock } from "lucide-react";
+import { Star, Clock, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { displayName, inferMealSlot, MACRO_COLORS, type BubbleEntry, type Macro } from "@/lib/foods";
 import {
@@ -21,6 +21,7 @@ import { resolveFoodId } from "@/lib/foods-resolve";
 import { todayKST } from "@/lib/time";
 import type { FoodInsert } from "@/lib/repository/types";
 import { PaywallModal } from "@/components/PaywallModal";
+import { useEntitlements } from "@/hooks/useEntitlements";
 
 const LAST_QTY_KEY = "lastQtyByName";
 import { pushRecent as pushRecentShared, readRecents, subscribeRecentChange, syncFromServer } from "@/lib/recent-foods";
@@ -140,6 +141,9 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
   const [paywall, setPaywall] = useState<{ feature: PaywallFeature; open: boolean }>(
     { feature: "past_edit", open: false },
   );
+  /** Free 사용자에게 트레이에 Pro 추천 chip 노출 결정 (광고 분기와 동일 정책) */
+  const { entitlements } = useEntitlements();
+  const showProChip = entitlements.showAds;
 
   useEffect(() => {
     setRecents(readRecents());
@@ -440,6 +444,9 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
             lastQtyMap={lastQtyMap}
             onTap={handleTap}
             onLongPress={(f) => setSheet({ food: f, pickable: foodRowToPickable(f) })}
+            // Pro 추천 — Free + 최근 사용 음식 2개 이상일 때 3번째 자리에 노출
+            proInsertIndex={showProChip && recentList.length >= 2 ? 2 : undefined}
+            onProClick={() => setPaywall({ feature: "ads", open: true })}
           />
         )}
       </div>
@@ -506,30 +513,65 @@ function ChipRow({
   lastQtyMap,
   onTap,
   onLongPress,
+  proInsertIndex,
+  onProClick,
 }: {
   label: React.ReactNode;
   foods: FoodRow[];
   lastQtyMap: LastQtyMap;
   onTap: (f: FoodRow, el: HTMLElement) => void;
   onLongPress: (f: FoodRow) => void;
+  /**
+   * Pro 추천 chip을 삽입할 위치 (0-base). undefined면 노출 X.
+   * foods.length가 proInsertIndex보다 작으면 끝에 노출.
+   */
+  proInsertIndex?: number;
+  onProClick?: () => void;
 }) {
+  const showPro = proInsertIndex !== undefined && onProClick !== undefined;
   return (
     <div>
       <div className="text-[11px] font-medium text-neutral-500 mb-1.5 inline-flex items-center gap-1">
         {label}
       </div>
       <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-none">
-        {foods.map((f) => (
-          <Chip
-            key={f.id}
-            food={f}
-            last={lastQtyMap[f.name]}
-            onTap={onTap}
-            onLongPress={onLongPress}
-          />
+        {foods.map((f, i) => (
+          <Fragment key={f.id}>
+            {showPro && i === proInsertIndex && <ProRecommendChip onClick={onProClick!} />}
+            <Chip
+              food={f}
+              last={lastQtyMap[f.name]}
+              onTap={onTap}
+              onLongPress={onLongPress}
+            />
+          </Fragment>
         ))}
+        {/* 음식 개수가 삽입 index 이하면 끝에 노출 (예: foods 2개 + index 2) */}
+        {showPro && foods.length <= proInsertIndex! && (
+          <ProRecommendChip onClick={onProClick!} />
+        )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Pro 추천 chip — 음식 chip 옆에 자연스럽게 어울리는 작은 카드.
+ * 디자인은 차분한 amber tone — 눈에 띄지만 거슬리지 않게.
+ * 정책: docs/strategy/ad-strategy-analysis.md 의 결제 유도 시점 강화 일환.
+ */
+function ProRecommendChip({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="shrink-0 flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-2xl border border-dashed border-amber-300 bg-amber-50/70 text-amber-900 active:bg-amber-100 active:scale-[0.97] transition-all min-w-[68px]"
+      aria-label="광고 없이 사용하기 — Pro 보기"
+    >
+      <Sparkles className="w-4 h-4 text-amber-500" strokeWidth={2.2} />
+      <span className="text-[11px] font-semibold leading-tight">광고 없이</span>
+      <span className="text-[9px] text-amber-700 leading-tight">Pro 보기 →</span>
+    </button>
   );
 }
 
