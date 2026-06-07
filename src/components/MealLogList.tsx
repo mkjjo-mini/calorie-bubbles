@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { MoreVertical, Pencil, ArrowLeftRight, Trash2, GripVertical } from "lucide-react";
+import { MoreVertical, Pencil, ArrowLeftRight, Trash2, GripVertical, Star } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -99,6 +99,10 @@ interface Props {
   onChangeSlot: (foodLogId: string, slot: MealSlot) => void;
   onDelete: (foodLogId: string, foodName: string) => void;
   onReplaceQty: (foodLogId: string, newEntries: BubbleEntry[]) => void;
+  /** 즐겨찾기 food_id Set — ActionSheet의 "즐겨찾기 추가/해제" 라벨·동작 분기 */
+  favFoodIds?: Set<string>;
+  /** 즐겨찾기 토글 콜백 — food_id 인자. 미전달 시 ActionSheet에 즐겨찾기 옵션 미노출 */
+  onToggleFavorite?: (foodId: string) => void;
 }
 
 interface LogItem {
@@ -123,7 +127,14 @@ function dominantMacro(item: LogItem): Macro {
   return arr[0][0];
 }
 
-export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: Props) {
+export function MealLogList({
+  entries,
+  onChangeSlot,
+  onDelete,
+  onReplaceQty,
+  favFoodIds,
+  onToggleFavorite,
+}: Props) {
   // Expose onDelete ref so DraggableLogRow can call it without prop-drilling through DndContext
   const onDeleteRef = useRef(onDelete);
   onDeleteRef.current = onDelete;
@@ -275,6 +286,10 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
         <ActionSheet
           item={actionFor}
           canEdit={true}
+          isFavorite={
+            actionFor.food_id && favFoodIds ? favFoodIds.has(actionFor.food_id) : undefined
+          }
+          showFavorite={!!onToggleFavorite && !!actionFor.food_id}
           onClose={() => setActionFor(null)}
           onPick={(action) => {
             const target = actionFor;
@@ -282,6 +297,9 @@ export function MealLogList({ entries, onChangeSlot, onDelete, onReplaceQty }: P
             if (action === "edit") setEditFor(target);
             else if (action === "slot") setSlotSheetFor(target);
             else if (action === "delete") onDelete(target.foodLogId, target.foodName);
+            else if (action === "favorite" && target.food_id && onToggleFavorite) {
+              onToggleFavorite(target.food_id);
+            }
           }}
         />
       )}
@@ -505,16 +523,22 @@ function LogRowVisual({
 
 /* ----------------------------- Action Sheet ----------------------------- */
 
-type ActionKind = "edit" | "slot" | "delete";
+type ActionKind = "edit" | "slot" | "delete" | "favorite";
 
 function ActionSheet({
   item,
   canEdit,
+  isFavorite,
+  showFavorite,
   onClose,
   onPick,
 }: {
   item: LogItem;
   canEdit: boolean;
+  /** 현재 즐겨찾기 여부 — undefined면 모름 (즐겨찾기 옵션 자체 미노출) */
+  isFavorite?: boolean;
+  /** 즐겨찾기 옵션 노출 여부 — food_id가 있고 toggle 콜백 있을 때만 true */
+  showFavorite: boolean;
   onClose: () => void;
   onPick: (action: ActionKind) => void;
 }) {
@@ -535,6 +559,20 @@ function ActionSheet({
         <ArrowLeftRight className="h-[18px] w-[18px] text-neutral-600" strokeWidth={2} />
         슬롯 변경
       </button>
+      {showFavorite && (
+        <button
+          onClick={() => onPick("favorite")}
+          className="w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium text-neutral-800 hover:bg-neutral-50 active:scale-[0.98] transition flex items-center gap-3"
+        >
+          <Star
+            className="h-[18px] w-[18px]"
+            fill={isFavorite ? "#FFD700" : "none"}
+            stroke={isFavorite ? "#FFD700" : "#525252"}
+            strokeWidth={2}
+          />
+          {isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+        </button>
+      )}
       <button
         onClick={() => onPick("delete")}
         className="w-full h-12 rounded-xl text-left px-4 text-[15px] font-medium text-red-600 hover:bg-red-50 active:scale-[0.98] transition flex items-center gap-3"

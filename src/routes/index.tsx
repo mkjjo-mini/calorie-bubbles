@@ -119,6 +119,25 @@ function Index() {
   /** 다른 모달 열려있을 때는 shake 무시 — 콜백에서 최신값 참조용 */
   const shakeBlockedRef = useRef(false);
   const [hydrated, setHydrated] = useState(false);
+  /** 즐겨찾기 food_id Set — MealLogList ActionSheet의 "즐겨찾기 추가/해제" 분기 */
+  const [favFoodIds, setFavFoodIds] = useState<Set<string>>(new Set());
+
+  /** 즐겨찾기 토글 — optimistic + cloud sync. 실패 시 revert. */
+  async function toggleFavorite(foodId: string) {
+    const isFav = favFoodIds.has(foodId);
+    const prev = favFoodIds;
+    const next = new Set(favFoodIds);
+    if (isFav) next.delete(foodId);
+    else next.add(foodId);
+    setFavFoodIds(next);
+    try {
+      if (isFav) await cloudRepository.favorites.remove(foodId);
+      else await cloudRepository.favorites.add(foodId);
+    } catch {
+      setFavFoodIds(prev);
+    }
+  }
+
   const navigate = useNavigate();
   const { date: selectedDate } = Route.useSearch();
   const today = todayKST();
@@ -138,6 +157,14 @@ function Index() {
 
   // 설정에서 목표 변경 후 홈 복귀 시 항상 최신 goal 반영
   useEffect(() => {
+    // 즐겨찾기 로드 — 모든 page mount에서 한 번
+    cloudRepository.favorites
+      .list()
+      .then((favs) => setFavFoodIds(new Set(favs.map((f) => f.food_id))))
+      .catch(() => {
+        /* 401 등은 cloud.ts가 처리, 그 외 실패는 빈 Set으로 fallback */
+      });
+
     cloudRepository.userGoal.get(todayKST()).then((goal) => {
       if (goal?.daily_kcal.value) setGoalKcal(goal.daily_kcal.value);
     }).catch(() => {});
@@ -646,6 +673,8 @@ function Index() {
             onChangeSlot={changeSlot}
             onDelete={(logId, foodName) => removeByLogId(logId, foodName)}
             onReplaceQty={replaceQty}
+            favFoodIds={favFoodIds}
+            onToggleFavorite={(foodId) => void toggleFavorite(foodId)}
           />
         )}
 
