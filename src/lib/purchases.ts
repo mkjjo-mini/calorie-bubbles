@@ -98,3 +98,21 @@ export async function restorePurchases(): Promise<PurchaseResult> {
     return { status: "error", message: (e as Error).message };
   }
 }
+
+/**
+ * Apple 구독 관리 페이지 열기 (취소·플랜 변경).
+ * IAP 구독은 앱에서 직접 취소 불가 — iOS 표준 구독 관리 딥링크로 위임(정책).
+ * (RevenueCat Capacitor SDK엔 전용 메서드가 없어 Apple URL을 직접 연다)
+ * 웹/미지원 환경에서는 false 반환 → 호출부가 "앱에서 관리" 안내.
+ */
+export function manageSubscriptions(): boolean {
+  if (!isPurchaseSupported()) return false;
+  try {
+    // '_system' → Capacitor가 외부(App Store 앱)로 연다
+    window.open("https://apps.apple.com/account/subscriptions", "_system");
+    return true;
+  } catch (e) {
+    console.error("[purchases] 구독 관리 열기 실패", (e as Error).message);
+    return false;
+  }
+}

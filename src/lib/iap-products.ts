@@ -54,3 +54,16 @@ export function productIdFor(tier: Exclude<Tier, "free">, period: BillingPeriod)
   }
   return period === "annual" ? IAP_PRODUCTS.BASIC_ANNUAL : IAP_PRODUCTS.BASIC_MONTHLY;
 }
+
+/** 제품 ID → 사용자 표시명 (구독 관리 화면). 알 수 없으면 null. */
+const PRODUCT_LABEL: Record<string, string> = {
+  [IAP_PRODUCTS.PRO_MONTHLY]: "Pro · 월간",
+  [IAP_PRODUCTS.PRO_ANNUAL]: "Pro · 연간",
+  [IAP_PRODUCTS.BASIC_MONTHLY]: "광고 제거 · 월간",
+  [IAP_PRODUCTS.BASIC_ANNUAL]: "광고 제거 · 연간",
+};
+
+export function productLabel(productId: string | null | undefined): string | null {
+  if (!productId) return null;
+  return PRODUCT_LABEL[productId] ?? null;
+}

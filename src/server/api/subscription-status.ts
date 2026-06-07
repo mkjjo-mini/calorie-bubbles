@@ -35,11 +35,21 @@ export async function handleSubscriptionStatus(req: Request, env: Env): Promise<
     const aiLifetimeUsed = await getAiLifetimeUsed(admin, userId);
     const isPaid = tier !== "free";
 
+    // 구독 상세 (구독 관리 화면용). free·force_env·row 없으면 null.
+    const { data: sub } = await admin
+      .from("user_subscriptions")
+      .select("expires_at, auto_renew, rc_product_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
     return new Response(
       JSON.stringify({
         tier,
         aiLifetimeUsed,
         isPaid,
+        expiresAt: sub?.expires_at ?? null,
+        autoRenew: sub?.auto_renew ?? null,
+        productId: sub?.rc_product_id ?? null,
         source: "v1-entitlements",
       }),
       { status: 200, headers: NO_STORE_JSON_HEADERS },

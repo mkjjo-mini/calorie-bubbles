@@ -2,6 +2,7 @@ import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight, MessageSquare, Sparkles } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
+import { useEntitlements } from "@/hooks/useEntitlements";
 
 export const Route = createFileRoute("/settings/")({
   component: SettingsMenuPage,
@@ -33,6 +34,13 @@ const MENU_ITEMS: MenuItem[] = [
 
 function SettingsMenuPage() {
   const { session } = useSession();
+  const { tier } = useEntitlements();
+  const subSubtitle =
+    tier === "pro"
+      ? "Pro 이용 중"
+      : tier === "basic"
+        ? "광고 제거 이용 중"
+        : "Pro로 더 많은 기능 만나기";
 
   return (
     <div className="w-full bg-white flex justify-center">
@@ -59,6 +67,23 @@ function SettingsMenuPage() {
             </Link>
           </div>
         )}
+
+        {/* 구독 관리 — 수익 핵심 화면이라 최상위 독립 항목 (발견성·업셀 진입점) */}
+        <div className="px-5 pt-4">
+          <Link
+            to="/settings/subscription"
+            className="flex w-full items-center justify-between rounded-2xl border border-neutral-100 bg-white px-4 py-4 active:bg-neutral-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">구독 관리</p>
+                <p className="mt-0.5 text-xs text-neutral-500">{subSubtitle}</p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
+          </Link>
+        </div>
 
         <div className="px-5 pt-4 pb-4">
           <div className="rounded-2xl border border-neutral-100 bg-white overflow-hidden">

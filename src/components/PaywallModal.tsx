@@ -34,7 +34,8 @@ export type PaywallFeature =
   | "past_edit"
   | "notifications"
   | "goal_wizard"
-  | "ads";
+  | "ads"
+  | "upgrade";
 
 type RecommendedTier = "basic" | "pro";
 
@@ -74,6 +75,11 @@ const FEATURE_COPY: Record<PaywallFeature, FeatureCopy> = {
     headline: "광고 없이 깨끗하게",
     body: "Basic은 광고만 제거, Pro는 AI 기록까지 함께해요.",
     recommended: "basic",
+  },
+  upgrade: {
+    headline: "탄단지 Pro로 더 강력하게",
+    body: "AI 기록·광고 제거·지난 날 편집·식사 알림까지 한 번에 누리세요.",
+    recommended: "pro",
   },
 };
 
