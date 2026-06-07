@@ -160,6 +160,13 @@ export interface CustomFood {
   source?: "user" | "api";
   /** 식약처 FOOD_CD (source="api" 일 때만). v2에서 D1 lookup 키로 사용 → full nutrients join */
   food_code?: string;
+  /**
+   * 등록 경로 메타. UI에서 AI/직접 라벨 분기에 사용.
+   *  - "manual" / undefined: 사용자가 직접 입력
+   *  - "search": 검색에서 자동 저장된 row
+   *  - "ai_photo" / "ai_text": AI 분석 결과로 등록
+   */
+  created_via?: "manual" | "search" | "ai_photo" | "ai_text";
   created_at: number;
   updated_at: number;
 }

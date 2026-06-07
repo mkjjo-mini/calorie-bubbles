@@ -53,11 +53,12 @@ const ENTITLEMENTS: Record<Tier, Entitlements> = {
     goalWizard: false,
   },
   basic: {
-    // Basic의 유일한 차별점: 광고 제거. 그 외 Free와 동일.
+    // Basic의 차별점: 광고 제거 + 내 음식 30개 보관 (Free 3개 → 10배).
+    // 그 외 (AI·과거 편집·알림·마법사)는 Pro 가치로 보존.
     showAds: false,
     aiLifetimeFreeUses: 3,
     aiUnlimited: false,
-    customFoodActiveLimit: 3,
+    customFoodActiveLimit: 30,
     pastDateEditAllowed: false,
     pushNotifications: false,
     goalWizard: false,

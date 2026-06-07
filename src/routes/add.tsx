@@ -230,6 +230,7 @@ function foodRowToCustomFood(f: FoodRow): CustomFood {
     category: (f.category as FoodCategory) ?? undefined,
     source: f.source === "preset" ? "user" : f.source,
     food_code: f.food_code ?? undefined,
+    created_via: f.created_via,
     created_at: new Date(f.created_at).getTime(),
     updated_at: new Date(f.updated_at).getTime(),
   };
@@ -1303,11 +1304,15 @@ function CustomFoodCard({
         </div>
         <div className="mt-1 flex items-center gap-1.5">
           <span className="text-[12px] text-neutral-500">{food.kcal} kcal</span>
-          {food.is_estimated && (
+          {(food.created_via === "ai_photo" || food.created_via === "ai_text") ? (
+            <span className="text-[10px] px-1.5 py-px rounded-full bg-amber-50 text-amber-700 inline-flex items-center gap-0.5">
+              ✨ AI
+            </span>
+          ) : food.is_estimated ? (
             <span className="text-[10px] px-1.5 py-px rounded-full bg-neutral-100 text-neutral-500">
               추정
             </span>
-          )}
+          ) : null}
         </div>
         <div className="text-[11px] text-neutral-400 mt-0.5">{servingLabel}</div>
       </button>

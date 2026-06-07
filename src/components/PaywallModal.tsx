@@ -53,8 +53,8 @@ const FEATURE_COPY: Record<PaywallFeature, FeatureCopy> = {
   },
   custom_food: {
     headline: "내 음식을 자유롭게",
-    body: "활성 커스텀 음식 3개 한도에 도달했어요. Pro에서 더 많이 모아두세요.",
-    recommended: "pro",
+    body: "활성 음식 한도에 도달했어요. Basic은 30개, Pro는 무제한으로 보관할 수 있어요.",
+    recommended: "basic",
   },
   past_edit: {
     headline: "지난 날의 기록도 자유롭게",
