@@ -29,6 +29,7 @@ import { todayKST } from "@/lib/time";
 import { inferMealSlot } from "@/lib/foods";
 import { pushRecent, syncFromServer as syncRecentsFromServer } from "@/lib/recent-foods";
 import { PaywallModal } from "@/components/PaywallModal";
+import { useEntitlements } from "@/hooks/useEntitlements";
 
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -287,6 +288,22 @@ function AddFoodPage() {
     feature: "custom_food",
     open: false,
   });
+  const { entitlements } = useEntitlements();
+
+  /**
+   * 직접 등록 form 열기 전 pre-flight 한도 검사.
+   * 활성 음식이 한도(Free 3 / Basic 30 / Pro ∞) 도달이면 paywall 노출하고
+   * form 열지 않음. 사용자가 입력 다 마치고 등록 시점에 거부당하는 UX 방지.
+   */
+  function tryOpenForm(initial: Partial<CustomFood>) {
+    const limit = entitlements.customFoodActiveLimit;
+    if (Number.isFinite(limit) && userFoods.length >= limit) {
+      setPaywall({ feature: "custom_food", open: true });
+      return;
+    }
+    setFormInitial(initial);
+    setFormOpen(true);
+  }
 
   // Load UX-only localStorage data + cloud data on mount
   useEffect(() => {
@@ -873,12 +890,7 @@ function AddFoodPage() {
         <div className="px-4 py-4 space-y-6">
           {!inSearch && (
             <>
-              <DirectRegisterCard
-                onClick={() => {
-                  setFormInitial({});
-                  setFormOpen(true);
-                }}
-              />
+              <DirectRegisterCard onClick={() => tryOpenForm({})} />
 
               {hydrated && searchHistory.length > 0 && (
                 <Section
@@ -1065,10 +1077,7 @@ function AddFoodPage() {
                 </button>
               )}
               <button
-                onClick={() => {
-                  setFormInitial({ name: query.trim() });
-                  setFormOpen(true);
-                }}
+                onClick={() => tryOpenForm({ name: query.trim() })}
                 className="mt-3 w-full rounded-xl border border-dashed border-neutral-300 bg-white p-4 text-left transition active:scale-[0.98] hover:border-neutral-400"
               >
                 <div className="text-sm text-neutral-500">찾는 음식이 없나요?</div>
