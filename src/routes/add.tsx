@@ -1097,6 +1097,13 @@ function AddFoodPage() {
           last={lastQtyMap[activeFood.name]}
           onClose={() => setActiveFood(null)}
           onAdd={(mode, qty, saveAsBase) => void handleAdd(activeFood, mode, qty, saveAsBase)}
+          // custom(=cloud UUID)일 때만 ⭐ 표시·토글 — preset/api는 cloud row가
+          // 아직 없을 수 있어 sheet 시점엔 isFavorite 정확히 판단 불가.
+          // 그 경우 chip의 ⭐ 버튼이나 카드의 즐겨찾기 토글 사용 (기존 패턴).
+          isFavorite={activeFood.source === "custom" ? favFoodIds.has(activeFood.id) : undefined}
+          onToggleFavorite={
+            activeFood.source === "custom" ? () => void toggleFav(activeFood.id) : undefined
+          }
         />
       )}
 

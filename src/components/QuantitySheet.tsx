@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Star } from "lucide-react";
 
 /**
  * Shape consumed by QuantitySheet. Unified across:
@@ -38,9 +39,20 @@ interface Props {
   onClose: () => void;
   /** saveAsBase는 source가 custom 또는 api일 때만 true가 될 수 있음. */
   onAdd: (mode: "serving" | "gram", qty: number, saveAsBase: boolean) => void;
+  /** 즐겨찾기 상태 — 정확한 정보가 있을 때만 prop 전달. 없으면 ⭐ 버튼 미노출. */
+  isFavorite?: boolean;
+  /** 즐겨찾기 토글 콜백. 호출처가 add/remove 결정 + cloud 동기화. */
+  onToggleFavorite?: () => void;
 }
 
-export function QuantitySheet({ food, last, onClose, onAdd }: Props) {
+export function QuantitySheet({
+  food,
+  last,
+  onClose,
+  onAdd,
+  isFavorite,
+  onToggleFavorite,
+}: Props) {
   const [mode, setMode] = useState<"serving" | "gram">(last?.mode ?? "serving");
   const [qty, setQty] = useState<number>(last?.qty ?? 1);
   const [saveAsBase, setSaveAsBase] = useState(true);
@@ -75,7 +87,24 @@ export function QuantitySheet({ food, last, onClose, onAdd }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-200" />
-        <h3 className="text-base font-bold text-neutral-900">{food.name}</h3>
+        <div className="flex items-start gap-2">
+          <h3 className="text-base font-bold text-neutral-900 flex-1 min-w-0">{food.name}</h3>
+          {onToggleFavorite && isFavorite !== undefined && (
+            <button
+              type="button"
+              onClick={onToggleFavorite}
+              className="shrink-0 p-1 -m-1 rounded-full active:bg-neutral-100"
+              aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+            >
+              <Star
+                className="w-5 h-5"
+                fill={isFavorite ? "#FFD700" : "none"}
+                stroke={isFavorite ? "#FFD700" : "#9ca3af"}
+                strokeWidth={2}
+              />
+            </button>
+          )}
+        </div>
         {food.serving_label && (
           <p className="text-xs text-neutral-400 mt-0.5">
             {food.serving_label} · {food.kcal} kcal

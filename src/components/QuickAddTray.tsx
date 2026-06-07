@@ -129,6 +129,8 @@ interface Props {
 
 export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props) {
   const [favFoods, setFavFoods] = useState<FoodRow[]>([]);
+  /** 즐겨찾기 food_id Set — QuantitySheet의 ⭐ 토글 상태 표시·갱신용 */
+  const [favFoodIds, setFavFoodIds] = useState<Set<string>>(new Set());
   // 모든 source의 cloud foods — recents chip 매칭에 필요 (즐겨찾기 아닌 음식도 포함)
   const [allFoods, setAllFoods] = useState<FoodRow[]>([]);
   const [recents, setRecents] = useState<string[]>([]);
@@ -189,6 +191,7 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
       const favFoodIdSet = new Set(favs.map((f) => f.food_id));
       setAllFoods(foods);
       setFavFoods(foods.filter((f) => favFoodIdSet.has(f.id)));
+      setFavFoodIds(favFoodIdSet);
     } catch (e) {
       if (e instanceof CloudAuthError) {
         /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
@@ -196,6 +199,34 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
       // Non-auth failures silently swallowed — tray just won't show favorites
     }
     setHydrated(true);
+  }
+
+  /**
+   * 즐겨찾기 토글 — optimistic update 후 cloud sync.
+   * QuantitySheet의 ⭐ 버튼에서 호출. 실패 시 revert.
+   */
+  async function toggleFav(foodId: string) {
+    const isFav = favFoodIds.has(foodId);
+    const prevIds = favFoodIds;
+    const prevFoods = favFoods;
+    // optimistic
+    const nextIds = new Set(favFoodIds);
+    if (isFav) nextIds.delete(foodId);
+    else nextIds.add(foodId);
+    setFavFoodIds(nextIds);
+    setFavFoods(allFoods.filter((f) => nextIds.has(f.id)));
+    try {
+      if (isFav) await cloudRepository.favorites.remove(foodId);
+      else await cloudRepository.favorites.add(foodId);
+    } catch (e) {
+      // revert
+      setFavFoodIds(prevIds);
+      setFavFoods(prevFoods);
+      if (e instanceof CloudAuthError) {
+        /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
+      }
+      // 기타 실패는 조용히 무시 (다음 visibility 시 재동기화)
+    }
   }
 
   function pushRecent(foodId: string) {
@@ -495,6 +526,8 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
           last={lastQtyMap[sheet.food.name]}
           onClose={() => setSheet(null)}
           onAdd={handleSheetAdd}
+          isFavorite={favFoodIds.has(sheet.food.id)}
+          onToggleFavorite={() => void toggleFav(sheet.food.id)}
         />
       )}
 
