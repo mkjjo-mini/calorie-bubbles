@@ -20,6 +20,9 @@ export function getDevEnv(): Env {
     FORCE_PRO_USERS: process.env.FORCE_PRO_USERS,
     FORCE_BASIC_USERS: process.env.FORCE_BASIC_USERS,
     AI_FEATURE_ENABLED: process.env.AI_FEATURE_ENABLED,
+    // Step 13 RevenueCat
+    RC_WEBHOOK_AUTH_HEADER: process.env.RC_WEBHOOK_AUTH_HEADER,
+    RC_PUBLIC_API_KEY_IOS: process.env.RC_PUBLIC_API_KEY_IOS,
     ENVIRONMENT:
       (process.env.ENVIRONMENT as "development" | "production") ?? "development",
   };

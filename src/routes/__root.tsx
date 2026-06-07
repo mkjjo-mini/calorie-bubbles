@@ -19,6 +19,7 @@ import { ENTITLEMENTS_QUERY_KEY } from "@/hooks/useEntitlements";
 import { useConsentStatus } from "@/lib/legal";
 import { setStatusBarStyle } from "@/lib/native";
 import { syncFromServer } from "@/lib/notifications";
+import { initPurchases } from "@/lib/purchases";
 import { cloudRepository } from "@/lib/repository/cloud";
 
 function NotFoundComponent() {
@@ -161,10 +162,14 @@ function AppShell() {
   // entitlements 캐시 무효화 (비로그인 시 401→free로 캐시된 값을 Pro/Basic으로 갱신).
   // 모든 로그인 경로(이메일·OAuth·세션 복원)를 한 곳에서 커버.
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (status !== "authenticated" || !session) return;
     void syncFromServer(() => cloudRepository.userNotifications.get());
     void queryClient.invalidateQueries({ queryKey: ENTITLEMENTS_QUERY_KEY });
-  }, [status, queryClient]);
+    // Step 13 — RevenueCat 초기화. iOS 네이티브에서만 동작(웹은 no-op).
+    // appUserID = Supabase userId로 매핑 → webhook의 app_user_id와 일치.
+    const rcKey = import.meta.env.VITE_RC_PUBLIC_API_KEY_IOS;
+    if (rcKey) void initPurchases(session.userId, rcKey);
+  }, [status, session?.userId, queryClient]);
 
   useEffect(() => {
     if (isPublicRoute) return;

@@ -11,6 +11,7 @@ import { handleFoodLogs } from "./food-logs";
 import { handleFoods } from "./foods";
 import { handleFeedback } from "./feedback";
 import { handleLegalDocuments } from "./legal";
+import { handleRevenueCatWebhook } from "./revenuecat-webhook";
 import { handleSubscriptionStatus } from "./subscription-status";
 import { handleUserGoals, handleUserGoalsMonth } from "./user-goals";
 import { handleUserNotifications } from "./user-notifications";
@@ -34,6 +35,9 @@ export async function handleApi(
       return handleFavorites(req, env);
     case "/api/subscription-status":
       return handleSubscriptionStatus(req, env);
+    case "/api/revenuecat/webhook":
+      // 인증을 withUser가 아니라 Authorization 헤더로 직접 검증 (호출 주체 = RevenueCat)
+      return handleRevenueCatWebhook(req, env);
     case "/api/user-profile":
       return handleUserProfile(req, env);
     case "/api/user-notifications":

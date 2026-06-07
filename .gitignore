@@ -53,3 +53,10 @@ test-images/
 
 # 식약처 식품영양성분 DB (대용량 Excel, git 제외)
 data/food-db/
+
+# 자격증명 — 절대 커밋 금지 (App Store 키·서명 인증서 등)
+# .p8 키는 ~/.secrets/appstore/ 등 프로젝트 밖에 보관 권장
+*.p8
+*.p12
+*.mobileprovision
+.secrets/

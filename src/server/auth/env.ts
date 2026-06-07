@@ -51,6 +51,19 @@ export interface Env {
    */
   AI_FEATURE_ENABLED?: string;
   /**
+   * Step 13 RevenueCat — webhook 인증.
+   * RevenueCat 대시보드 → Integrations → Webhooks의 Authorization 헤더에 설정한
+   * 값과 동일해야 함. 불일치 시 /api/revenuecat/webhook이 401.
+   * 발급: 임의 시크릿 문자열 생성 후 RevenueCat·wrangler secret 양쪽에 동일 설정.
+   */
+  RC_WEBHOOK_AUTH_HEADER?: string;
+  /**
+   * Step 13 RevenueCat — iOS public API key (클라이언트 SDK configure용).
+   * RevenueCat → Project → API keys → Apple App Store의 public key.
+   * 클라 노출 OK (public key). VITE_ prefix로 빌드에 주입하거나 서버가 전달.
+   */
+  RC_PUBLIC_API_KEY_IOS?: string;
+  /**
    * Cloudflare Workers AI binding — bge-m3 임베딩 (1024dim, 한국어 지원).
    * wrangler.jsonc `"ai": { "binding": "AI" }` 으로 주입.
    * 로컬 dev: wrangler dev 실행 시 자동 원격 AI 사용.
