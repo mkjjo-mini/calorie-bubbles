@@ -294,10 +294,14 @@ function AddFoodPage() {
    * 직접 등록 form 열기 전 pre-flight 한도 검사.
    * 활성 음식이 한도(Free 3 / Basic 30 / Pro ∞) 도달이면 paywall 노출하고
    * form 열지 않음. 사용자가 입력 다 마치고 등록 시점에 거부당하는 UX 방지.
+   * AI 등록(ai_photo/ai_text)은 카운트에서 제외 — 백엔드 가드와 동일 정책.
    */
   function tryOpenForm(initial: Partial<CustomFood>) {
     const limit = entitlements.customFoodActiveLimit;
-    if (Number.isFinite(limit) && userFoods.length >= limit) {
+    const manualCount = userFoods.filter(
+      (f) => f.created_via !== "ai_photo" && f.created_via !== "ai_text",
+    ).length;
+    if (Number.isFinite(limit) && manualCount >= limit) {
       setPaywall({ feature: "custom_food", open: true });
       return;
     }

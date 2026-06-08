@@ -47,10 +47,13 @@ export async function handleFoods(req: Request, env: Env): Promise<Response> {
       delete insert.created_at;
       delete insert.updated_at;
 
-      // Step 17 P1 — 커스텀 음식 활성 보유 한도 (Free/Basic: 3, Pro: 무제한).
+      // Step 17 P1 — 커스텀 음식 활성 보유 한도 (Free/Basic: 3·30, Pro: 무제한).
       // source='user'만 카운트. preset/api 자동 추가는 한도 외 (사용자가 의식적으로 등록한 게 아님).
-      // resolveFoodId 등에서 preset/api도 INSERT하지만 그건 cache 성격이라 카운트 X.
-      if (insert.source === "user") {
+      // AI 등록(created_via in ai_photo/ai_text)도 한도 외 — AI는 lifetime 3회로 이미 통제됨.
+      //   이중 제약 방지 (사용자가 AI 쓰고 음식 한도까지 깎이는 부담 X).
+      // 신규 INSERT가 AI 등록이면 검사 자체 skip; 기존 AI row도 카운트에서 제외.
+      const isAiInsert = insert.created_via === "ai_photo" || insert.created_via === "ai_text";
+      if (insert.source === "user" && !isAiInsert) {
         const tier = await getUserTier(env, admin, userId);
         const ent = getEntitlements(tier);
         if (Number.isFinite(ent.customFoodActiveLimit)) {
@@ -59,7 +62,9 @@ export async function handleFoods(req: Request, env: Env): Promise<Response> {
             .select("id", { count: "exact", head: true })
             .eq("user_id", userId)
             .eq("source", "user")
-            .is("deleted_at", null);
+            .is("deleted_at", null)
+            // AI 등록 row 제외 (NULL/manual/search만 카운트)
+            .or("created_via.is.null,created_via.eq.manual,created_via.eq.search");
           if (cntErr) return jsonError(500, "DB_ERROR", cntErr.message);
           if ((count ?? 0) >= ent.customFoodActiveLimit) {
             return jsonPaywall(
