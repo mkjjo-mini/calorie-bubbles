@@ -106,10 +106,10 @@ const PLANS: TierPlan[] = [
   {
     key: "pro",
     name: "Pro",
-    monthly: "₩4,900",
-    yearly: "₩47,000",
-    dailyEquivalent: "월 ₩4,900 · 하루 ₩163",
-    yearlyDailyEquivalent: "하루 ₩129",
+    monthly: "₩6,900",
+    yearly: "₩66,000",
+    dailyEquivalent: "월 ₩6,900 · 하루 ₩230",
+    yearlyDailyEquivalent: "하루 ₩181",
     bullets: [
       "AI 음식 추가 마음껏",
       "커스텀 음식 등록",
