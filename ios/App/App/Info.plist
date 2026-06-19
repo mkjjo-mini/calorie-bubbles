@@ -59,5 +59,7 @@
 	<string>음식 사진을 직접 촬영해 AI 분석에 사용하기 위해 카메라 접근이 필요합니다.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>식사 리마인더를 원하는 시간에 받을 수 있어요.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
