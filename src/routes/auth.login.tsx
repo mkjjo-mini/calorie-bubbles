@@ -201,6 +201,8 @@ function LoginPage() {
             )}
             Google로 계속하기
           </button>
+          {/* Apple 로그인 — 추후 구현 예정. false 토글로 임시 숨김. */}
+          {false && (
           <button
             onClick={() => onOAuth("apple")}
             disabled={loading !== null}
@@ -213,6 +215,7 @@ function LoginPage() {
             )}
             Apple로 계속하기
           </button>
+          )}
         </div>
 
         <div className="mt-8 flex items-center justify-between text-xs">

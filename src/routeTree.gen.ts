@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings.index'
 import { Route as SettingsSubscriptionRouteImport } from './routes/settings.subscription'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
+import { Route as SettingsPasswordRouteImport } from './routes/settings.password'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsGoalRouteImport } from './routes/settings.goal'
 import { Route as SettingsFeedbackRouteImport } from './routes/settings.feedback'
@@ -63,6 +64,11 @@ const SettingsSubscriptionRoute = SettingsSubscriptionRouteImport.update({
 const SettingsProfileRoute = SettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsPasswordRoute = SettingsPasswordRouteImport.update({
+  id: '/password',
+  path: '/password',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/settings/feedback': typeof SettingsFeedbackRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/password': typeof SettingsPasswordRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/subscription': typeof SettingsSubscriptionRoute
   '/settings/': typeof SettingsIndexRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/settings/feedback': typeof SettingsFeedbackRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/password': typeof SettingsPasswordRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/subscription': typeof SettingsSubscriptionRoute
   '/settings': typeof SettingsIndexRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/settings/feedback': typeof SettingsFeedbackRoute
   '/settings/goal': typeof SettingsGoalRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/password': typeof SettingsPasswordRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/subscription': typeof SettingsSubscriptionRoute
   '/settings/': typeof SettingsIndexRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/settings/feedback'
     | '/settings/goal'
     | '/settings/notifications'
+    | '/settings/password'
     | '/settings/profile'
     | '/settings/subscription'
     | '/settings/'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/settings/feedback'
     | '/settings/goal'
     | '/settings/notifications'
+    | '/settings/password'
     | '/settings/profile'
     | '/settings/subscription'
     | '/settings'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/settings/feedback'
     | '/settings/goal'
     | '/settings/notifications'
+    | '/settings/password'
     | '/settings/profile'
     | '/settings/subscription'
     | '/settings/'
@@ -330,6 +342,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/settings/profile'
       preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/password': {
+      id: '/settings/password'
+      path: '/password'
+      fullPath: '/settings/password'
+      preLoaderRoute: typeof SettingsPasswordRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/notifications': {
@@ -431,6 +450,7 @@ interface SettingsRouteChildren {
   SettingsFeedbackRoute: typeof SettingsFeedbackRoute
   SettingsGoalRoute: typeof SettingsGoalRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
+  SettingsPasswordRoute: typeof SettingsPasswordRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
   SettingsSubscriptionRoute: typeof SettingsSubscriptionRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
@@ -441,6 +461,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsFeedbackRoute: SettingsFeedbackRoute,
   SettingsGoalRoute: SettingsGoalRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
+  SettingsPasswordRoute: SettingsPasswordRoute,
   SettingsProfileRoute: SettingsProfileRoute,
   SettingsSubscriptionRoute: SettingsSubscriptionRoute,
   SettingsIndexRoute: SettingsIndexRoute,

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, LogOut, UserMinus } from "lucide-react";
+import { ArrowLeft, ChevronRight, KeyRound, LogOut, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/hooks/useSession";
 
@@ -13,6 +13,9 @@ function AccountPage() {
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+
+  // 이메일 가입자만 비밀번호 변경 노출 (소셜 로그인은 비밀번호 없음)
+  const isEmailUser = session?.raw.user.app_metadata?.provider === "email";
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -84,6 +87,24 @@ function AccountPage() {
             </p>
           </div>
         </div>
+
+        {/* 비밀번호 변경 — 이메일 가입자만 (인앱 완결, 웹·메일 불필요) */}
+        {isEmailUser && (
+          <div className="px-5 pt-2 pb-0">
+            <div className="rounded-2xl border border-neutral-100 bg-white overflow-hidden">
+              <Link
+                to="/settings/password"
+                className="flex w-full items-center justify-between px-4 py-4 text-left active:bg-neutral-50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-neutral-500" />
+                  <span className="text-sm font-semibold text-neutral-900">비밀번호 변경</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* 로그아웃 + 회원 탈퇴 — 같은 레벨, 같은 톤 */}
         <div className="px-5 pt-2 pb-4">

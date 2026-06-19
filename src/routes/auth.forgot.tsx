@@ -20,9 +20,11 @@ function ForgotPage() {
     setLoading(true);
     try {
       const supabase = getBrowserSupabase();
-      // 비밀번호 재설정 메일 → 링크 클릭 시 /auth/reset?code=...
+      // 비밀번호 재설정 메일 → 링크는 /auth/reset?token_hash=...&type=recovery 로 직접 연결.
+      // (이메일 템플릿이 {{ .TokenHash }}를 쓰도록 설정 — PKCE 우회로 어느 브라우저에서나 동작.
+      //  /api/auth/callback PKCE 교환은 외부 Safari에서 verifier 부재로 실패하므로 미사용)
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=/auth/reset`,
+        redirectTo: `${window.location.origin}/auth/reset`,
       });
       if (error) {
         setErr(error.message);

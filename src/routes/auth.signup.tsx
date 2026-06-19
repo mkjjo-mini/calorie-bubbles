@@ -405,6 +405,8 @@ function SignupPage() {
             )}
             Google로 계속하기
           </button>
+          {/* Apple 로그인 — 추후 구현 예정. false 토글로 임시 숨김. */}
+          {false && (
           <button
             onClick={() => onOAuth("apple")}
             disabled={loading !== null || !hasConsent}
@@ -417,6 +419,7 @@ function SignupPage() {
             )}
             Apple로 계속하기
           </button>
+          )}
         </div>
         {!hasConsent && (
           <p className="mt-2 text-[11px] text-neutral-400 text-center">
