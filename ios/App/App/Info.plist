@@ -61,5 +61,16 @@
 	<string>식사 리마인더를 원하는 시간에 받을 수 있어요.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.tandanjibubble</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>app.tandanjibubble</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

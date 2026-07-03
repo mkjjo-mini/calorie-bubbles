@@ -32,8 +32,11 @@ async function api<T = unknown>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (res.status === 401) {
-    // 세션 만료 — 즉시 로그인으로 이동. 현재 경로를 next로 보관해 복귀 가능.
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth/")) {
+    // 게스트 모드에서는 redirect 없이 throw만 — 페이지가 빈 상태로 보임.
+    const isGuest =
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem("tandanji_guest_mode") === "1";
+    if (!isGuest && typeof window !== "undefined" && !window.location.pathname.startsWith("/auth/")) {
       const next = window.location.pathname + window.location.search;
       window.location.assign(`/auth/login?next=${encodeURIComponent(next)}`);
     }

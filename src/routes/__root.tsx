@@ -21,6 +21,11 @@ import { setStatusBarStyle } from "@/lib/native";
 import { syncFromServer } from "@/lib/notifications";
 import { initPurchases } from "@/lib/purchases";
 import { cloudRepository } from "@/lib/repository/cloud";
+import { App as CapacitorApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
+import { parseDeepLink } from "@/lib/oauth-browser";
+import { guest } from "@/lib/guest";
 
 function NotFoundComponent() {
   return (
@@ -125,11 +130,35 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  // Capacitor 네이티브 환경에서만 동작 — 흰 배경에 검정 상태바 텍스트.
-  // 웹/SSR에선 native.ts가 no-op으로 처리.
+  const navigate = useNavigate();
+
   useEffect(() => {
     void setStatusBarStyle("dark");
   }, []);
+
+  // OAuth SFSafariViewController 콜백 — app.tandanjibubble://auth/callback?code=...
+  useEffect(() => {
+    const listenerPromise = CapacitorApp.addListener("appUrlOpen", async ({ url }) => {
+      const link = parseDeepLink(url);
+      if (link.type !== "oauth_callback") return;
+      try {
+        await Browser.close();
+        const supabase = getBrowserSupabase();
+        const { error } = await supabase.auth.exchangeCodeForSession(link.code);
+        if (error) throw error;
+        // 게스트 모드 해제 (OAuth 로그인 성공)
+        guest.disable();
+        navigate({ to: link.next, replace: true });
+      } catch (e) {
+        console.error("[appUrlOpen] OAuth exchange failed", e);
+        navigate({ to: "/auth/login", search: { error: (e as Error).message }, replace: true });
+      }
+    });
+    return () => {
+      void listenerPromise.then((l) => l.remove());
+    };
+  }, [navigate]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AppShell />
@@ -171,9 +200,11 @@ function AppShell() {
     if (rcKey) void initPurchases(session.userId, rcKey);
   }, [status, session?.userId, queryClient]);
 
+  const isGuest = status === "unauthenticated" && guest.isEnabled();
+
   useEffect(() => {
     if (isPublicRoute) return;
-    if (status === "unauthenticated") {
+    if (status === "unauthenticated" && !isGuest) {
       navigate({
         to: "/auth/login",
         search: pathname === "/" ? undefined : { next: pathname },
@@ -181,8 +212,6 @@ function AppShell() {
       });
       return;
     }
-    // 인증 완료 + 약관 미준수 → /auth/consent로 우회. callback 가드가 놓친 우회로
-    // (예: 다른 기기에서 약관 갱신 후 첫 진입) 안전망.
     if (status === "authenticated" && consent && !consent.compliant) {
       navigate({
         to: "/auth/consent",
@@ -190,7 +219,7 @@ function AppShell() {
         replace: true,
       });
     }
-  }, [isPublicRoute, status, pathname, navigate, consent]);
+  }, [isPublicRoute, status, pathname, navigate, consent, isGuest]);
 
   // auth·legal 화면은 가드 통과
   if (isPublicRoute) {
@@ -204,7 +233,30 @@ function AppShell() {
     );
   }
 
-  // 부팅 중이거나 리다이렉트가 확정된 상태 — Outlet 렌더 자체를 막아 홈 깜박임 방지
+  // 게스트 모드 — 홈만 허용, 로그인 배너 표시
+  if (isGuest) {
+    return (
+      <>
+        <div
+          className="fixed inset-x-0 top-0 z-50 bg-white"
+          style={{ height: "env(safe-area-inset-top)" }}
+        />
+        <div
+          className="min-h-screen w-full bg-white"
+          style={{
+            paddingTop: "max(env(safe-area-inset-top), 1rem)",
+            paddingBottom: "calc(10rem + var(--ad-banner-height, 0px))",
+          }}
+        >
+          <GuestBanner />
+          <Outlet />
+        </div>
+        <BottomTabBar />
+      </>
+    );
+  }
+
+  // 부팅 중이거나 리다이렉트가 확정된 상태
   if (
     status === "loading" ||
     status === "unauthenticated" ||
@@ -222,16 +274,10 @@ function AppShell() {
   void session;
   return (
     <>
-      {/* 상태바 영역을 항상 흰색으로 덮어 스크롤 콘텐츠 비침 방지 */}
       <div
         className="fixed inset-x-0 top-0 z-50 bg-white"
         style={{ height: "env(safe-area-inset-top)" }}
       />
-      {/*
-        pt-[safe-area]: iOS 노치/다이내믹 아일랜드 영역 회피 (Capacitor WebView).
-        pb-40(160px) + --ad-banner-height: 탭바·FAB·광고 배너 모두 클리어.
-        --ad-banner-height는 AdBanner가 native SizeChanged 이벤트로 px 세팅.
-      */}
       <div
         className="min-h-screen w-full bg-white"
         style={{
@@ -244,6 +290,18 @@ function AppShell() {
       <BottomTabBar />
       <AdBanner />
     </>
+  );
+}
+
+function GuestBanner() {
+  return (
+    <Link
+      to="/auth/login"
+      className="flex items-center justify-between bg-neutral-900 px-4 py-2.5 text-white"
+    >
+      <span className="text-xs">비로그인 상태 · 데이터가 저장되지 않아요</span>
+      <span className="text-xs font-semibold">로그인 →</span>
+    </Link>
   );
 }
 

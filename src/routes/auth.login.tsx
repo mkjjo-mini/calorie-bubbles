@@ -10,6 +10,8 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { AppleIcon, GoogleIcon, KakaoIcon } from "@/components/auth/SocialIcons";
+import { openOAuthWithBrowser } from "@/lib/oauth-browser";
+import { guest } from "@/lib/guest";
 
 const searchSchema = z.object({
   next: z.string().optional(),
@@ -67,39 +69,29 @@ function LoginPage() {
     }
   }
 
-  async function onOAuth(provider: "google" | "apple" | "kakao") {
+  async function onOAuth(provider: "google" | "kakao") {
     if (loading) return;
     setErr(null);
     setLoading(provider);
     try {
-      const supabase = getBrowserSupabase();
-      const next = search.next ?? "/";
-      // Capacitor WebView 호환:
-      //  - skipBrowserRedirect: true → supabase가 외부 Safari 안 띄움, url만 반환
-      //  - window.location.href로 WebView 자체가 navigate
-      //  - redirectTo를 서버 콜백(/api/auth/callback)으로 설정 →
-      //    서버가 PKCE code exchange + 쿠키 발급 후 next로 redirect.
-      //    클라이언트 PKCE verifier 스토리지 유실 문제 완전 우회.
-      const redirectTo = `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(next)}`;
-      // 카카오는 콘솔에서 활성화한 scope만 요청 가능 — 비활성화된 scope 요청 시 KOE205.
-      // 우리는 이메일만 받으니까 카카오 한정으로 scopes를 account_email로 제한.
-      const scopes = provider === "kakao" ? "account_email" : undefined;
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo, scopes, skipBrowserRedirect: true },
-      });
-      if (error) {
-        setErr(translateAuthError(error.message));
-        setLoading(null);
-        return;
-      }
-      if (data?.url) {
-        // WebView가 직접 navigate — 외부 Safari로 빠지지 않음
-        window.location.href = data.url;
-      }
-      // 성공 시 navigate 후 loading 유지 (페이지 이동)
+      // SFSafariViewController로 OAuth 진행 → 완료 시 커스텀 URL 스킴으로 앱 복귀.
+      // __root.tsx의 appUrlOpen 핸들러가 code 교환 후 navigate 처리.
+      await openOAuthWithBrowser(provider, search.next ?? "/");
+      // 브라우저 열린 상태 — loading 유지 (appUrlOpen 핸들러가 해제)
     } catch (e) {
       setErr(e instanceof Error ? e.message : "로그인 실패");
+      setLoading(null);
+    }
+  }
+
+  async function onApple() {
+    if (loading) return;
+    setErr(null);
+    setLoading("apple");
+    try {
+      await openOAuthWithBrowser("apple", search.next ?? "/");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Apple 로그인 실패");
       setLoading(null);
     }
   }
@@ -201,10 +193,8 @@ function LoginPage() {
             )}
             Google로 계속하기
           </button>
-          {/* Apple 로그인 — 추후 구현 예정. false 토글로 임시 숨김. */}
-          {false && (
           <button
-            onClick={() => onOAuth("apple")}
+            onClick={onApple}
             disabled={loading !== null}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black text-sm font-semibold text-white disabled:opacity-40 active:bg-neutral-800"
           >
@@ -215,7 +205,6 @@ function LoginPage() {
             )}
             Apple로 계속하기
           </button>
-          )}
         </div>
 
         <div className="mt-8 flex items-center justify-between text-xs">
@@ -233,6 +222,17 @@ function LoginPage() {
             계정 만들기 →
           </Link>
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            guest.enable();
+            navigate({ to: search.next ?? "/" });
+          }}
+          className="mt-6 w-full text-center text-xs text-neutral-400 active:text-neutral-600"
+        >
+          로그인 없이 둘러보기 →
+        </button>
       </main>
     </div>
   );

@@ -4,6 +4,7 @@ import { ChevronDown, Eye, EyeOff, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { AppleIcon, GoogleIcon, KakaoIcon } from "@/components/auth/SocialIcons";
+import { openOAuthWithBrowser } from "@/lib/oauth-browser";
 import { INLINE_BODIES, useLegalDocuments } from "@/lib/legal";
 
 const searchSchema = z.object({
@@ -165,39 +166,37 @@ function SignupPage() {
     }
   }
 
-  async function onOAuth(provider: "google" | "apple" | "kakao") {
+  async function onOAuth(provider: "google" | "kakao") {
     if (loading) return;
     setErr(null);
     if (!hasConsent) {
       setErr("필수 동의 항목을 모두 체크해주세요.");
       return;
     }
-    // OAuth는 페이지를 떠나므로 동의 row를 여기서 INSERT할 수 없다.
-    // callback 가드가 /auth/consent로 redirect하면, 그 페이지가 sessionStorage를
-    // 읽고 마케팅 체크 상태를 복원 → 한 번의 클릭으로 동의 완료.
     saveMarketingIntent();
     setLoading(provider);
     try {
-      const supabase = getBrowserSupabase();
-      const next = search.next ?? "/";
-      // Capacitor WebView 호환 — skipBrowserRedirect + manual navigate.
-      // auth.login.tsx의 onOAuth 주석 참조.
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
-      const scopes = provider === "kakao" ? "account_email" : undefined;
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo, scopes, skipBrowserRedirect: true },
-      });
-      if (error) {
-        setErr(translateAuthError(error.message));
-        setLoading(null);
-        return;
-      }
-      if (data?.url) {
-        window.location.href = data.url;
-      }
+      await openOAuthWithBrowser(provider, search.next ?? "/");
+      // 브라우저 열린 상태 — loading 유지 (appUrlOpen 핸들러가 해제)
     } catch (e) {
       setErr(e instanceof Error ? e.message : "회원가입 실패");
+      setLoading(null);
+    }
+  }
+
+  async function onApple() {
+    if (loading) return;
+    setErr(null);
+    if (!hasConsent) {
+      setErr("필수 동의 항목을 모두 체크해주세요.");
+      return;
+    }
+    saveMarketingIntent();
+    setLoading("apple");
+    try {
+      await openOAuthWithBrowser("apple", search.next ?? "/");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Apple 로그인 실패");
       setLoading(null);
     }
   }
@@ -405,10 +404,8 @@ function SignupPage() {
             )}
             Google로 계속하기
           </button>
-          {/* Apple 로그인 — 추후 구현 예정. false 토글로 임시 숨김. */}
-          {false && (
           <button
-            onClick={() => onOAuth("apple")}
+            onClick={onApple}
             disabled={loading !== null || !hasConsent}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-black text-sm font-semibold text-white disabled:opacity-40 active:bg-neutral-800"
           >
@@ -419,7 +416,6 @@ function SignupPage() {
             )}
             Apple로 계속하기
           </button>
-          )}
         </div>
         {!hasConsent && (
           <p className="mt-2 text-[11px] text-neutral-400 text-center">
