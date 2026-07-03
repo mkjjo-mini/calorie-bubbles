@@ -112,7 +112,10 @@ export function BubbleField({
   // Sync nodes with bubbles prop
   useEffect(() => {
     const map = nodesRef.current;
-    const incomingIds = new Set(bubbles.map((b) => b.id));
+    // 0칼로리 음식은 매크로 그램이 0 → 버블 시각화에선 제외(유령 버블 방지).
+    // 슬롯 목록(MealLogList)에는 placeholder 엔트리로 표시됨.
+    const visible = bubbles.filter((b) => b.grams > 0);
+    const incomingIds = new Set(visible.map((b) => b.id));
 
     let changed = false;
     for (const id of Array.from(map.keys())) {
@@ -121,7 +124,7 @@ export function BubbleField({
         changed = true;
       }
     }
-    for (const b of bubbles) {
+    for (const b of visible) {
       const existing = map.get(b.id);
       if (!existing) {
         const kcal = b.grams * MACRO_KCAL[b.macro];

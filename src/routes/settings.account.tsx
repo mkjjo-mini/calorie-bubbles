@@ -83,7 +83,9 @@ function AccountPage() {
               로그인 계정
             </p>
             <p className="mt-1 text-sm font-semibold text-neutral-900 break-all">
-              {session?.email ?? "—"}
+              {session?.raw.user.app_metadata?.provider === "apple"
+                ? "Apple로 로그인됨"
+                : (session?.email ?? "—")}
             </p>
           </div>
         </div>

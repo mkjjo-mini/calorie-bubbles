@@ -91,6 +91,7 @@ function logsToBubbles(logs: FoodLogRow[]): BubbleEntry[] {
       ["protein", log.protein_g],
       ["fat", log.fat_g],
     ];
+    let pushed = false;
     macros.forEach(([macro, grams], i) => {
       if (grams > 0) {
         entries.push({
@@ -103,8 +104,24 @@ function logsToBubbles(logs: FoodLogRow[]): BubbleEntry[] {
           meal_slot: slot,
           food_id: log.food_id,
         });
+        pushed = true;
       }
     });
+    // 0칼로리 음식(탄·단·지 모두 0 — 물·블랙커피·제로음료 등)도 슬롯 목록에
+    // 보이도록 grams 0 placeholder 엔트리 추가. BubbleField는 grams>0만 렌더하므로
+    // 버블 시각화엔 안 뜨고, MealLogList에만 항목으로 표시됨.
+    if (!pushed) {
+      entries.push({
+        id: `${log.id}-0`,
+        foodLogId: log.id,
+        macro: "carbs",
+        grams: 0,
+        foodName,
+        addedAt,
+        meal_slot: slot,
+        food_id: log.food_id,
+      });
+    }
   }
   return entries;
 }
