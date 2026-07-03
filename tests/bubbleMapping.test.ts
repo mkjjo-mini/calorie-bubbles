@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { logsToBubbles } from "@/lib/bubbleMapping";
+import { logsToBubbles, sumMacroTotals } from "@/lib/bubbleMapping";
 import { kcalBubbleColor } from "@/lib/kcalPalette";
 import type { FoodLogRow } from "@/lib/repository/types";
 
@@ -70,5 +70,19 @@ describe("logsToBubbles — kcal 모드", () => {
     expect(entries[0]?.grams).toBe(0);
     expect(entries[0]?.sizeKcal).toBeUndefined();
     expect(entries[0]?.color).toBeUndefined();
+  });
+});
+
+describe("sumMacroTotals", () => {
+  it("여러 로그의 매크로를 합산(모드 무관)", () => {
+    const totals = sumMacroTotals([
+      log({ id: "A", carb_g: 68, protein_g: 5, fat_g: 0.5 }),
+      log({ id: "B", carb_g: 10, protein_g: 20, fat_g: 3 }),
+    ]);
+    expect(totals).toEqual({ carbs: 78, protein: 25, fat: 3.5 });
+  });
+
+  it("빈 배열 → 모두 0", () => {
+    expect(sumMacroTotals([])).toEqual({ carbs: 0, protein: 0, fat: 0 });
   });
 });

@@ -38,7 +38,7 @@ import { cloudRepository } from "@/lib/repository/cloud";
 import { CloudAuthError, type FoodLogRow } from "@/lib/repository/types";
 import { todayKST } from "@/lib/time";
 import { ShareStoryButton } from "@/features/share-story/ShareStoryButton";
-import { logsToBubbles } from "@/lib/bubbleMapping";
+import { logsToBubbles, sumMacroTotals } from "@/lib/bubbleMapping";
 import { getStoredBubbleMode, setStoredBubbleMode } from "@/lib/bubbleMode";
 import type { BubbleMode } from "@/lib/foods";
 
@@ -173,11 +173,8 @@ function Index() {
   // Convert cloud logs to BubbleEntry[] for all existing UI components
   const entries = useMemo(() => logsToBubbles(logs, bubbleMode), [logs, bubbleMode]);
 
-  const totals = useMemo(() => {
-    const t = { carbs: 0, protein: 0, fat: 0 };
-    for (const e of entries) t[e.macro] += e.grams;
-    return t;
-  }, [entries]);
+  // 요약·진척바·stage는 모드 무관 — 원본 logs에서 직접 합산.
+  const totals = useMemo(() => sumMacroTotals(logs), [logs]);
 
   const totalKcal = Math.round(
     totals.carbs * MACRO_KCAL.carbs +

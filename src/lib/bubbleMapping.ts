@@ -79,6 +79,19 @@ export function logsToBubbles(logs: FoodLogRow[], mode: BubbleMode): BubbleEntry
   return entries;
 }
 
+/** 로그 배열의 탄·단·지 총합(그램). 버블 모드와 무관 — 요약·진척바·stage 계산용. */
+export function sumMacroTotals(
+  logs: FoodLogRow[],
+): { carbs: number; protein: number; fat: number } {
+  const t = { carbs: 0, protein: 0, fat: 0 };
+  for (const log of logs) {
+    t.carbs += log.carb_g;
+    t.protein += log.protein_g;
+    t.fat += log.fat_g;
+  }
+  return t;
+}
+
 function placeholder(
   log: FoodLogRow,
   foodName: string,
