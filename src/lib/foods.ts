@@ -1,4 +1,5 @@
 export type Macro = "carbs" | "protein" | "fat";
+export type BubbleMode = "kcal" | "macro";
 
 export interface FoodPreset {
   id: string;
@@ -82,6 +83,12 @@ export interface BubbleEntry {
   addedAt: number;
   meal_slot?: MealSlot;
   food_id?: string;
+  /** 지정 시 버블 배경색으로 사용(칼로리 모드). 없으면 매크로 색. */
+  color?: string;
+  /** 지정 시 라벨 텍스트 색으로 사용(칼로리 모드). */
+  textColor?: string;
+  /** 지정 시 반지름 계산에 이 총칼로리 값을 사용(칼로리 모드). */
+  sizeKcal?: number;
 }
 
 export function caloriesFor(entry: { carbs: number; protein: number; fat: number }) {
