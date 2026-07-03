@@ -638,6 +638,7 @@ function Index() {
                 <button
                   key={m}
                   type="button"
+                  aria-pressed={bubbleMode === m}
                   onClick={() => changeBubbleMode(m)}
                   className={`px-3 py-1 text-[11px] font-semibold rounded-full transition-colors ${
                     bubbleMode === m
