@@ -37,7 +37,7 @@ export type PaywallFeature =
   | "ads"
   | "upgrade";
 
-type RecommendedTier = "basic" | "pro";
+type RecommendedTier = "pro";
 
 interface FeatureCopy {
   headline: string;
@@ -48,13 +48,13 @@ interface FeatureCopy {
 const FEATURE_COPY: Record<PaywallFeature, FeatureCopy> = {
   ai: {
     headline: "AI로 더 빠르게 기록해요",
-    body: "AI 음식 추가 체험 3회를 다 사용하셨어요. Pro에서 무광고로 계속 이용할 수 있어요.",
+    body: "AI 음식 추가 체험 3회를 다 사용하셨어요. Pro에서 무제한으로 계속 이용할 수 있어요.",
     recommended: "pro",
   },
   custom_food: {
     headline: "내 음식을 자유롭게",
-    body: "활성 음식 한도에 도달했어요. Basic은 30개, Pro는 무제한으로 보관할 수 있어요.",
-    recommended: "basic",
+    body: "활성 음식 한도에 도달했어요. Pro는 무제한으로 보관할 수 있어요.",
+    recommended: "pro",
   },
   past_edit: {
     headline: "지난 날의 기록도 자유롭게",
@@ -72,19 +72,19 @@ const FEATURE_COPY: Record<PaywallFeature, FeatureCopy> = {
     recommended: "pro",
   },
   ads: {
-    headline: "광고 없이 깨끗하게",
-    body: "Basic은 광고만 제거, Pro는 AI 기록까지 함께해요.",
-    recommended: "basic",
+    headline: "탄단지 Pro로 더 강력하게",
+    body: "AI 기록·지난 날 편집·식사 알림까지 한 번에 누리세요.",
+    recommended: "pro",
   },
   upgrade: {
     headline: "탄단지 Pro로 더 강력하게",
-    body: "AI 기록·광고 제거·지난 날 편집·식사 알림까지 한 번에 누리세요.",
+    body: "AI 기록·지난 날 편집·식사 알림까지 한 번에 누리세요.",
     recommended: "pro",
   },
 };
 
 interface TierPlan {
-  key: "basic" | "pro";
+  key: "pro";
   name: string;
   monthly: string;
   yearly: string;
@@ -94,15 +94,6 @@ interface TierPlan {
 }
 
 const PLANS: TierPlan[] = [
-  {
-    key: "basic",
-    name: "Basic",
-    monthly: "₩1,900",
-    yearly: "₩18,000",
-    dailyEquivalent: "월 ₩1,900 · 하루 ₩63",
-    yearlyDailyEquivalent: "하루 ₩49",
-    bullets: ["광고 제거"],
-  },
   {
     key: "pro",
     name: "Pro",
@@ -115,7 +106,6 @@ const PLANS: TierPlan[] = [
       "커스텀 음식 등록",
       "지난 날 기록 편집",
       "식사 알림 · 목표 자동 추천",
-      "광고 제거",
     ],
   },
 ];
@@ -133,7 +123,7 @@ export function PaywallModal({ feature, open, onOpenChange }: Props) {
   // 진행 중 결제의 식별자 ("pro:annual" 등). 버튼 로딩·중복결제 방지용.
   const [pending, setPending] = useState<string | null>(null);
 
-  async function handlePurchase(tier: "basic" | "pro", period: BillingPeriod) {
+  async function handlePurchase(tier: "pro", period: BillingPeriod) {
     if (pending) return;
     setPending(`${tier}:${period}`);
     const result = await purchaseTier(tier, period);
@@ -188,9 +178,16 @@ export function PaywallModal({ feature, open, onOpenChange }: Props) {
           </div>
 
           {canPurchase ? (
-            <p className="mt-4 text-[11px] text-neutral-500 leading-relaxed text-center">
-              결제 후 Apple 계정에서 자동 갱신돼요. 언제든 해지할 수 있어요.
-            </p>
+            <div className="mt-4 text-center">
+              <p className="text-[11px] text-neutral-500 leading-relaxed">
+                결제 후 Apple 계정에서 자동 갱신돼요. 언제든 해지할 수 있어요.
+              </p>
+              <p className="mt-1.5 text-[11px] text-neutral-400 leading-relaxed">
+                <a href="https://tandanjibubble.app/legal/terms" target="_blank" rel="noopener" className="underline">이용약관</a>
+                {" · "}
+                <a href="https://tandanjibubble.app/legal/privacy" target="_blank" rel="noopener" className="underline">개인정보처리방침</a>
+              </p>
+            </div>
           ) : (
             // 웹/SSR — 결제 native 필수. 정직한 안내.
             <div className="mt-4 rounded-xl bg-neutral-50 px-3 py-2.5 text-[11px] text-neutral-600 leading-relaxed text-center">
@@ -222,7 +219,7 @@ function PlanCard({
   recommended: boolean;
   canPurchase: boolean;
   pending: string | null;
-  onPurchase: (tier: "basic" | "pro", period: BillingPeriod) => void;
+  onPurchase: (tier: "pro", period: BillingPeriod) => void;
 }) {
   return (
     <div

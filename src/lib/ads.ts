@@ -2,7 +2,8 @@
 //
 //  - Web (브라우저 dev)에서는 SDK가 동작하지 않으므로 모든 호출이 no-op.
 //  - iOS Capacitor 네이티브에서만 실제 광고 표시.
-//  - 유료 사용자(Basic/Pro)는 SDK init 자체 skip → 광고 노출 없음.
+//  - showAds=false면 SDK init 자체 skip → 광고 노출 없음.
+//    (현재 전 tier showAds=false — 광고 전면 비활성. 코드는 재활성 대비 보존)
 //
 //  PRD: step-15-admob-integration.md
 
@@ -12,7 +13,7 @@ import { Capacitor } from "@capacitor/core";
 let initialized = false;
 let initPromise: Promise<void> | null = null;
 
-/** SDK 초기화. showAds=false(Basic/Pro)거나 web 환경이면 즉시 반환. */
+/** SDK 초기화. showAds=false거나 web 환경이면 즉시 반환. */
 export async function initAdMob(showAds: boolean): Promise<void> {
   if (!showAds) return;
   if (!Capacitor.isNativePlatform()) return;

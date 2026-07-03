@@ -47,8 +47,7 @@ function SubscriptionPage() {
 
   const isPaid = tier !== "free";
   const planLabel =
-    productLabel(subscription.productId) ??
-    (tier === "pro" ? "Pro" : tier === "basic" ? "광고 제거" : "무료");
+    productLabel(subscription.productId) ?? (tier === "pro" ? "Pro" : "무료");
   const expiry = formatDate(subscription.expiresAt);
 
   function handleManage() {
@@ -113,7 +112,7 @@ function SubscriptionPage() {
             <div className="rounded-2xl border border-neutral-100 bg-white px-4 py-4">
               <p className="text-sm font-semibold text-neutral-900">무료 플랜</p>
               <p className="mt-1 text-xs text-neutral-500 leading-relaxed">
-                AI 기록·광고 제거·고급 기능은 Pro에서 이용할 수 있어요.
+                AI 기록·지난 날 편집·고급 기능은 Pro에서 이용할 수 있어요.
               </p>
               <button
                 onClick={() => setPaywallOpen(true)}

@@ -31,7 +31,7 @@ export type PaywallFeature =
  * 사용자의 현재 tier 결정.
  *
  * 우선순위:
- *   1. env FORCE_PRO_USERS / FORCE_BASIC_USERS — 테스트·관리자·베타 강제
+ *   1. env FORCE_PRO_USERS — 테스트·관리자·베타 + 레거시 basic 구독자 Pro comp
  *   2. user_entitlements.tier — RevenueCat webhook이 갱신
  *   3. 기본값 'free' — row가 없으면 ensure_user_entitlements로 생성
  */
@@ -42,13 +42,6 @@ export async function getUserTier(env: Env, admin: SupabaseClient, userId: strin
       .includes(userId)
   ) {
     return "pro";
-  }
-  if (
-    env.FORCE_BASIC_USERS?.split(",")
-      .map((s) => s.trim())
-      .includes(userId)
-  ) {
-    return "basic";
   }
 
   const { data, error } = await admin
@@ -121,7 +114,7 @@ export function jsonPaywall(feature: PaywallFeature, message?: string): Response
 }
 
 /**
- * AI 게이팅 헬퍼. Free/Basic이 lifetime 한도 초과면 paywall.
+ * AI 게이팅 헬퍼. Free가 lifetime 한도 초과면 paywall.
  * pro는 항상 통과 (단 abuse cap은 별도 guardrails에서 처리).
  */
 export async function checkAiEntitlement(

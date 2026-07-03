@@ -47,7 +47,7 @@ export async function handleFoods(req: Request, env: Env): Promise<Response> {
       delete insert.created_at;
       delete insert.updated_at;
 
-      // Step 17 P1 — 커스텀 음식 활성 보유 한도 (Free/Basic: 3·30, Pro: 무제한).
+      // Step 17 P1 — 커스텀 음식 활성 보유 한도 (Free: 3, Pro: 무제한).
       // source='user'만 카운트. preset/api 자동 추가는 한도 외 (사용자가 의식적으로 등록한 게 아님).
       // AI 등록(created_via in ai_photo/ai_text)도 한도 외 — AI는 lifetime 3회로 이미 통제됨.
       //   이중 제약 방지 (사용자가 AI 쓰고 음식 한도까지 깎이는 부담 X).

@@ -2,8 +2,8 @@
  * 탄단지버블 권한 시스템 — 프론트·백엔드 공통 단일 진실 원천.
  *
  * 새 기능 추가 절차:
- *  1. `Entitlements` 인터페이스에 필드 추가 → TypeScript exhaustive check가 3 tier 모두 강제.
- *  2. `ENTITLEMENTS` 매트릭스의 free/basic/pro 모두 값 채우기.
+ *  1. `Entitlements` 인터페이스에 필드 추가 → TypeScript exhaustive check가 모든 tier 강제.
+ *  2. `ENTITLEMENTS` 매트릭스의 free/pro 모두 값 채우기.
  *  3. 사용처:
  *     - 프론트: `useEntitlements().entitlements.X`
  *     - 백엔드: `getEntitlements(tier).X`
@@ -13,15 +13,18 @@
  * PRD: products/tandanji-bubble/prd/v1-steps/step-17-entitlements.md
  */
 
-export type Tier = "free" | "basic" | "pro";
+export type Tier = "free" | "pro";
 
 export interface Entitlements {
-  /** 배너·전면 광고 노출 여부 */
+  /**
+   * 배너·전면 광고 노출 여부.
+   * 현재 전 tier false (광고 비활성). 광고 코드는 보존 — 재활성 시 free만 true로.
+   */
   showAds: boolean;
 
   /**
    * AI 음식 추가 — 계정당 평생(lifetime) 무료 체험 횟수.
-   * free/basic: 3 (4회째 paywall)
+   * free: 3 (4회째 paywall)
    * pro: Infinity (단 PER_USER_DAILY_LIMIT=50 abuse cap 별도 적용)
    */
   aiLifetimeFreeUses: number;
@@ -44,21 +47,10 @@ export interface Entitlements {
 
 const ENTITLEMENTS: Record<Tier, Entitlements> = {
   free: {
-    showAds: true,
-    aiLifetimeFreeUses: 3,
-    aiUnlimited: false,
-    customFoodActiveLimit: 3,
-    pastDateEditAllowed: false,
-    pushNotifications: false,
-    goalWizard: false,
-  },
-  basic: {
-    // Basic의 차별점: 광고 제거 + 내 음식 30개 보관 (Free 3개 → 10배).
-    // 그 외 (AI·과거 편집·알림·마법사)는 Pro 가치로 보존.
     showAds: false,
     aiLifetimeFreeUses: 3,
     aiUnlimited: false,
-    customFoodActiveLimit: 30,
+    customFoodActiveLimit: 3,
     pastDateEditAllowed: false,
     pushNotifications: false,
     goalWizard: false,
@@ -78,7 +70,7 @@ export function getEntitlements(tier: Tier): Entitlements {
   return ENTITLEMENTS[tier];
 }
 
-/** 유효한 Tier 문자열인지 narrow */
+/** 유효한 Tier 문자열인지 narrow. 레거시 'basic'은 더 이상 유효하지 않음 → free 처리됨 */
 export function isTier(v: unknown): v is Tier {
-  return v === "free" || v === "basic" || v === "pro";
+  return v === "free" || v === "pro";
 }

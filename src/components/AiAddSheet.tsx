@@ -129,7 +129,7 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
     setErr(null);
     setResult(null);
 
-    // Step 17 pre-flight — Free/Basic 평생 한도 소진 시 백엔드 호출 전에 paywall.
+    // Step 17 pre-flight — Free 평생 한도 소진 시 백엔드 호출 전에 paywall.
     // 사용자가 입력·사진까지 마치고 분석 시도해야 paywall이 뜨도록 (FAB 진입 시점엔 X).
     if (!entitlements.aiUnlimited && aiUsesRemaining <= 0) {
       setPaywallFeature("ai");
@@ -442,7 +442,7 @@ function InputStep({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Step 17 — Free/Basic 한정 체험 카운터 (Pro는 노출 X) */}
+      {/* Step 17 — Free 한정 체험 카운터 (Pro는 노출 X) */}
       {!aiUnlimited && (
         <button
           type="button"

@@ -2,7 +2,7 @@
  * 사용자 권한 + AI 평생 사용량 훅.
  *
  *  - tier·entitlements: PRD §2 매트릭스 (src/lib/entitlements.ts)
- *  - aiLifetimeUsed:    AI 분석 평생 사용 횟수 (free/basic 한도 3 비교)
+ *  - aiLifetimeUsed:    AI 분석 평생 사용 횟수 (free 한도 3 비교)
  *
  * staleTime 5분 — tier는 거의 안 변하지만 aiLifetimeUsed가 호출마다 +1이라 짧게.
  * AI 분석 성공 시 AiAddSheet가 ENTITLEMENTS_QUERY_KEY로 invalidate.
@@ -38,7 +38,7 @@ interface UseEntitlementsResult {
   entitlements: Entitlements;
   /** AI 평생 사용 횟수. 미인증·로딩 중엔 0 */
   aiLifetimeUsed: number;
-  /** Free/Basic 한정 — "체험 X/3회 남음"의 X (음수면 0 clamp) */
+  /** Free 한정 — "체험 X/3회 남음"의 X (음수면 0 clamp) */
   aiUsesRemaining: number;
   /** 구독 상세 (만료일·자동갱신·상품). free면 모두 null */
   subscription: SubscriptionDetail;

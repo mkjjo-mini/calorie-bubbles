@@ -3,7 +3,7 @@
  *
  * App Store Connect 등록값 + RevenueCat entitlement와 1:1 일치해야 함.
  *   - 제품 ID:     App Store Connect "제품 ID" (변경 불가)
- *   - entitlement: RevenueCat 대시보드에서 정의한 식별자 (pro / basic)
+ *   - entitlement: RevenueCat 대시보드에서 정의한 식별자 (pro)
  *
  * PRD: products/tandanji-bubble/prd/v1-steps/step-13-iap-subscription.md §9
  *
@@ -11,12 +11,13 @@
  */
 import type { Tier } from "./entitlements";
 
-/** App Store Connect에 등록한 4개 구독 상품 ID (= RevenueCat product identifier) */
+/**
+ * App Store Connect에 등록한 Pro 구독 상품 ID (= RevenueCat product identifier).
+ * 레거시 basic_monthly/basic_annual은 제거됨 — 기존 basic 구독자는 FORCE_PRO_USERS로 Pro comp 처리.
+ */
 export const IAP_PRODUCTS = {
   PRO_MONTHLY: "pro_monthly",
   PRO_ANNUAL: "pro_annual",
-  BASIC_MONTHLY: "basic_monthly",
-  BASIC_ANNUAL: "basic_annual",
 } as const;
 
 export type IapProductId = (typeof IAP_PRODUCTS)[keyof typeof IAP_PRODUCTS];
@@ -24,7 +25,6 @@ export type IapProductId = (typeof IAP_PRODUCTS)[keyof typeof IAP_PRODUCTS];
 /** RevenueCat 대시보드에서 정의할 entitlement 식별자 (상품 → 권한) */
 export const RC_ENTITLEMENTS = {
   PRO: "pro",
-  BASIC: "basic",
 } as const;
 
 /** 결제 주기 */
@@ -34,8 +34,6 @@ export type BillingPeriod = "monthly" | "annual";
 const PRODUCT_TIER: Record<string, Exclude<Tier, "free">> = {
   [IAP_PRODUCTS.PRO_MONTHLY]: "pro",
   [IAP_PRODUCTS.PRO_ANNUAL]: "pro",
-  [IAP_PRODUCTS.BASIC_MONTHLY]: "basic",
-  [IAP_PRODUCTS.BASIC_ANNUAL]: "basic",
 };
 
 /**
@@ -49,18 +47,14 @@ export function productIdToTier(productId: string | null | undefined): Exclude<T
 
 /** (tier, period) → 제품 ID. PaywallModal의 plan 버튼이 사용. */
 export function productIdFor(tier: Exclude<Tier, "free">, period: BillingPeriod): IapProductId {
-  if (tier === "pro") {
-    return period === "annual" ? IAP_PRODUCTS.PRO_ANNUAL : IAP_PRODUCTS.PRO_MONTHLY;
-  }
-  return period === "annual" ? IAP_PRODUCTS.BASIC_ANNUAL : IAP_PRODUCTS.BASIC_MONTHLY;
+  void tier; // 현재 유료 tier는 pro 하나 — 시그니처는 향후 확장 대비 유지
+  return period === "annual" ? IAP_PRODUCTS.PRO_ANNUAL : IAP_PRODUCTS.PRO_MONTHLY;
 }
 
 /** 제품 ID → 사용자 표시명 (구독 관리 화면). 알 수 없으면 null. */
 const PRODUCT_LABEL: Record<string, string> = {
   [IAP_PRODUCTS.PRO_MONTHLY]: "Pro · 월간",
   [IAP_PRODUCTS.PRO_ANNUAL]: "Pro · 연간",
-  [IAP_PRODUCTS.BASIC_MONTHLY]: "광고 제거 · 월간",
-  [IAP_PRODUCTS.BASIC_ANNUAL]: "광고 제거 · 연간",
 };
 
 export function productLabel(productId: string | null | undefined): string | null {

@@ -206,7 +206,7 @@ export async function handleAiFood(req: Request, env: Env): Promise<Response> {
     }
 
     // 가드레일 0 — Step 17 entitlements. tier·lifetime 한도 검사.
-    // Free/Basic이 평생 3회 초과면 402 PAYMENT_REQUIRED + paywall("ai").
+    // Free가 평생 3회 초과면 402 PAYMENT_REQUIRED + paywall("ai").
     // Pro는 아래 PER_USER_DAILY_LIMIT만 적용.
     const tier = await getUserTier(env, admin, userId);
     const ent = await checkAiEntitlement(admin, userId, tier);

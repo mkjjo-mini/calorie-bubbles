@@ -29,9 +29,9 @@ describe("productIdToTier", () => {
     expect(productIdToTier("pro_monthly")).toBe("pro");
     expect(productIdToTier("pro_annual")).toBe("pro");
   });
-  it("basic 상품은 basic", () => {
-    expect(productIdToTier("basic_monthly")).toBe("basic");
-    expect(productIdToTier("basic_annual")).toBe("basic");
+  it("레거시 basic 상품은 null (더 이상 매핑 없음)", () => {
+    expect(productIdToTier("basic_monthly")).toBeNull();
+    expect(productIdToTier("basic_annual")).toBeNull();
   });
   it("알 수 없는/빈 상품은 null", () => {
     expect(productIdToTier("unknown")).toBeNull();
@@ -44,8 +44,6 @@ describe("productIdFor", () => {
   it("(tier, period) → 제품 ID", () => {
     expect(productIdFor("pro", "monthly")).toBe("pro_monthly");
     expect(productIdFor("pro", "annual")).toBe("pro_annual");
-    expect(productIdFor("basic", "monthly")).toBe("basic_monthly");
-    expect(productIdFor("basic", "annual")).toBe("basic_annual");
   });
 });
 
@@ -62,9 +60,14 @@ describe("resolveRcEvent", () => {
     expect(u.expiresAt).toBe(new Date(EXP_MS).toISOString());
   });
 
-  it("RENEWAL: basic 상품이면 basic 유지", () => {
+  it("RENEWAL: pro 상품이면 pro 유지", () => {
+    const u = resolveRcEvent(ev({ type: "RENEWAL", product_id: "pro_monthly" }));
+    expect(u).toMatchObject({ applyLedger: true, tier: "pro", autoRenew: true });
+  });
+
+  it("RENEWAL: 레거시 basic 상품은 원장 미변경 (매핑 없음 → 기존 tier 보존)", () => {
     const u = resolveRcEvent(ev({ type: "RENEWAL", product_id: "basic_monthly" }));
-    expect(u).toMatchObject({ applyLedger: true, tier: "basic", autoRenew: true });
+    expect(u.applyLedger).toBe(false);
   });
 
   it("REFUND: 즉시 free 강등 + refundDelta 1", () => {
@@ -97,8 +100,8 @@ describe("resolveRcEvent", () => {
   });
 
   it("PRODUCT_CHANGE: 바뀐 상품 tier 적용", () => {
-    const u = resolveRcEvent(ev({ type: "PRODUCT_CHANGE", product_id: "basic_annual" }));
-    expect(u).toMatchObject({ applyLedger: true, tier: "basic", autoRenew: true });
+    const u = resolveRcEvent(ev({ type: "PRODUCT_CHANGE", product_id: "pro_annual" }));
+    expect(u).toMatchObject({ applyLedger: true, tier: "pro", autoRenew: true });
   });
 
   it("TRANSFER: 원장 미변경(로그만)", () => {

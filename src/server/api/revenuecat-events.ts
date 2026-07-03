@@ -74,7 +74,7 @@ function amountKr(event: RcEvent): number | null {
  *
  *  REFUND        : 즉시 free 강등 + refund_count++ (어뷰즈 추적)
  *  EXPIRATION    : 즉시 free 강등
- *  CANCELLATION  : 강등 X — auto_renew=false만. expires_at까지 Pro/Basic 유지
+ *  CANCELLATION  : 강등 X — auto_renew=false만. expires_at까지 Pro 유지
  *  BILLING_ISSUE : 강등 X — grace period 동안 현 tier 유지
  *  GRANT_ACTIVE  : product → tier 부여 + auto_renew=true
  *  그 외(TRANSFER/TEST/미지원): 로그만

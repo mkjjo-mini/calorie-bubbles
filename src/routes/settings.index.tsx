@@ -35,12 +35,7 @@ const MENU_ITEMS: MenuItem[] = [
 function SettingsMenuPage() {
   const { session } = useSession();
   const { tier } = useEntitlements();
-  const subSubtitle =
-    tier === "pro"
-      ? "Pro 이용 중"
-      : tier === "basic"
-        ? "광고 제거 이용 중"
-        : "Pro로 더 많은 기능 만나기";
+  const subSubtitle = tier === "pro" ? "Pro 이용 중" : "Pro로 더 많은 기능 만나기";
 
   return (
     <div className="w-full bg-white flex justify-center">
@@ -60,7 +55,9 @@ function SettingsMenuPage() {
                   로그인 계정
                 </p>
                 <p className="mt-1 text-sm font-semibold text-neutral-900 truncate">
-                  {session.email}
+                  {session.raw.user.app_metadata?.provider === "apple"
+                    ? "Apple로 로그인됨"
+                    : session.email}
                 </p>
               </div>
               <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0 ml-2" />

@@ -1,16 +1,16 @@
 /**
  * Step 17 — Entitlements 매트릭스 검증 (PRD §11.1).
  *
- * 새 기능 추가 시 3 tier 모두 값 채우는지 TypeScript exhaustive check가 1차 방어,
+ * 새 기능 추가 시 각 tier 값 채우는지 TypeScript exhaustive check가 1차 방어,
  * 본 테스트가 의미적 정합성(예: pro의 aiUnlimited=true) 2차 방어.
  */
 import { describe, expect, it } from "vitest";
 import { getEntitlements, isTier, type Tier } from "../src/lib/entitlements";
 
-const TIERS: Tier[] = ["free", "basic", "pro"];
+const TIERS: Tier[] = ["free", "pro"];
 
 describe("getEntitlements", () => {
-  it("3 tier 모두 정의되어 있다", () => {
+  it("모든 tier 정의되어 있다", () => {
     for (const tier of TIERS) {
       const ent = getEntitlements(tier);
       expect(ent).toBeDefined();
@@ -20,27 +20,15 @@ describe("getEntitlements", () => {
     }
   });
 
-  it("free: 광고 노출 + AI 체험 3회 + 한도 있음", () => {
+  it("free: 광고 비활성 + AI 체험 3회 + 한도 있음", () => {
     const ent = getEntitlements("free");
-    expect(ent.showAds).toBe(true);
+    expect(ent.showAds).toBe(false); // 광고 전면 비활성 (코드는 보존)
     expect(ent.aiUnlimited).toBe(false);
     expect(ent.aiLifetimeFreeUses).toBe(3);
     expect(ent.customFoodActiveLimit).toBe(3);
     expect(ent.pastDateEditAllowed).toBe(false);
     expect(ent.pushNotifications).toBe(false);
     expect(ent.goalWizard).toBe(false);
-  });
-
-  it("basic: 광고 제거가 유일한 차별점 (그 외 free와 동일)", () => {
-    const basic = getEntitlements("basic");
-    const free = getEntitlements("free");
-    expect(basic.showAds).toBe(false); // 차별점
-    expect(basic.aiUnlimited).toBe(free.aiUnlimited);
-    expect(basic.aiLifetimeFreeUses).toBe(free.aiLifetimeFreeUses);
-    expect(basic.customFoodActiveLimit).toBe(free.customFoodActiveLimit);
-    expect(basic.pastDateEditAllowed).toBe(free.pastDateEditAllowed);
-    expect(basic.pushNotifications).toBe(free.pushNotifications);
-    expect(basic.goalWizard).toBe(free.goalWizard);
   });
 
   it("pro: 모든 고급 기능 해제 + AI 무제한", () => {
@@ -65,8 +53,8 @@ describe("getEntitlements", () => {
 describe("isTier", () => {
   it("유효한 tier 문자열만 통과", () => {
     expect(isTier("free")).toBe(true);
-    expect(isTier("basic")).toBe(true);
     expect(isTier("pro")).toBe(true);
+    expect(isTier("basic")).toBe(false); // 레거시 제거 — 더 이상 유효하지 않음
     expect(isTier("FREE")).toBe(false);
     expect(isTier("premium")).toBe(false);
     expect(isTier(null)).toBe(false);
