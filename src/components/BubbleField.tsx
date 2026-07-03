@@ -26,6 +26,9 @@ interface Node extends SimulationNodeDatum {
   r: number; // base radius (visual + base collision)
   macro: BubbleEntry["macro"];
   grams: number;
+  kcal: number; // 반지름 산정에 쓴 칼로리 값 (변경 감지용)
+  color?: string;
+  textColor?: string;
   foodName: string;
 }
 
@@ -112,9 +115,9 @@ export function BubbleField({
   // Sync nodes with bubbles prop
   useEffect(() => {
     const map = nodesRef.current;
-    // 0칼로리 음식은 매크로 그램이 0 → 버블 시각화에선 제외(유령 버블 방지).
-    // 슬롯 목록(MealLogList)에는 placeholder 엔트리로 표시됨.
-    const visible = bubbles.filter((b) => b.grams > 0);
+    // 그릇엔 (sizeKcal ?? grams) > 0 만 렌더. kcal 모드는 sizeKcal, macro 모드는 grams 폴백.
+    // 0칼로리 placeholder는 걸러져 슬롯 목록에만 남는다.
+    const visible = bubbles.filter((b) => (b.sizeKcal ?? b.grams) > 0);
     const incomingIds = new Set(visible.map((b) => b.id));
 
     let changed = false;
@@ -125,15 +128,18 @@ export function BubbleField({
       }
     }
     for (const b of visible) {
+      const kcal = b.sizeKcal ?? b.grams * MACRO_KCAL[b.macro];
       const existing = map.get(b.id);
       if (!existing) {
-        const kcal = b.grams * MACRO_KCAL[b.macro];
         const r = radiusForKcal(kcal, bowlArea, goalKcal, maxR);
         map.set(b.id, {
           id: b.id,
           r,
           macro: b.macro,
           grams: b.grams,
+          kcal,
+          color: b.color,
+          textColor: b.textColor,
           foodName: b.foodName,
           x: cx + (Math.random() - 0.5) * 20,
           y: Math.max(r + 4, 10 + Math.random() * 20),
@@ -141,11 +147,13 @@ export function BubbleField({
           vy: 0,
         });
         changed = true;
-      } else if (existing.grams !== b.grams) {
-        const kcal = b.grams * MACRO_KCAL[b.macro];
+      } else if (existing.kcal !== kcal) {
+        existing.kcal = kcal;
         existing.grams = b.grams;
         existing.r = radiusForKcal(kcal, bowlArea, goalKcal, maxR);
         if (existing.foodName !== b.foodName) existing.foodName = b.foodName;
+        if (existing.color !== b.color) existing.color = b.color;
+        if (existing.textColor !== b.textColor) existing.textColor = b.textColor;
         changed = true;
       }
     }
@@ -168,7 +176,7 @@ export function BubbleField({
     <div className="relative overflow-hidden" style={{ width, height }}>
       <AnimatePresence>
         {nodes.map((n, i) => {
-          const color = MACRO_COLORS[n.macro];
+          const color = n.color ?? MACRO_COLORS[n.macro];
           const r = n.r;
           const phase = (i * 0.37) % 1;
           const swayDur = 3.6 + (i % 5) * 0.4;
@@ -214,7 +222,7 @@ export function BubbleField({
                   <span
                     className="text-[13px] font-semibold leading-tight px-1 break-words max-w-full"
                     style={{
-                      color: n.macro === "carbs" ? "#333" : "#fff",
+                      color: n.textColor ?? (n.macro === "carbs" ? "#333" : "#fff"),
                     }}
                   >
                     {n.foodName}
