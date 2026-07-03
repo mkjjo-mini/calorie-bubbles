@@ -38,6 +38,9 @@ import { cloudRepository } from "@/lib/repository/cloud";
 import { CloudAuthError, type FoodLogRow } from "@/lib/repository/types";
 import { todayKST } from "@/lib/time";
 import { ShareStoryButton } from "@/features/share-story/ShareStoryButton";
+import { logsToBubbles } from "@/lib/bubbleMapping";
+import { getStoredBubbleMode, setStoredBubbleMode } from "@/lib/bubbleMode";
+import type { BubbleMode } from "@/lib/foods";
 
 const homeSearchSchema = z.object({
   date: fallback(z.string(), todayKST()).default(todayKST()),
@@ -74,58 +77,6 @@ function addDays(ymd: string, delta: number): string {
   return toYmd(d);
 }
 
-/**
- * Convert cloud FoodLogRow[] → BubbleEntry[] for the existing bubble/UI system.
- * Each FoodLogRow maps to up to 3 BubbleEntries (one per macro with grams > 0).
- * Uses the log's id as foodLogId so delete by foodLogId still works.
- */
-function logsToBubbles(logs: FoodLogRow[]): BubbleEntry[] {
-  const entries: BubbleEntry[] = [];
-  for (const log of logs) {
-    const foodName = displayName(log.food?.name ?? "");
-    const addedAt = new Date(log.created_at).getTime();
-    const slot = log.meal_slot;
-
-    const macros: [Macro, number][] = [
-      ["carbs", log.carb_g],
-      ["protein", log.protein_g],
-      ["fat", log.fat_g],
-    ];
-    let pushed = false;
-    macros.forEach(([macro, grams], i) => {
-      if (grams > 0) {
-        entries.push({
-          id: `${log.id}-${i}`,
-          foodLogId: log.id,
-          macro,
-          grams: Math.round(grams * 10) / 10,
-          foodName,
-          addedAt,
-          meal_slot: slot,
-          food_id: log.food_id,
-        });
-        pushed = true;
-      }
-    });
-    // 0칼로리 음식(탄·단·지 모두 0 — 물·블랙커피·제로음료 등)도 슬롯 목록에
-    // 보이도록 grams 0 placeholder 엔트리 추가. BubbleField는 grams>0만 렌더하므로
-    // 버블 시각화엔 안 뜨고, MealLogList에만 항목으로 표시됨.
-    if (!pushed) {
-      entries.push({
-        id: `${log.id}-0`,
-        foodLogId: log.id,
-        macro: "carbs",
-        grams: 0,
-        foodName,
-        addedAt,
-        meal_slot: slot,
-        food_id: log.food_id,
-      });
-    }
-  }
-  return entries;
-}
-
 function Index() {
   // Cloud food logs for the selected date (defaults to today via search param)
   const [logs, setLogs] = useState<FoodLogRow[]>([]);
@@ -138,6 +89,18 @@ function Index() {
   const [hydrated, setHydrated] = useState(false);
   /** 즐겨찾기 food_id Set — MealLogList ActionSheet의 "즐겨찾기 추가/해제" 분기 */
   const [favFoodIds, setFavFoodIds] = useState<Set<string>>(new Set());
+
+  // SSR 하이드레이션 불일치 방지: 서버·첫 클라 렌더는 기본 "kcal",
+  // mount 후 localStorage에서 실제 저장값 로드.
+  const [bubbleMode, setBubbleMode] = useState<BubbleMode>("kcal");
+  useEffect(() => {
+    setBubbleMode(getStoredBubbleMode());
+  }, []);
+
+  function changeBubbleMode(m: BubbleMode) {
+    setBubbleMode(m);
+    setStoredBubbleMode(m);
+  }
 
   /** 즐겨찾기 토글 — optimistic + cloud sync. 실패 시 revert. */
   async function toggleFavorite(foodId: string) {
@@ -208,7 +171,7 @@ function Index() {
   }
 
   // Convert cloud logs to BubbleEntry[] for all existing UI components
-  const entries = useMemo(() => logsToBubbles(logs), [logs]);
+  const entries = useMemo(() => logsToBubbles(logs, bubbleMode), [logs, bubbleMode]);
 
   const totals = useMemo(() => {
     const t = { carbs: 0, protein: 0, fat: 0 };
@@ -671,6 +634,25 @@ function Index() {
                   : "버블을 탭하면 제거됩니다"}
             </motion.p>
           </AnimatePresence>
+
+          <div className="mt-3 flex justify-center">
+            <div className="inline-flex rounded-full bg-neutral-100 p-0.5">
+              {(["kcal", "macro"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => changeBubbleMode(m)}
+                  className={`px-3 py-1 text-[11px] font-semibold rounded-full transition-colors ${
+                    bubbleMode === m
+                      ? "bg-neutral-900 text-white"
+                      : "text-neutral-500 active:text-neutral-800"
+                  }`}
+                >
+                  {m === "kcal" ? "칼로리" : "탄단지"}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
         </div>
         {/* /스와이프 wrapper */}
