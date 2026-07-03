@@ -72,15 +72,18 @@ history.tsx는 이 모듈에서 import하도록 변경(동작 동일, 중복 제
   - `macro` 모드: 기존 로직 그대로(매크로별 엔트리 + 0칼로리 placeholder).
   - `kcal` 모드: 음식(log)당 엔트리 1개. 크기는 총칼로리, 색/텍스트색은
     `kcalBubbleColor/Text(foodName)`. 총칼로리 0이면 placeholder(그릇 미표시, 목록만).
-- BubbleEntry에 선택적 필드 추가: `color?: string`, `textColor?: string`, 그리고 크기 계산에
-  쓸 `kcalOverride?: number`(칼로리 모드에서 매크로 무관하게 총칼로리로 크기 산정).
-  - 대안: 칼로리 모드 엔트리는 `macro`를 임의값으로 두고 별도 색 필드를 우선 사용.
+- `BubbleEntry`에 선택적 필드 3개 추가(확정 방식):
+  - `color?: string` — 지정 시 버블 배경색으로 사용.
+  - `textColor?: string` — 지정 시 라벨 텍스트 색으로 사용.
+  - `sizeKcal?: number` — 지정 시 반지름 계산에 이 총칼로리 값을 사용.
+- 칼로리 모드 엔트리는 위 3개를 모두 채운다(`macro`는 타입상 필요하나 색·크기 계산에는
+  쓰이지 않음 — `color`/`sizeKcal`가 우선). 탄단지 모드 엔트리는 3개를 비워 기존 경로를 탄다.
 
 ### 변경: `src/components/BubbleField.tsx`
 
 - 노드 색 결정: 엔트리에 `color`가 있으면 그 색을, 없으면 기존 `MACRO_COLORS[macro]` 사용.
 - 노드 텍스트 색: 엔트리에 `textColor`가 있으면 사용, 없으면 기존 규칙.
-- 반지름 계산: 칼로리 모드 엔트리는 총칼로리(`kcalOverride`)로 `radiusForKcal` 호출,
+- 반지름 계산: 엔트리에 `sizeKcal`이 있으면 그 값으로 `radiusForKcal` 호출,
   아니면 기존처럼 `grams * MACRO_KCAL[macro]`.
 - grams>0(=칼로리>0) 필터 규칙 유지.
 
