@@ -21,6 +21,13 @@ import {
   MACRO_LABELS,
   type Macro,
 } from "@/lib/foods";
+import {
+  KCAL_PALETTE,
+  hash01,
+  kcalPaletteEntry,
+  kcalBubbleColor,
+  kcalBubbleText,
+} from "@/lib/kcalPalette";
 import { ShareWeekButton } from "@/features/share-week/ShareWeekButton";
 import {
   addFavorite,
@@ -65,47 +72,10 @@ function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-// Deterministic small hash → [0,1)
-function hash01(str: string, salt = 0) {
-  let h = 2166136261 ^ salt;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return ((h >>> 0) % 10000) / 10000;
-}
-
 /** dateKey "YYYY-M-D" → "YYYY-MM-DD" */
 function dateKeyToIso(dateKey: string): string {
   const [y, m, d] = dateKey.split("-").map(Number);
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-// Curated palette for kcal-mode bubbles — distinct from macro RGB identity.
-// Solid mid-tone jewel colors. Each entry pairs a fill color with a readable text color.
-const KCAL_PALETTE: { color: string; text: string }[] = [
-  { color: "#5EC4B6", text: "#fff" }, // mint
-  { color: "#9B8CE0", text: "#fff" }, // lavender
-  { color: "#F2A57C", text: "#3F2A00" }, // peach — light
-  { color: "#4FB3C9", text: "#fff" }, // teal
-  { color: "#E8B86E", text: "#3F2A00" }, // apricot — light
-  { color: "#C29BD8", text: "#fff" }, // light purple
-  { color: "#A8B86C", text: "#3F2A00" }, // olive — light
-  { color: "#E58CA8", text: "#fff" }, // rose
-  { color: "#7B95B5", text: "#fff" }, // slate blue
-  { color: "#8FB08A", text: "#1f2937" }, // sage — light
-];
-
-// Deterministic: same food name always picks same color across months.
-function kcalPaletteEntry(name: string) {
-  const idx = Math.floor(hash01(name, 1) * KCAL_PALETTE.length);
-  return KCAL_PALETTE[idx] ?? KCAL_PALETTE[0];
-}
-function kcalBubbleColor(name: string): string {
-  return kcalPaletteEntry(name).color;
-}
-function kcalBubbleText(name: string): string {
-  return kcalPaletteEntry(name).text;
 }
 
 function normalizeFoodKey(name: string): string {
