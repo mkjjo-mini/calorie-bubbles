@@ -50,13 +50,18 @@ export interface FoodApiPage {
  * On error, throws — caller decides how to surface to user.
  */
 export const searchFood = createServerFn({ method: "GET" })
-  .inputValidator((input: { q: string; pageNo?: number }) => {
+  .inputValidator((input: { q: string; pageNo?: number; category?: string }) => {
     const q = typeof input?.q === "string" ? input.q.trim() : "";
     const pageNo = Math.max(1, Math.floor(input?.pageNo ?? 1));
-    return { q, pageNo };
+    // FOOD_CAT1_NM 대분류 필터 (예: "과일류"). 빈 값이면 미적용.
+    const category =
+      typeof input?.category === "string" && input.category.trim().length > 0
+        ? input.category.trim()
+        : undefined;
+    return { q, pageNo, category };
   })
   .handler(async ({ data }): Promise<FoodApiPage> => {
-    const { q, pageNo } = data;
+    const { q, pageNo, category } = data;
     if (q.length < 1) {
       return { items: [], pageNo, numOfRows: 20, totalCount: 0 };
     }
@@ -72,6 +77,9 @@ export const searchFood = createServerFn({ method: "GET" })
     const url = new URL(ENDPOINT);
     url.searchParams.set("serviceKey", key);
     url.searchParams.set("FOOD_NM_KR", q);
+    if (category) {
+      url.searchParams.set("FOOD_CAT1_NM", category);
+    }
     url.searchParams.set("pageNo", String(pageNo));
     url.searchParams.set("numOfRows", String(NUM_OF_ROWS));
     url.searchParams.set("type", "json");

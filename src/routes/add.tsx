@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Star, Clock, Plus, Pencil, Trash2, MoreVertical } from "lucide-react";
+import {
+  ArrowLeft,
+  Search,
+  Star,
+  Clock,
+  Plus,
+  Pencil,
+  Trash2,
+  MoreVertical,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import foodPresets from "@/data/food-presets.json";
 import { displayName, type Macro } from "@/lib/foods";
@@ -63,6 +73,22 @@ const RECENT_KEY = "recentFoods";
 const SEARCH_HISTORY_KEY = "searchHistory";
 const SEARCH_HISTORY_MAX = 8;
 const LAST_QTY_KEY = "lastQtyByName";
+
+/**
+ * 검색 결과 필터 칩 → 식약처 FOOD_CAT1_NM 대분류 매핑.
+ * value=null = "전체"(필터 없음, 현행 동작). 나머지는 API에 FOOD_CAT1_NM으로 전달.
+ * 원재료(생것) 탐색성 개선용 — 예: "블루베리"+과일 → 생것/말린것/얼린것만.
+ */
+const SEARCH_CATEGORY_CHIPS: { label: string; value: string | null }[] = [
+  { label: "전체", value: null },
+  { label: "과일", value: "과일류" },
+  { label: "채소", value: "채소류" },
+  { label: "고기", value: "육류" },
+  { label: "생선·해산물", value: "어패류" },
+  { label: "유제품", value: "우유류" },
+  { label: "곡류·밥", value: "곡류" },
+  { label: "음료", value: "음료 및 차류" },
+];
 
 const CATEGORY_LABELS: { value: FoodCategory; label: string }[] = [
   { value: "rice_grain_noodle", label: "밥·곡류·면 (밥·면·떡·빵)" },
@@ -263,6 +289,8 @@ function AddFoodPage() {
   const navigate = useNavigate();
   const { date: loggedDate } = Route.useSearch();
   const [query, setQuery] = useState("");
+  // 검색 결과 카테고리 필터 (null = 전체). 식약처 FOOD_CAT1_NM으로 API에 전달.
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // Cloud-backed state
   // favorites: Set of food_id (UUID) for O(1) lookup
@@ -475,7 +503,7 @@ function AddFoodPage() {
     error: apiError,
     hasMore: apiHasMore,
     loadMore: apiLoadMore,
-  } = useFoodSearch(query);
+  } = useFoodSearch(query, selectedCategory ?? undefined);
 
   const apiMatches = useMemo<FoodApiResult[]>(() => {
     if (!inSearch) return [];
@@ -820,7 +848,12 @@ function AddFoodPage() {
             <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setQuery(v);
+                // 검색어를 비우면 카테고리 필터도 초기화
+                if (v.trim().length < 1) setSelectedCategory(null);
+              }}
               placeholder="음식 이름을 검색해보세요"
               className="w-full h-10 pl-9 pr-3 rounded-xl bg-neutral-100 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300"
             />
@@ -955,7 +988,35 @@ function AddFoodPage() {
           )}
 
           {inSearch && (
+            <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-0.5 scrollbar-none">
+              {SEARCH_CATEGORY_CHIPS.map((chip) => {
+                const active = selectedCategory === chip.value;
+                return (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    onClick={() => setSelectedCategory(chip.value)}
+                    className={`shrink-0 h-8 px-3 rounded-full text-xs font-medium transition active:scale-95 ${
+                      active
+                        ? "bg-neutral-900 text-white"
+                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {inSearch && (
             <Section title="검색 결과">
+              {apiLoading && (
+                <div className="flex items-center justify-center gap-2 py-10 text-sm text-neutral-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  탐색 중…
+                </div>
+              )}
               {(customMatches.length > 0 || presetMatches.length > 0 || apiMatches.length > 0) && (
                 <div className="grid grid-cols-2 gap-2">
                   {customMatches.map((c) => (
@@ -998,9 +1059,6 @@ function AddFoodPage() {
                   ))}
                 </div>
               )}
-              {apiLoading && (
-                <p className="text-[11px] text-neutral-400 mt-2 text-center">외부 검색 중…</p>
-              )}
               {apiError && !apiLoading && apiMatches.length === 0 && (
                 <p className="text-[11px] text-amber-600 mt-2 text-center">
                   외부 검색 실패 ({apiError})
@@ -1016,16 +1074,18 @@ function AddFoodPage() {
                   {apiLoadingMore ? "불러오는 중…" : "더 보기"}
                 </button>
               )}
-              <button
-                onClick={() => tryOpenForm({ name: query.trim() })}
-                className="mt-3 w-full rounded-xl border border-dashed border-neutral-300 bg-white p-4 text-left transition active:scale-[0.98] hover:border-neutral-400"
-              >
-                <div className="text-sm text-neutral-500">찾는 음식이 없나요?</div>
-                <div className="mt-0.5 inline-flex items-center gap-1 text-sm font-semibold text-neutral-900">
-                  <Plus className="w-4 h-4" />
-                  커스텀 음식 등록
-                </div>
-              </button>
+              {!apiLoading && (
+                <button
+                  onClick={() => tryOpenForm({ name: query.trim() })}
+                  className="mt-3 w-full rounded-xl border border-dashed border-neutral-300 bg-white p-4 text-left transition active:scale-[0.98] hover:border-neutral-400"
+                >
+                  <div className="text-sm text-neutral-500">찾는 음식이 없나요?</div>
+                  <div className="mt-0.5 inline-flex items-center gap-1 text-sm font-semibold text-neutral-900">
+                    <Plus className="w-4 h-4" />
+                    커스텀 음식 등록
+                  </div>
+                </button>
+              )}
             </Section>
           )}
         </div>
