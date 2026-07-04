@@ -16,7 +16,7 @@ import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, ChevronDown, ChevronUp, ExternalLink, Loader2, Pencil, Sparkles, X } from "lucide-react";
+import { Camera, ChevronDown, ChevronUp, Clock, ExternalLink, Loader2, Pencil, Sparkles, X } from "lucide-react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { PaywallModal } from "@/components/PaywallModal";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
@@ -520,33 +520,45 @@ function InputStep({
 
       {history.length > 0 && (
         <div className="border-t border-neutral-100 pt-3">
-          <button
-            type="button"
-            onClick={() => setHistoryOpen((v) => !v)}
-            className="flex w-full items-center justify-between text-xs font-semibold text-neutral-500 py-1 active:text-neutral-900"
-          >
+          {/* 라벨은 항상 표시, 기본 3개는 접기 없이 노출 → 나머지는 더보기로 펼침 */}
+          <div className="flex items-center gap-1 text-xs font-semibold text-neutral-500 mb-1.5 py-1">
+            <Clock className="h-3.5 w-3.5" strokeWidth={2.4} />
             <span>최근 검색</span>
-            {historyOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </button>
-          {historyOpen && (
-            <div className="mt-1 space-y-1">
-              {history.map((item) => {
-                const label = item.inputType === "photo"
-                  ? `${item.name} 사진`
-                  : (item.inputText ?? item.name);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => onRestoreHistory(item)}
-                    className="flex w-full items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2.5 text-left active:bg-neutral-100"
-                  >
-                    <span className="truncate text-sm text-neutral-800 mr-2">{label}</span>
-                    <span className="shrink-0 text-xs text-neutral-400">{Math.round(item.kcal)} kcal</span>
-                  </button>
-                );
-              })}
-            </div>
+          </div>
+          <div className="space-y-1">
+            {(historyOpen ? history : history.slice(0, 3)).map((item) => {
+              const label = item.inputType === "photo"
+                ? `${item.name} 사진`
+                : (item.inputText ?? item.name);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onRestoreHistory(item)}
+                  className="flex w-full items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2.5 text-left active:bg-neutral-100"
+                >
+                  <span className="truncate text-sm text-neutral-800 mr-2">{label}</span>
+                  <span className="shrink-0 text-xs text-neutral-400">{Math.round(item.kcal)} kcal</span>
+                </button>
+              );
+            })}
+          </div>
+          {history.length > 3 && (
+            <button
+              type="button"
+              onClick={() => setHistoryOpen((v) => !v)}
+              className="mt-1.5 flex w-full items-center justify-center gap-0.5 text-xs font-medium text-neutral-500 py-1.5 active:text-neutral-900"
+            >
+              {historyOpen ? (
+                <>
+                  접기 <ChevronUp className="h-3.5 w-3.5" />
+                </>
+              ) : (
+                <>
+                  더보기 ({history.length - 3}개 더) <ChevronDown className="h-3.5 w-3.5" />
+                </>
+              )}
+            </button>
           )}
         </div>
       )}

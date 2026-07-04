@@ -1321,8 +1321,12 @@ function CustomFoodCard({
         <div className="mt-1 flex items-center gap-1.5">
           <span className="text-[12px] text-neutral-500">{food.kcal} kcal</span>
           {(food.created_via === "ai_photo" || food.created_via === "ai_text") ? (
-            <span className="text-[10px] px-1.5 py-px rounded-full bg-amber-50 text-amber-700 inline-flex items-center gap-0.5">
-              ✨ AI
+            <span
+              className="text-[10px] px-1 py-px rounded-full bg-amber-50 text-amber-700 inline-flex items-center"
+              aria-label="AI 추정"
+              title="AI 추정"
+            >
+              ✨
             </span>
           ) : food.is_estimated ? (
             <span className="text-[10px] px-1.5 py-px rounded-full bg-neutral-100 text-neutral-500">
