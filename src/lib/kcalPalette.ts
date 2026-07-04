@@ -1,5 +1,6 @@
-// 칼로리 모드 버블 팔레트 — 매크로 RGB와 구분되는 주얼톤 10색.
-// 홈(칼로리 모드)·기록 탭이 공유한다. 같은 음식 이름은 항상 같은 색.
+// 칼로리 모드 버블 팔레트 — 매크로 RGB와 구분되는 주얼톤 16색.
+// 홈(칼로리 모드)·추이 탭이 이 팔레트+동일 해시를 공유 → 같은 음식은 어디서나 같은 색.
+// 색 수를 늘려 서로 다른 음식이 같은 색으로 겹치는 확률을 낮춤(사람 구별 한계상 16색이 상한).
 export const KCAL_PALETTE: { color: string; text: string }[] = [
   { color: "#5EC4B6", text: "#fff" }, // mint
   { color: "#9B8CE0", text: "#fff" }, // lavender
@@ -11,6 +12,12 @@ export const KCAL_PALETTE: { color: string; text: string }[] = [
   { color: "#E58CA8", text: "#fff" }, // rose
   { color: "#7B95B5", text: "#fff" }, // slate blue
   { color: "#8FB08A", text: "#1f2937" }, // sage
+  { color: "#4FBF97", text: "#fff" }, // emerald
+  { color: "#5C6BC0", text: "#fff" }, // indigo
+  { color: "#C77FC0", text: "#fff" }, // orchid
+  { color: "#E07A6B", text: "#fff" }, // coral
+  { color: "#C9A94C", text: "#3F2A00" }, // mustard
+  { color: "#5AA0D4", text: "#fff" }, // sky
 ];
 
 // 결정적 소형 해시 → [0,1)

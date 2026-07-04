@@ -21,13 +21,7 @@ import {
   MACRO_LABELS,
   type Macro,
 } from "@/lib/foods";
-import {
-  KCAL_PALETTE,
-  hash01,
-  kcalPaletteEntry,
-  kcalBubbleColor,
-  kcalBubbleText,
-} from "@/lib/kcalPalette";
+import { hash01, kcalBubbleColor, kcalBubbleText } from "@/lib/kcalPalette";
 import { ShareWeekButton } from "@/features/share-week/ShareWeekButton";
 import {
   addFavorite,
@@ -250,39 +244,8 @@ function HistoryPage() {
     return { perDay: _perDay, maxMetric: max || 1, colLayouts: _colLayouts, totalWidth: cursorX };
   }, [month, mode]);
 
-  // Month-level kcal color assignment: distinct palette slots until exhausted.
-  // Same food name keeps the same color across all days of the month.
-  const monthKcalColors = useMemo(() => {
-    const map = new Map<string, { color: string; text: string }>();
-    const N = KCAL_PALETTE.length;
-    const used = new Set<number>();
-    const seenNames: string[] = [];
-    perDay.forEach((arr) => {
-      for (const b of arr) {
-        if (!map.has(b.name)) {
-          seenNames.push(b.name);
-          map.set(b.name, KCAL_PALETTE[0]); // placeholder, overwritten below
-        }
-      }
-    });
-    // Stable order by first appearance, then greedy preferred-index probing.
-    for (const name of seenNames) {
-      const preferred = Math.floor(hash01(name, 1) * N) % N;
-      let idx = preferred;
-      if (used.size < N) {
-        for (let step = 0; step < N; step++) {
-          const candidate = (preferred + step) % N;
-          if (!used.has(candidate)) {
-            idx = candidate;
-            break;
-          }
-        }
-        used.add(idx);
-      }
-      map.set(name, KCAL_PALETTE[idx]);
-    }
-    return map;
-  }, [perDay]);
+  // 색은 홈과 동일하게 kcalBubbleColor/Text(순수 이름 해시)로 통일 —
+  // 같은 음식이 홈·추이 어디서나 같은 색이 되도록. (별도 밀어내기 배정 없음)
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollX, setScrollX] = useState(0);
@@ -690,7 +653,6 @@ function HistoryPage() {
                   reduced={reduced}
                   date={month[dayIdx].date}
                   tankH={TANK_H}
-                  kcalColors={monthKcalColors}
                 />
               ))}
 
@@ -767,7 +729,6 @@ function DayBubbles({
   reduced,
   date,
   tankH,
-  kcalColors,
 }: {
   bubbles: FoodBubbleData[];
   dayIdx: number;
@@ -781,7 +742,6 @@ function DayBubbles({
   reduced: boolean;
   date: Date;
   tankH: number;
-  kcalColors: Map<string, { color: string; text: string }>;
 }) {
   if (bubbles.length === 0) return null;
 
@@ -871,17 +831,10 @@ function DayBubbles({
   return (
     <>
       {positioned.map(({ b, size, xPos, yPos, seed }) => {
-        const paletteEntry = mode === "kcal" ? kcalColors.get(b.name) : undefined;
-        const color =
-          mode === "kcal"
-            ? (paletteEntry?.color ?? kcalBubbleColor(b.name))
-            : MACRO_COLORS[mode];
+        // 홈과 동일: 칼로리 모드는 이름 해시 팔레트, 매크로 모드는 매크로 RGB
+        const color = mode === "kcal" ? kcalBubbleColor(b.name) : MACRO_COLORS[mode];
         const textColor =
-          mode === "kcal"
-            ? (paletteEntry?.text ?? kcalBubbleText(b.name))
-            : mode === "carbs"
-              ? "#3F2A00"
-              : "#FFFFFF";
+          mode === "kcal" ? kcalBubbleText(b.name) : mode === "carbs" ? "#3F2A00" : "#FFFFFF";
         return (
           <Bubble
             key={b.key}
