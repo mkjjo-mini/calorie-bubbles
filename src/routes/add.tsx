@@ -539,7 +539,8 @@ function AddFoodPage() {
     const carbG = Math.round(reconciled.carb * mult * 10) / 10;
     const proteinG = Math.round(reconciled.protein * mult * 10) / 10;
     const fatG = Math.round(reconciled.fat * mult * 10) / 10;
-    const kcal = Math.round(carbG * 4 + proteinG * 4 + fatG * 9);
+    // kcal은 음식 공식 kcal 비례 — 목록·칩·편집과 일관(매크로 불완전 식약처 음식도 정확).
+    const kcal = Math.round(food.kcal * mult);
     const grams = mode === "gram" ? qty : Math.round(food.serving_g * qty);
     const now = Date.now();
     // loggedDate from search params (defaults to today)

@@ -115,6 +115,10 @@ interface LogItem {
   addedAt: number;
   slot: MealSlot;
   food_id?: string;
+  /** 원본 로그의 저장 kcal(공식) — 매크로 Atwater 대신 표시·편집 기준으로 사용. */
+  logKcal?: number;
+  /** 원본 로그의 저장 grams — 편집 시트 시작값. */
+  logGrams?: number;
 }
 
 function dominantMacro(item: LogItem): Macro {
@@ -166,6 +170,8 @@ export function MealLogList({
           addedAt: e.addedAt,
           slot,
           food_id: e.food_id,
+          logKcal: e.logKcal,
+          logGrams: e.logGrams,
         });
       } else {
         if (e.macro === "carbs") cur.carbs += e.grams;
@@ -176,9 +182,12 @@ export function MealLogList({
     }
     const items = Array.from(byLog.values()).map((it) => ({
       ...it,
-      kcal: Math.round(
-        it.carbs * MACRO_KCAL.carbs + it.protein * MACRO_KCAL.protein + it.fat * MACRO_KCAL.fat,
-      ),
+      // 공식 로그 kcal 우선(식약처 등 매크로 불완전 음식도 정확·일관). 없으면 Atwater 폴백.
+      kcal:
+        it.logKcal ??
+        Math.round(
+          it.carbs * MACRO_KCAL.carbs + it.protein * MACRO_KCAL.protein + it.fat * MACRO_KCAL.fat,
+        ),
     }));
     const groups: Record<MealSlot, LogItem[]> = {
       breakfast: [],
@@ -728,22 +737,19 @@ function EditQuantitySheet({
     return b.serving_g;
   }
 
+  // 편집 기준 g = 원본 로그의 저장 grams(있으면). 없으면 매크로 비율로 역산(구버전 로그).
+  // 이 값에서 선형 스케일하므로 음식 1인분 기준이 바뀌어도 영향 없음.
+  const refGrams = item.logGrams && item.logGrams > 0 ? item.logGrams : computeGrams(baseline) || 1;
+  // 편집 기준 kcal = 원본 로그의 공식 kcal(있으면). 없으면 매크로 Atwater.
+  const refKcal =
+    item.logKcal != null && item.logKcal > 0
+      ? item.logKcal
+      : Math.round(item.carbs * 4 + item.protein * 4 + item.fat * 9);
+
   const [mode, setMode] = useState<"serving" | "gram">("gram");
-  const [qtyStr, setQtyStr] = useState(() => String(computeGrams(baseline) || 100));
+  const [qtyStr, setQtyStr] = useState(() => String(Math.round(refGrams) || 100));
 
-  // When baseline updates from cloud fetch, recompute qtyStr in gram mode
-  const prevBaselineRef = useRef<Baseline>(baseline);
-  useEffect(() => {
-    if (baseline === prevBaselineRef.current) return;
-    prevBaselineRef.current = baseline;
-    if (mode === "gram") {
-      setQtyStr(String(computeGrams(baseline) || 100));
-    }
-    // If user is in serving mode, leave qtyStr as-is (ratio stays correct)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseline]);
-
-  // mode 토글 시 현재 값을 새 단위로 비례 환산
+  // mode 토글 시 현재 값을 새 단위로 비례 환산 (인분↔g은 음식 1인분 baseline.serving_g 기준)
   function switchMode(next: "serving" | "gram") {
     if (next === mode) return;
     const cur = parseFloat(qtyStr) || 0;
@@ -757,27 +763,33 @@ function EditQuantitySheet({
   }
 
   const qty = parseFloat(qtyStr) || 0;
-  const mult = mode === "serving" ? qty : qty / baseline.serving_g;
-  const carb = Math.round(baseline.carb * mult * 10) / 10;
-  const protein = Math.round(baseline.protein * mult * 10) / 10;
-  const fat = Math.round(baseline.fat * mult * 10) / 10;
-  const kcal = Math.round(baseline.kcal * mult);
+  // 현재 g (인분 모드는 음식 1인분 기준으로 환산)
+  const grams = mode === "gram" ? qty : qty * baseline.serving_g;
+  // 로그 자체 값에서 g 비례로 스케일 — 매크로·kcal 모두 일관.
+  const gmult = refGrams > 0 ? grams / refGrams : 0;
+  const carb = Math.round(item.carbs * gmult * 10) / 10;
+  const protein = Math.round(item.protein * gmult * 10) / 10;
+  const fat = Math.round(item.fat * gmult * 10) / 10;
+  const kcal = Math.round(refKcal * gmult);
   const disabled = qty <= 0;
 
   function handleConfirm() {
     const macros: Record<Macro, number> = { carbs: carb, protein: protein, fat: fat };
     const newEntries: BubbleEntry[] = [];
     (["carbs", "protein", "fat"] as Macro[]).forEach((m, i) => {
-      const grams = Math.round(macros[m] * 10) / 10;
-      if (grams > 0) {
+      const g = Math.round(macros[m] * 10) / 10;
+      if (g > 0) {
         newEntries.push({
           id: `${item.foodLogId}-${i}`,
           foodLogId: item.foodLogId,
           macro: m,
-          grams,
+          grams: g,
           foodName: item.foodName,
           addedAt: item.addedAt,
           meal_slot: item.slot,
+          // 공식 kcal·실제 grams를 함께 전달 — 저장 시 매크로 재계산 대신 이 값을 사용.
+          logKcal: kcal,
+          logGrams: Math.round(grams),
         });
       }
     });

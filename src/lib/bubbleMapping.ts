@@ -1,7 +1,6 @@
 import type { FoodLogRow } from "@/lib/repository/types";
 import {
   displayName,
-  MACRO_KCAL,
   type BubbleEntry,
   type BubbleMode,
   type Macro,
@@ -27,12 +26,13 @@ export function logsToBubbles(logs: FoodLogRow[], mode: BubbleMode): BubbleEntry
     const addedAt = new Date(log.created_at).getTime();
     const slot = log.meal_slot;
 
+    // 목록·편집이 매크로 재계산 대신 단일 기준으로 쓸 원본 로그 값.
+    const logKcal = log.kcal;
+    const logGrams = log.grams;
+
     if (mode === "kcal") {
-      const totalKcal =
-        log.carb_g * MACRO_KCAL.carbs +
-        log.protein_g * MACRO_KCAL.protein +
-        log.fat_g * MACRO_KCAL.fat;
-      if (totalKcal > 0) {
+      // 버블 크기는 공식 로그 kcal 기준(매크로가 불완전한 식약처 음식도 정확).
+      if (logKcal > 0) {
         entries.push({
           id: `${log.id}-0`,
           foodLogId: log.id,
@@ -44,7 +44,9 @@ export function logsToBubbles(logs: FoodLogRow[], mode: BubbleMode): BubbleEntry
           food_id: log.food_id,
           color: kcalBubbleColor(foodName),
           textColor: kcalBubbleText(foodName),
-          sizeKcal: totalKcal,
+          sizeKcal: logKcal,
+          logKcal,
+          logGrams,
         });
       } else {
         entries.push(placeholder(log, foodName, addedAt, slot));
@@ -70,6 +72,8 @@ export function logsToBubbles(logs: FoodLogRow[], mode: BubbleMode): BubbleEntry
           addedAt,
           meal_slot: slot,
           food_id: log.food_id,
+          logKcal,
+          logGrams,
         });
         pushed = true;
       }
@@ -107,5 +111,7 @@ function placeholder(
     addedAt,
     meal_slot: slot,
     food_id: log.food_id,
+    logKcal: log.kcal,
+    logGrams: log.grams,
   };
 }

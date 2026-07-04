@@ -89,6 +89,10 @@ export interface BubbleEntry {
   textColor?: string;
   /** 지정 시 반지름 계산에 이 총칼로리 값을 사용(칼로리 모드). */
   sizeKcal?: number;
+  /** 원본 로그의 저장 kcal(공식). 목록·편집이 매크로 재계산 대신 이 값을 단일 기준으로 사용. */
+  logKcal?: number;
+  /** 원본 로그의 저장 grams. 편집 시트가 매크로 역산 대신 이 값을 시작값으로 사용. */
+  logGrams?: number;
 }
 
 export function caloriesFor(entry: { carbs: number; protein: number; fat: number }) {

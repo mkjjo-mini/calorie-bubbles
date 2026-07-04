@@ -261,7 +261,8 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
     const carbG = Math.round(food.carb_g * mult * 10) / 10;
     const proteinG = Math.round(food.protein_g * mult * 10) / 10;
     const fatG = Math.round(food.fat_g * mult * 10) / 10;
-    const kcal = Math.round(carbG * 4 + proteinG * 4 + fatG * 9);
+    // kcal은 음식 공식 kcal 비례 — 목록·칩·편집과 일관.
+    const kcal = Math.round(food.kcal * mult);
     const grams = mode === "gram" ? qty : Math.round(food.serving_g * qty);
 
     // Resolve food_id (preset/api may need upsert)

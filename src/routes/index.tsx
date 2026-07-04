@@ -323,8 +323,10 @@ function Index() {
     const carb = newEntries.filter((e) => e.macro === "carbs").reduce((s, e) => s + e.grams, 0);
     const protein = newEntries.filter((e) => e.macro === "protein").reduce((s, e) => s + e.grams, 0);
     const fat = newEntries.filter((e) => e.macro === "fat").reduce((s, e) => s + e.grams, 0);
-    const kcal = Math.round(carb * 4 + protein * 4 + fat * 9);
-    const grams = Math.round(carb + protein + fat);
+    // 편집 시트가 전달한 공식 kcal·실제 grams 우선. 없으면 매크로 기반 폴백.
+    const first = newEntries[0];
+    const kcal = first?.logKcal ?? Math.round(carb * 4 + protein * 4 + fat * 9);
+    const grams = first?.logGrams ?? Math.round(carb + protein + fat);
 
     setLogs((prev) =>
       prev.map((log) =>

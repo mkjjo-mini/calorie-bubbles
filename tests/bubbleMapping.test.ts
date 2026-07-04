@@ -11,6 +11,8 @@ function log(partial: Partial<FoodLogRow>): FoodLogRow {
     carb_g: 0,
     protein_g: 0,
     fat_g: 0,
+    grams: 0,
+    kcal: 0,
     meal_slot: "lunch",
     created_at: "2026-07-03T00:00:00.000Z",
     food: { name: "테스트" },
@@ -19,14 +21,16 @@ function log(partial: Partial<FoodLogRow>): FoodLogRow {
 }
 
 describe("logsToBubbles — macro 모드(기존 동작)", () => {
-  it("탄단지 있는 음식 → 매크로별 엔트리, 같은 foodLogId", () => {
+  it("탄단지 있는 음식 → 매크로별 엔트리, 같은 foodLogId + 원본 로그값 전달", () => {
     const entries = logsToBubbles(
-      [log({ id: "L", carb_g: 68, protein_g: 5, fat_g: 0.5, food: { name: "밥" } })],
+      [log({ id: "L", carb_g: 68, protein_g: 5, fat_g: 0.5, grams: 300, kcal: 280, food: { name: "밥" } })],
       "macro",
     );
     expect(entries).toHaveLength(3);
     expect(new Set(entries.map((e) => e.foodLogId))).toEqual(new Set(["L"]));
     expect(entries.every((e) => e.color === undefined)).toBe(true);
+    // 목록·편집이 쓸 원본 로그값이 모든 매크로 엔트리에 실림
+    expect(entries.every((e) => e.logKcal === 280 && e.logGrams === 300)).toBe(true);
   });
 
   it("0칼로리 음식 → placeholder 1개(grams 0, 색 없음)", () => {
@@ -39,14 +43,16 @@ describe("logsToBubbles — macro 모드(기존 동작)", () => {
 });
 
 describe("logsToBubbles — kcal 모드", () => {
-  it("음식 1개 → 엔트리 1개, sizeKcal=총칼로리, 색은 팔레트", () => {
+  it("음식 1개 → 엔트리 1개, sizeKcal=공식 로그 kcal, 색은 팔레트", () => {
     const entries = logsToBubbles(
-      [log({ id: "R", carb_g: 68, protein_g: 5, fat_g: 0.5, food: { name: "밥" } })],
+      [log({ id: "R", carb_g: 68, protein_g: 5, fat_g: 0.5, grams: 300, kcal: 280, food: { name: "밥" } })],
       "kcal",
     );
     expect(entries).toHaveLength(1);
-    // 68*4 + 5*4 + 0.5*9 = 296.5
-    expect(entries[0]?.sizeKcal).toBeCloseTo(296.5, 5);
+    // Atwater(296.5)가 아니라 로그에 저장된 공식 kcal(280)을 크기 기준으로 사용
+    expect(entries[0]?.sizeKcal).toBe(280);
+    expect(entries[0]?.logKcal).toBe(280);
+    expect(entries[0]?.logGrams).toBe(300);
     expect(entries[0]?.color).toBe(kcalBubbleColor("밥"));
     expect(entries[0]?.textColor).toBeDefined();
     expect(entries[0]?.foodLogId).toBe("R");
@@ -55,8 +61,8 @@ describe("logsToBubbles — kcal 모드", () => {
   it("같은 음식 이름 두 로그 → 같은 색", () => {
     const entries = logsToBubbles(
       [
-        log({ id: "A", carb_g: 10, food: { name: "사과" } }),
-        log({ id: "B", carb_g: 20, food: { name: "사과" } }),
+        log({ id: "A", carb_g: 10, kcal: 40, food: { name: "사과" } }),
+        log({ id: "B", carb_g: 20, kcal: 80, food: { name: "사과" } }),
       ],
       "kcal",
     );
