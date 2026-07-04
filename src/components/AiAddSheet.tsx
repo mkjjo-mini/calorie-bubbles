@@ -342,7 +342,7 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
               <button
                 type="button"
                 onClick={goManual}
-                className="shrink-0 inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-700 active:bg-neutral-100"
+                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-neutral-900 px-3 py-1.5 text-[11px] font-semibold text-white active:bg-neutral-800"
               >
                 <Pencil className="h-3 w-3" />
                 직접 등록

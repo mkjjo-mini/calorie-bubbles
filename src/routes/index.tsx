@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { toast } from "sonner";
@@ -42,8 +42,16 @@ import { logsToBubbles, sumMacroTotals } from "@/lib/bubbleMapping";
 import { getStoredBubbleMode, setStoredBubbleMode } from "@/lib/bubbleMode";
 import type { BubbleMode } from "@/lib/foods";
 
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 const homeSearchSchema = z.object({
-  date: fallback(z.string(), todayKST()).default(todayKST()),
+  // 유효한 YYYY-MM-DD만 허용. 없거나 형식이 깨진 값이면 오늘(파싱 시점 계산)로 폴백.
+  // → 콜드 스타트·신규 설치·비정상 date 파라미터에서 항상 오늘 날짜가 보이도록.
+  //   (default·catch를 함수로 둬 모듈 로드 시점에 고정되지 않고 매 파싱마다 계산)
+  date: z
+    .string()
+    .regex(YMD_RE)
+    .catch(() => todayKST())
+    .default(() => todayKST()),
 });
 
 export const Route = createFileRoute("/")({
@@ -84,8 +92,6 @@ function Index() {
   const [aiSheetOpen, setAiSheetOpen] = useState(false);
   /** bowl 좌우 스와이프 추적 (날짜 이동) */
   const swipeStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
-  /** 다른 모달 열려있을 때는 shake 무시 — 콜백에서 최신값 참조용 */
-  const shakeBlockedRef = useRef(false);
   const [hydrated, setHydrated] = useState(false);
   /** 즐겨찾기 food_id Set — MealLogList ActionSheet의 "즐겨찾기 추가/해제" 분기 */
   const [favFoodIds, setFavFoodIds] = useState<Set<string>>(new Set());
@@ -220,69 +226,6 @@ function Index() {
         void cloudRepository.foodLogs.remove(logId);
       }
       pendingDeleteRef.current.clear();
-    };
-  }, []);
-
-  // 흔들기로 비우기 — DeviceMotion API. iOS 13+ 권한 필요, 첫 사용자 탭 시 1회 요청
-  // 한 번 흔들면 비우기 dialog 열림 (확인 한 번 더 받음). 빈 상태일 때는 무시.
-  useEffect(() => {
-    shakeBlockedRef.current =
-      openResetDialog || aiSheetOpen || calendarOpen || logs.length === 0;
-  });
-  useEffect(() => {
-    const SHAKE_THRESHOLD = 18; // m/s² — 우연한 움직임 차단
-    const COOLDOWN_MS = 2000;
-    let lastShake = 0;
-    let attached = false;
-
-    function onMotion(e: DeviceMotionEvent) {
-      if (shakeBlockedRef.current) return;
-      const a = e.accelerationIncludingGravity;
-      if (!a) return;
-      const mag = Math.hypot(a.x ?? 0, a.y ?? 0, a.z ?? 0);
-      if (mag < SHAKE_THRESHOLD) return;
-      const now = Date.now();
-      if (now - lastShake < COOLDOWN_MS) return;
-      lastShake = now;
-      setOpenResetDialog(true);
-    }
-
-    function attach() {
-      if (attached) return;
-      attached = true;
-      window.addEventListener("devicemotion", onMotion);
-    }
-
-    // iOS 13+ Safari: DeviceMotionEvent.requestPermission() 필요. 반드시 user gesture 안에서 호출.
-    // ⚠️ 일부 WebView (Toss 인앱 등)는 DeviceMotionEvent global 자체 없음 → ReferenceError 방지로 globalThis 경유.
-    const dme = (globalThis as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<"granted" | "denied"> } }).DeviceMotionEvent;
-    if (!dme) {
-      // DeviceMotion 자체 미지원 — 흔들기 기능 비활성
-      return;
-    }
-    if (typeof dme.requestPermission === "function") {
-      const onFirstTouch = async () => {
-        document.removeEventListener("click", onFirstTouch);
-        document.removeEventListener("touchend", onFirstTouch);
-        try {
-          const status = await dme.requestPermission!();
-          if (status === "granted") attach();
-        } catch {
-          /* 사용자 거절·dev 환경 — silent */
-        }
-      };
-      document.addEventListener("click", onFirstTouch, { once: true });
-      document.addEventListener("touchend", onFirstTouch, { once: true });
-      return () => {
-        document.removeEventListener("click", onFirstTouch);
-        document.removeEventListener("touchend", onFirstTouch);
-        if (attached) window.removeEventListener("devicemotion", onMotion);
-      };
-    }
-    // Android·기타: 권한 없이 바로 청취
-    attach();
-    return () => {
-      if (attached) window.removeEventListener("devicemotion", onMotion);
     };
   }, []);
 

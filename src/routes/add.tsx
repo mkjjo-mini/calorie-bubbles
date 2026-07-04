@@ -16,6 +16,7 @@ import { useFoodSearch } from "@/hooks/use-food-search";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { QuantitySheet, type Pickable, type LastQty } from "@/components/QuantitySheet";
 import { nextLastQty } from "@/lib/lastQty";
+import { sanitizeDecimalInput } from "@/lib/numeric-input";
 import { cloudRepository } from "@/lib/repository/cloud";
 import {
   CloudAuthError,
@@ -1538,7 +1539,7 @@ function CustomFoodFormSheet({
 
   function handleManualMacroChange(key: "carb" | "protein" | "fat", value: string) {
     const setters = { carb: setCarb, protein: setProtein, fat: setFat };
-    setters[key](value);
+    setters[key](sanitizeDecimalInput(value));
     if (isEstimated) setIsEstimated(false);
   }
 
@@ -1650,7 +1651,7 @@ function CustomFoodFormSheet({
                 type="number"
                 inputMode="decimal"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value))}
                 min={0}
                 className="flex-1 h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
               />
@@ -1676,7 +1677,7 @@ function CustomFoodFormSheet({
                   type="number"
                   inputMode="decimal"
                   value={gramConv}
-                  onChange={(e) => setGramConv(e.target.value)}
+                  onChange={(e) => setGramConv(sanitizeDecimalInput(e.target.value))}
                   placeholder={previewGrams != null ? `≈ ${previewGrams}` : "예: 40"}
                   min={0}
                   className={`w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 ${
@@ -1717,7 +1718,7 @@ function CustomFoodFormSheet({
               type="number"
               inputMode="decimal"
               value={kcal}
-              onChange={(e) => setKcal(e.target.value)}
+              onChange={(e) => setKcal(sanitizeDecimalInput(e.target.value))}
               placeholder={previewKcal != null ? `≈ ${previewKcal}` : "비우면 자동"}
               min={0}
               className={`w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 ${
