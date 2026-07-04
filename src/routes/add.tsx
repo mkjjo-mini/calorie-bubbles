@@ -1092,7 +1092,7 @@ function AddFoodPage() {
                 <div className="text-sm text-neutral-500">찾는 음식이 없나요?</div>
                 <div className="mt-0.5 inline-flex items-center gap-1 text-sm font-semibold text-neutral-900">
                   <Plus className="w-4 h-4" />
-                  직접 등록
+                  커스텀 음식 등록
                 </div>
               </button>
             </Section>
@@ -1171,7 +1171,7 @@ function DirectRegisterCard({ onClick }: { onClick: () => void }) {
         <Plus className="w-5 h-5 text-neutral-700" />
       </div>
       <div>
-        <div className="text-sm font-semibold text-neutral-900">직접 등록</div>
+        <div className="text-sm font-semibold text-neutral-900">커스텀 음식 등록</div>
         <div className="text-xs text-neutral-500 mt-0.5">목록에 없는 음식을 직접 추가해요</div>
       </div>
     </button>
@@ -1631,7 +1631,7 @@ function CustomFoodFormSheet({
     <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
       <DrawerContent className="max-h-[92dvh] overflow-y-auto p-0">
         <DrawerHeader className="px-5 pt-5 pb-3 border-b text-left">
-          <DrawerTitle className="text-base">{initial?.id ? "음식 편집" : "직접 등록"}</DrawerTitle>
+          <DrawerTitle className="text-base">{initial?.id ? "음식 편집" : "커스텀 음식 등록"}</DrawerTitle>
         </DrawerHeader>
 
         <div className="px-5 py-4 space-y-4">

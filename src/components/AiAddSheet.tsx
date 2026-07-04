@@ -16,7 +16,7 @@ import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, ChevronDown, ChevronUp, ExternalLink, Loader2, Sparkles, X } from "lucide-react";
+import { Camera, ChevronDown, ChevronUp, ExternalLink, Loader2, Pencil, Sparkles, X } from "lucide-react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { PaywallModal } from "@/components/PaywallModal";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
@@ -333,10 +333,22 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
     >
       <DrawerContent className="max-h-[90dvh]">
         <DrawerHeader className="text-left pb-2">
-          <DrawerTitle className="flex items-center gap-1.5 text-base">
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            {step === "input" ? "AI로 음식 추가" : "이렇게 기록할까요?"}
-          </DrawerTitle>
+          <div className="flex items-center justify-between gap-2">
+            <DrawerTitle className="flex items-center gap-1.5 text-base">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              {step === "input" ? "AI로 음식 추가" : "이렇게 기록할까요?"}
+            </DrawerTitle>
+            {step === "input" && (
+              <button
+                type="button"
+                onClick={goManual}
+                className="shrink-0 inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-700 active:bg-neutral-100"
+              >
+                <Pencil className="h-3 w-3" />
+                직접 등록
+              </button>
+            )}
+          </div>
         </DrawerHeader>
 
         <div className="px-4 pb-[max(env(safe-area-inset-bottom),16px)] overflow-y-auto">
@@ -353,7 +365,6 @@ export function AiAddSheet({ open, onOpenChange, onRegistered, loggedDate, mealS
               onAnalyze={analyze}
               loading={loading === "analyze"}
               err={err}
-              onManual={goManual}
               aiUnlimited={entitlements.aiUnlimited}
               aiUsesRemaining={aiUsesRemaining}
               aiLifetimeFreeUses={entitlements.aiLifetimeFreeUses}
@@ -414,7 +425,6 @@ function InputStep({
   onAnalyze,
   loading,
   err,
-  onManual,
   aiUnlimited,
   aiUsesRemaining,
   aiLifetimeFreeUses,
@@ -429,7 +439,6 @@ function InputStep({
   onAnalyze: () => void;
   loading: boolean;
   err: string | null;
-  onManual: () => void;
   aiUnlimited: boolean;
   aiUsesRemaining: number;
   aiLifetimeFreeUses: number;
@@ -507,13 +516,6 @@ function InputStep({
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
         {loading ? "AI 분석 중..." : "AI로 분석"}
-      </button>
-
-      <button
-        onClick={onManual}
-        className="text-[12px] text-neutral-500 active:text-neutral-900 underline text-center py-1"
-      >
-        수동으로 입력
       </button>
 
       {history.length > 0 && (
