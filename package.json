@@ -15,7 +15,7 @@
     "test:ui": "vitest --ui",
     "cap:sync": "cap sync ios",
     "cap:open": "cap open ios",
-    "deploy": "npm run build && wrangler deploy --var SUPABASE_URL:https://kjpxczdmlwfiefzpyuop.supabase.co --var SUPABASE_ANON_KEY:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqcHhjemRtbHdmaWVmenB5dW9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTAxOTgsImV4cCI6MjA5NDU2NjE5OH0.roccTlrloUaBIlgHC_dAARez5WmTDyvZDoNUBmpMC04 --var FORCE_PRO_USERS:0b11afff-75eb-4738-974b-a0927e1212ba --var FORCE_BASIC_USERS:aa4e8dff-058c-4e29-bc82-f7ace8d5848e",
+    "deploy": "npm run build && wrangler deploy --var SUPABASE_URL:https://kjpxczdmlwfiefzpyuop.supabase.co --var SUPABASE_ANON_KEY:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqcHhjemRtbHdmaWVmenB5dW9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTAxOTgsImV4cCI6MjA5NDU2NjE5OH0.roccTlrloUaBIlgHC_dAARez5WmTDyvZDoNUBmpMC04 --var FORCE_PRO_USERS:0b11afff-75eb-4738-974b-a0927e1212ba,5e03e81c-f0c7-4303-8155-0432f2e8a906,830f47e8-fd56-4eb2-814e-53b8316ea6d9,f32feb32-5d0c-49ba-8ec9-cfcf1b27f893 --var FORCE_BASIC_USERS:aa4e8dff-058c-4e29-bc82-f7ace8d5848e",
     "seed:vectors": "npx tsx scripts/seed-food-vectors.ts"
   },
   "dependencies": {
