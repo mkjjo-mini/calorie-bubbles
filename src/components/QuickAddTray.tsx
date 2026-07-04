@@ -376,49 +376,11 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
     }
   }
 
-  async function handleSheetAdd(mode: "serving" | "gram", qty: number, saveAsBase: boolean) {
+  async function handleSheetAdd(mode: "serving" | "gram", qty: number) {
     if (!sheet) return;
     const { food } = sheet;
     pushRecent(food.id);
-
-    // saveAsBase: source 무관하게 cloud foods.update (preset은 UI에서 체크박스 숨김)
-    if (saveAsBase && food.serving_g > 0) {
-      const newServingG = mode === "gram" ? qty : qty * food.serving_g;
-      if (newServingG > 0) {
-        const ratio = newServingG / food.serving_g;
-        const updated = {
-          serving_g: newServingG,
-          serving_amount: newServingG,
-          serving_unit: "g",
-          kcal: Math.round(food.kcal * ratio),
-          carb_g: Math.round(food.carb_g * ratio * 10) / 10,
-          protein_g: Math.round(food.protein_g * ratio * 10) / 10,
-          fat_g: Math.round(food.fat_g * ratio * 10) / 10,
-        };
-        try {
-          await cloudRepository.foods.update(food.id, updated);
-          // 두 state 모두 즉시 반영 — 다음 sheet/chip 렌더 시 새 값 사용
-          const apply = (f: FoodRow) =>
-            f.id === food.id ? { ...f, ...updated } : f;
-          setFavFoods((prev) => prev.map(apply));
-          setAllFoods((prev) => prev.map(apply));
-          persistLastQty(food.name, 1, "serving");
-          // 자명한 변화 — 카드 g 값이 즉시 갱신됨
-        } catch (e) {
-          persistLastQty(food.name, qty, mode);
-          if (e instanceof CloudAuthError) {
-            /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
-          } else {
-            toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
-          }
-        }
-      } else {
-        persistLastQty(food.name, qty, mode);
-      }
-    } else {
-      persistLastQty(food.name, qty, mode);
-    }
-
+    persistLastQty(food.name, qty, mode);
     setSheet(null);
 
     try {

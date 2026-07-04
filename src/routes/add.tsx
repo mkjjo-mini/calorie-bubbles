@@ -15,7 +15,6 @@ import { type FoodApiResult } from "@/lib/food-search";
 import { useFoodSearch } from "@/hooks/use-food-search";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { QuantitySheet, type Pickable, type LastQty } from "@/components/QuantitySheet";
-import { nextLastQty } from "@/lib/lastQty";
 import { sanitizeDecimalInput } from "@/lib/numeric-input";
 import { cloudRepository } from "@/lib/repository/cloud";
 import {
@@ -533,7 +532,6 @@ function AddFoodPage() {
     food: Pickable,
     mode: "serving" | "gram",
     qty: number,
-    saveAsBase: boolean = false,
   ) {
     const reconciled = reconcileApiMacros(food);
 
@@ -549,49 +547,10 @@ function AddFoodPage() {
 
     try {
       let foodId: string;
-      // 이 추가에서 음식 1인분 기준이 먹은 양으로 재설정(rebase)됐는지 추적.
-      // rebase 시 lastQty는 1인분으로 리셋해야 다음 재추가 때 배수가 이중 적용되지 않음.
-      let rebased = false;
 
       if (food.source === "custom") {
         // Already a cloud UUID
         foodId = food.id;
-
-        // saveAsBase: update serving_g in cloud
-        if (saveAsBase) {
-          const target = userFoods.find((f) => f.id === food.id);
-          if (!target) {
-            toast.error("기준 저장 실패: 음식을 찾지 못했어요");
-          } else if (target.serving_g <= 0) {
-            toast.error("기준 저장 실패: 현재 1인분 값이 비정상이에요");
-          } else {
-            const newServingG = mode === "gram" ? qty : qty * target.serving_g;
-            if (newServingG > 0) {
-              const ratio = newServingG / target.serving_g;
-              try {
-                await cloudRepository.foods.update(food.id, {
-                  serving_g: newServingG,
-                  serving_amount: newServingG,
-                  serving_unit: "g",
-                  kcal: Math.round(target.kcal * ratio),
-                  carb_g: Math.round(target.carb_g * ratio * 10) / 10,
-                  protein_g: Math.round(target.protein_g * ratio * 10) / 10,
-                  fat_g: Math.round(target.fat_g * ratio * 10) / 10,
-                });
-                // await로 변경 — UI 갱신 보장 (이후 foodLogs.create 전에 완료)
-                await loadCloudData();
-                rebased = true;
-                // 자명한 변화 — 폼/카드의 g 값이 즉시 갱신됨
-              } catch (e) {
-                if (e instanceof CloudAuthError) {
-                  /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
-                } else {
-                  toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
-                }
-              }
-            }
-          }
-        }
       } else if (food.source === "preset") {
         const insert: FoodInsert = {
           source: "preset",
@@ -627,34 +586,6 @@ function AddFoodPage() {
         };
         foodId = await resolveFoodId({ source: "api", food_code, insert });
         // 자동 추정은 폼 필드가 즉시 채워져 시각적으로 명백 — 토스트 생략
-
-        // saveAsBase: api 음식도 1인분 기준 cloud 갱신 (custom 분기와 동일 패턴)
-        if (saveAsBase && food.serving_g > 0) {
-          const newServingG = mode === "gram" ? qty : qty * food.serving_g;
-          if (newServingG > 0) {
-            const ratio = newServingG / food.serving_g;
-            try {
-              await cloudRepository.foods.update(foodId, {
-                serving_g: newServingG,
-                serving_amount: newServingG,
-                serving_unit: "g",
-                kcal: Math.round(food.kcal * ratio),
-                carb_g: Math.round(reconciled.carb * ratio * 10) / 10,
-                protein_g: Math.round(reconciled.protein * ratio * 10) / 10,
-                fat_g: Math.round(reconciled.fat * ratio * 10) / 10,
-              });
-              await loadCloudData();
-              rebased = true;
-              // 자명한 변화 — 폼/카드의 g 값이 즉시 갱신됨
-            } catch (e) {
-              if (e instanceof CloudAuthError) {
-                /* 401 → cloud.ts가 /auth/login으로 자동 redirect */
-              } else {
-                toast.error(`기준 저장 실패: ${e instanceof Error ? e.message : String(e)}`);
-              }
-            }
-          }
-        }
       }
 
       await cloudRepository.foodLogs.create({
@@ -674,10 +605,8 @@ function AddFoodPage() {
       localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
       setRecents(nextRecent);
 
-      // Persist lastQty (UX-only localStorage).
-      // 재기준화(rebase)가 실제로 일어났을 때만 1인분으로 리셋 — source 무관.
-      // (api 음식도 rebase되므로 custom만 리셋하던 과거 버그: 다음 탭에서 배수 이중 적용)
-      const lastQtyToPersist = nextLastQty(rebased, qty, mode);
+      // Persist lastQty (UX-only localStorage) — 마지막 입력한 양/단위 그대로 기억.
+      const lastQtyToPersist = { qty, mode };
       try {
         const raw = JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}");
         const next = { ...raw, [food.name]: lastQtyToPersist };
@@ -1106,7 +1035,7 @@ function AddFoodPage() {
           food={activeFood}
           last={lastQtyMap[activeFood.name]}
           onClose={() => setActiveFood(null)}
-          onAdd={(mode, qty, saveAsBase) => void handleAdd(activeFood, mode, qty, saveAsBase)}
+          onAdd={(mode, qty) => void handleAdd(activeFood, mode, qty)}
           // custom(=cloud UUID)일 때만 ⭐ 표시·토글 — preset/api는 cloud row가
           // 아직 없을 수 있어 sheet 시점엔 isFavorite 정확히 판단 불가.
           // 그 경우 chip의 ⭐ 버튼이나 카드의 즐겨찾기 토글 사용 (기존 패턴).

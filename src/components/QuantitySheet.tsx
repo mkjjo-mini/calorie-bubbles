@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Star } from "lucide-react";
+import { sanitizeDecimalInput } from "@/lib/numeric-input";
 
 /**
  * Shape consumed by QuantitySheet. Unified across:
- *   - preset (from food-presets.json — static, no saveAsBase)
+ *   - preset (from food-presets.json — static)
  *   - custom (user-registered, source="user")
  *   - api    (식약처 검색 결과 또는 자동 저장된 source="api" customFood)
  *
@@ -37,8 +38,7 @@ interface Props {
   /** 같은 음식의 마지막 사용 수량/모드. 있으면 default 값으로 사용. */
   last?: LastQty;
   onClose: () => void;
-  /** saveAsBase는 source가 custom 또는 api일 때만 true가 될 수 있음. */
-  onAdd: (mode: "serving" | "gram", qty: number, saveAsBase: boolean) => void;
+  onAdd: (mode: "serving" | "gram", qty: number) => void;
   /** 즐겨찾기 상태 — 정확한 정보가 있을 때만 prop 전달. 없으면 ⭐ 버튼 미노출. */
   isFavorite?: boolean;
   /** 즐겨찾기 토글 콜백. 호출처가 add/remove 결정 + cloud 동기화. */
@@ -55,14 +55,18 @@ export function QuantitySheet({
 }: Props) {
   const [mode, setMode] = useState<"serving" | "gram">(last?.mode ?? "serving");
   const [qty, setQty] = useState<number>(last?.qty ?? 1);
-  const [saveAsBase, setSaveAsBase] = useState(true);
+  // 입력창 표시는 정규화된 문자열로 제어 — 숫자 state를 value로 쓰면 React가
+  // type=number DOM의 "0200"을 정규화 못해 선행 0이 남는 문제 방지.
+  const [qtyText, setQtyText] = useState<string>(String(last?.qty ?? 1));
   const prevModeRef = useRef(mode);
 
   // 사용자가 mode 토글했을 때만 default로 reset (초기 `last` 값 보존)
   useEffect(() => {
     if (prevModeRef.current === mode) return;
     prevModeRef.current = mode;
-    setQty(mode === "serving" ? 1 : food.serving_g);
+    const next = mode === "serving" ? 1 : food.serving_g;
+    setQty(next);
+    setQtyText(String(next));
   }, [mode, food.serving_g]);
 
   const mult = mode === "serving" ? qty : qty / food.serving_g;
@@ -72,11 +76,13 @@ export function QuantitySheet({
   const kcal = Math.round(food.kcal * mult);
   const step = mode === "serving" ? 0.5 : 10;
   const disabled = qty <= 0;
-  // preset은 정적이라 saveAsBase 의미 없음 — UI에서 숨기고 onAdd에 false 전달
-  const canSaveAsBase = food.source === "custom" || food.source === "api";
 
   function bump(delta: number) {
-    setQty((q) => Math.max(0, Math.round((q + delta) * 10) / 10));
+    setQty((q) => {
+      const next = Math.max(0, Math.round((q + delta) * 10) / 10);
+      setQtyText(String(next));
+      return next;
+    });
   }
 
   return (
@@ -135,10 +141,14 @@ export function QuantitySheet({
             −
           </button>
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
-            value={qty}
-            onChange={(e) => setQty(parseFloat(e.target.value) || 0)}
+            value={qtyText}
+            onChange={(e) => {
+              const s = sanitizeDecimalInput(e.target.value);
+              setQtyText(s);
+              setQty(parseFloat(s) || 0);
+            }}
             className="flex-1 h-12 px-3 rounded-xl border border-neutral-200 text-base font-semibold text-neutral-900 text-center focus:outline-none focus:ring-2 focus:ring-neutral-300"
           />
           <button
@@ -164,19 +174,7 @@ export function QuantitySheet({
           <div className="mt-1 text-xs text-neutral-500">{kcal} kcal</div>
         </div>
 
-        {canSaveAsBase && (
-          <label className="mt-4 flex items-center gap-2 text-xs text-neutral-600 select-none cursor-pointer">
-            <input
-              type="checkbox"
-              checked={saveAsBase}
-              onChange={(e) => setSaveAsBase(e.target.checked)}
-              className="h-4 w-4 rounded border-neutral-300 accent-neutral-900"
-            />
-            이 양을 1인분으로 저장
-          </label>
-        )}
-
-        <div className="mt-3 flex gap-2">
+        <div className="mt-4 flex gap-2">
           <button
             onClick={onClose}
             className="flex-1 h-12 rounded-xl border border-neutral-200 text-sm font-semibold text-neutral-700 active:scale-95"
@@ -185,7 +183,7 @@ export function QuantitySheet({
           </button>
           <button
             disabled={disabled}
-            onClick={() => onAdd(mode, qty, canSaveAsBase ? saveAsBase : false)}
+            onClick={() => onAdd(mode, qty)}
             className="flex-[2] h-12 rounded-xl bg-neutral-900 text-white text-sm font-semibold disabled:opacity-40 active:scale-95"
           >
             추가하기
