@@ -37,6 +37,14 @@ function formatQty(food: FoodRow, last: LastQty | undefined): string {
       : `${last.qty}인분`;
 }
 
+/** 마지막 담은 양(last)에 해당하는 kcal — 칩에 기준 kcal 대신 실제 양의 kcal 표시. */
+function kcalForLast(food: FoodRow, last: LastQty | undefined): number {
+  const qty = last?.qty ?? 1;
+  const mode = last?.mode ?? "serving";
+  const mult = mode === "serving" ? qty : food.serving_g > 0 ? qty / food.serving_g : 0;
+  return Math.round(food.kcal * mult);
+}
+
 function dominantMacro(f: FoodRow): Macro {
   const m: [Macro, number][] = [
     ["carbs", f.carb_g],
@@ -630,7 +638,7 @@ function Chip({
         {food.name}
       </div>
       <div className="text-[11px] text-neutral-400 mt-0.5">
-        {formatQty(food, last)} · {food.kcal} kcal
+        {formatQty(food, last)} · {kcalForLast(food, last)} kcal
       </div>
     </motion.button>
   );
