@@ -7,6 +7,7 @@
 
 import { forceCollide, forceSimulation, forceX, forceY, type SimulationNodeDatum } from "d3-force";
 import { MACRO_COLORS, MACRO_KCAL, displayName } from "@/lib/foods";
+import { kcalBubbleColor, kcalBubbleText } from "@/lib/kcalPalette";
 import type { FoodLogRow } from "@/lib/repository/types";
 
 export type WeekMode = "kcal" | "carbs" | "protein" | "fat";
@@ -35,27 +36,6 @@ export interface LaidOutBubble {
 export interface LaidOutColumn {
   dateIso: string;
   bubbles: LaidOutBubble[];
-}
-
-const KCAL_PALETTE: { color: string; text: "dark" | "light" }[] = [
-  { color: "#5EC4B6", text: "light" },
-  { color: "#9B8CE0", text: "light" },
-  { color: "#F2A57C", text: "dark" },
-  { color: "#4FB3C9", text: "light" },
-  { color: "#E8B86E", text: "dark" },
-  { color: "#C29BD8", text: "light" },
-  { color: "#A8B86C", text: "dark" },
-  { color: "#E58CA8", text: "light" },
-  { color: "#7B95B5", text: "light" },
-  { color: "#8FB08A", text: "dark" },
-];
-
-function hash01(s: string, salt: number): number {
-  let h = salt;
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  }
-  return (h % 1000) / 1000;
 }
 
 function normalizeKey(name: string): string {
@@ -88,43 +68,18 @@ function metricValue(b: FoodBubble, mode: WeekMode): number {
 }
 
 /**
- * kcal 모드: 같은 음식은 같은 색, 다른 음식은 서로 다른 색 (palette 슬롯 충돌 방지).
- * history.tsx의 monthKcalColors 알고리즘과 동일 — hash 초기값 → 이미 쓴 슬롯이면 next available 탐색.
+ * mode별 색상 + 텍스트 컬러.
+ * kcal은 홈·추이 화면과 동일한 공용 kcalBubbleColor/Text(순수 이름 해시, 16색)를 사용 —
+ * 공유 이미지와 실제 버블 색이 항상 일치하도록. (자체 팔레트·알고리즘 복제 제거)
  */
-function buildKcalColorMap(
-  bubbles: FoodBubble[],
-): Map<string, { color: string; text: "dark" | "light" }> {
-  const map = new Map<string, { color: string; text: "dark" | "light" }>();
-  const used = new Set<number>();
-  // 등장 순서대로 색 배정 (일관성)
-  for (const b of bubbles) {
-    if (map.has(b.name)) continue;
-    let idx = Math.floor(hash01(b.name, 1) * KCAL_PALETTE.length);
-    if (used.has(idx)) {
-      // 충돌 → 다음 빈 슬롯 찾기
-      for (let i = 1; i < KCAL_PALETTE.length; i++) {
-        const candidate = (idx + i) % KCAL_PALETTE.length;
-        if (!used.has(candidate)) {
-          idx = candidate;
-          break;
-        }
-      }
-    }
-    used.add(idx);
-    map.set(b.name, KCAL_PALETTE[idx]);
-  }
-  return map;
-}
-
-/** mode별 색상 + 텍스트 컬러 — kcal은 미리 만든 map 사용 */
 function bubbleColors(
   b: FoodBubble,
   mode: WeekMode,
-  kcalMap: Map<string, { color: string; text: "dark" | "light" }> | null,
 ): { color: string; textColor: "dark" | "light" } {
   if (mode === "kcal") {
-    const e = kcalMap?.get(b.name) ?? KCAL_PALETTE[0];
-    return { color: e.color, textColor: e.text };
+    // kcalBubbleText는 hex(밝은 배경="#fff" 흰 글자 / 어두운 배경=진한 글자) 반환
+    const textColor: "dark" | "light" = kcalBubbleText(b.name) === "#fff" ? "light" : "dark";
+    return { color: kcalBubbleColor(b.name), textColor };
   }
   const color = MACRO_COLORS[mode];
   // 노란 탄수: dark text / 빨강·파랑: light text
@@ -144,8 +99,6 @@ interface LayoutColumnOptions {
   height: number;
   /** 전체 max metric value (3일치 통합 정규화에 사용) — 컬럼 간 상대 크기 일관 */
   maxMetric: number;
-  /** kcal 모드 색상 매핑 (3일치 전체에서 사전 계산) */
-  kcalColorMap: Map<string, { color: string; text: "dark" | "light" }> | null;
 }
 
 // 기록 탭 실제 매칭: 선형 보간 (BUBBLE_MIN ~ BUBBLE_MAX)
@@ -155,7 +108,7 @@ const BUBBLE_MAX = 120;
 
 /** 한 컬럼 안에서 d3-force로 버블 위치 계산 */
 function layoutColumn(opts: LayoutColumnOptions): LaidOutBubble[] {
-  const { bubbles, mode, width, height, maxMetric, kcalColorMap } = opts;
+  const { bubbles, mode, width, height, maxMetric } = opts;
   if (bubbles.length === 0) return [];
 
   // 반지름: history.tsx와 동일한 선형 보간
@@ -206,7 +159,7 @@ function layoutColumn(opts: LayoutColumnOptions): LaidOutBubble[] {
 
   return nodes.map((n) => {
     const b = bubbles.find((x) => x.key === n.key)!;
-    const { color, textColor } = bubbleColors(b, mode, kcalColorMap);
+    const { color, textColor } = bubbleColors(b, mode);
     return {
       key: n.key,
       name: n.name,
@@ -256,11 +209,7 @@ export function layoutWeek(options: LayoutWeekOptions): LayoutWeekResult {
   }
   if (maxMetric === 0) maxMetric = 1;
 
-  // kcal 모드: 3일치 전체 음식에 대해 색상 미리 배정 (충돌 회피)
-  const allBubbles = aggregated.flatMap((d) => d.bubbles);
-  const kcalColorMap = mode === "kcal" ? buildKcalColorMap(allBubbles) : null;
-
-  // 각 컬럼 레이아웃
+  // 각 컬럼 레이아웃 (색은 layoutColumn 내부에서 공용 kcalBubbleColor로 결정)
   const columns: LaidOutColumn[] = aggregated.map((day) => ({
     dateIso: day.dateIso,
     bubbles: layoutColumn({
@@ -269,7 +218,6 @@ export function layoutWeek(options: LayoutWeekOptions): LayoutWeekResult {
       width: columnWidth,
       height: columnHeight,
       maxMetric,
-      kcalColorMap,
     }),
   }));
 

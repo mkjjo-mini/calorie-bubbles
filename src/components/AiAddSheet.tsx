@@ -473,7 +473,7 @@ function InputStep({
       )}
 
       <p className="text-[11px] text-neutral-500 leading-relaxed">
-        음식 사진을 찍거나, 자연어로 적어주세요. (식당 메뉴도 OK)
+        음식 사진, 성분표를 찍거나, 자연어로 적어주세요.
       </p>
 
       <textarea
