@@ -15,6 +15,7 @@ import { type FoodApiResult } from "@/lib/food-search";
 import { useFoodSearch } from "@/hooks/use-food-search";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { QuantitySheet, type Pickable, type LastQty } from "@/components/QuantitySheet";
+import { nextLastQty } from "@/lib/lastQty";
 import { cloudRepository } from "@/lib/repository/cloud";
 import {
   CloudAuthError,
@@ -547,6 +548,9 @@ function AddFoodPage() {
 
     try {
       let foodId: string;
+      // 이 추가에서 음식 1인분 기준이 먹은 양으로 재설정(rebase)됐는지 추적.
+      // rebase 시 lastQty는 1인분으로 리셋해야 다음 재추가 때 배수가 이중 적용되지 않음.
+      let rebased = false;
 
       if (food.source === "custom") {
         // Already a cloud UUID
@@ -575,6 +579,7 @@ function AddFoodPage() {
                 });
                 // await로 변경 — UI 갱신 보장 (이후 foodLogs.create 전에 완료)
                 await loadCloudData();
+                rebased = true;
                 // 자명한 변화 — 폼/카드의 g 값이 즉시 갱신됨
               } catch (e) {
                 if (e instanceof CloudAuthError) {
@@ -638,6 +643,7 @@ function AddFoodPage() {
                 fat_g: Math.round(reconciled.fat * ratio * 10) / 10,
               });
               await loadCloudData();
+              rebased = true;
               // 자명한 변화 — 폼/카드의 g 값이 즉시 갱신됨
             } catch (e) {
               if (e instanceof CloudAuthError) {
@@ -667,11 +673,10 @@ function AddFoodPage() {
       localStorage.setItem(RECENT_KEY, JSON.stringify(nextRecent));
       setRecents(nextRecent);
 
-      // Persist lastQty (UX-only localStorage)
-      const lastQtyToPersist =
-        saveAsBase && food.source === "custom"
-          ? { qty: 1, mode: "serving" as const }
-          : { qty, mode };
+      // Persist lastQty (UX-only localStorage).
+      // 재기준화(rebase)가 실제로 일어났을 때만 1인분으로 리셋 — source 무관.
+      // (api 음식도 rebase되므로 custom만 리셋하던 과거 버그: 다음 탭에서 배수 이중 적용)
+      const lastQtyToPersist = nextLastQty(rebased, qty, mode);
       try {
         const raw = JSON.parse(localStorage.getItem(LAST_QTY_KEY) || "{}");
         const next = { ...raw, [food.name]: lastQtyToPersist };
