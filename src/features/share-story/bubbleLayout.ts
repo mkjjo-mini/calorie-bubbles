@@ -15,8 +15,8 @@ export interface LaidOutBubble {
   r: number;
   color: string;
   foodName: string;
-  /** 텍스트 컬러 — 가독성 위해 carbs는 dark, 나머지 white */
-  textColor: "dark" | "light";
+  /** 텍스트 컬러 hex — 홈 버블과 동일(엔트리 textColor 우선, 없으면 carbs=#333/그외=#fff) */
+  textColor: string;
 }
 
 interface Node extends SimulationNodeDatum {
@@ -24,6 +24,8 @@ interface Node extends SimulationNodeDatum {
   r: number;
   macro: BubbleEntry["macro"];
   foodName: string;
+  color: string;
+  textColor: string;
 }
 
 function radiusForKcal(kcal: number, bowlArea: number, goalKcal: number, maxR: number): number {
@@ -56,7 +58,9 @@ export function layoutBubbles(
   bubbles: BubbleEntry[],
   options: LayoutOptions,
 ): LaidOutBubble[] {
-  if (bubbles.length === 0) return [];
+  // 홈 BubbleField와 동일: 그릇엔 (sizeKcal ?? grams) > 0 만. 0칼로리 placeholder 제외.
+  const visible = bubbles.filter((b) => (b.sizeKcal ?? b.grams) > 0);
+  if (visible.length === 0) return [];
 
   const { width, height, goalKcal, anchorYRatio = 1, yStrength = 0.18 } = options;
   const cx = width / 2;
@@ -64,15 +68,17 @@ export function layoutBubbles(
   const bowlArea = width * height;
   const maxR = height * 0.45;
 
-  // 노드 초기화
-  const nodes: Node[] = bubbles.map((b) => {
-    const kcal = b.grams * MACRO_KCAL[b.macro];
+  // 노드 초기화 — 색·크기는 홈과 동일하게 엔트리 값 우선(칼로리 모드), 없으면 매크로 폴백.
+  const nodes: Node[] = visible.map((b) => {
+    const kcal = b.sizeKcal ?? b.grams * MACRO_KCAL[b.macro];
     const r = radiusForKcal(kcal, bowlArea, goalKcal, maxR);
     return {
       id: b.id,
       r,
       macro: b.macro,
       foodName: b.foodName,
+      color: b.color ?? MACRO_COLORS[b.macro],
+      textColor: b.textColor ?? (b.macro === "carbs" ? "#333" : "#fff"),
       x: cx + (Math.random() - 0.5) * 20,
       y: Math.max(r + 4, 10 + Math.random() * 20),
       vx: 0,
@@ -116,8 +122,8 @@ export function layoutBubbles(
     x: n.x ?? cx,
     y: n.y ?? anchorY,
     r: n.r,
-    color: MACRO_COLORS[n.macro],
+    color: n.color,
     foodName: n.foodName,
-    textColor: n.macro === "carbs" ? "dark" : "light",
+    textColor: n.textColor,
   }));
 }

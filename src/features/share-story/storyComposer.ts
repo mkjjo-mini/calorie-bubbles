@@ -335,7 +335,7 @@ export async function composeStoryCard(input: StoryComposerInput): Promise<HTMLC
       // 텍스트 (큰 버블만)
       if (b.r >= 30) {
         const fontSize = Math.min(28, b.r * 0.32);
-        ctx.fillStyle = b.textColor === "dark" ? "#333" : "#fff";
+        ctx.fillStyle = b.textColor;
         ctx.font = `600 ${fontSize}px ${FONT}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
