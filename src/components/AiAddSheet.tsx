@@ -12,7 +12,7 @@
  *
  *  "수동으로 입력" 링크 → /add 화면으로 폴백 (시트 닫음).
  */
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ import { resizeForAi, resizeToThumbnail } from "@/lib/image-resize";
 import { useSession } from "@/hooks/useSession";
 import { ENTITLEMENTS_QUERY_KEY, useEntitlements } from "@/hooks/useEntitlements";
 import { inferMealSlot, type MealSlot } from "@/lib/foods";
+import { sanitizeDecimalInput } from "@/lib/numeric-input";
 import { pushRecent } from "@/lib/recent-foods";
 import { pushAiSearchHistory, getAiSearchHistory, type AiSearchHistoryItem } from "@/lib/ai-search-history";
 
@@ -567,6 +568,21 @@ function InputStep({
 }
 
 /* ---------------- 단계 2: 미리보기 + 편집 ---------------- */
+// 미리보기에서 문자열로 제어할 숫자 필드 (0패딩 방지·소수 입력 안정화)
+const PREVIEW_NUMERIC_FIELDS: readonly (keyof Analysis)[] = [
+  "serving_amount",
+  "serving_g",
+  "kcal",
+  "carb_g",
+  "protein_g",
+  "fat_g",
+];
+function previewTextFrom(a: Analysis): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const f of PREVIEW_NUMERIC_FIELDS) out[f] = String(a[f] ?? "");
+  return out;
+}
+
 function PreviewStep({
   edit,
   setEdit,
@@ -588,9 +604,24 @@ function PreviewStep({
   loading: boolean;
   err: string | null;
 }) {
+  // 숫자 입력은 정규화된 문자열로 표시 — type=number+숫자 state의 "0200" 선행0 방지.
+  const [editText, setEditText] = useState<Record<string, string>>(() => previewTextFrom(edit));
+  const lastEditRef = useRef(edit);
+  useEffect(() => {
+    // 외부에서 edit이 교체됐을 때(히스토리 복원 등)만 표시 문자열 재동기화.
+    if (edit !== lastEditRef.current) {
+      lastEditRef.current = edit;
+      setEditText(previewTextFrom(edit));
+    }
+  }, [edit]);
+
   function num(field: keyof Analysis, v: string) {
-    const n = Number(v);
-    if (Number.isFinite(n)) setEdit({ ...edit, [field]: n });
+    const s = sanitizeDecimalInput(v);
+    setEditText((t) => ({ ...t, [field]: s }));
+    const n = Number(s);
+    const next = { ...edit, [field]: Number.isFinite(n) ? n : 0 };
+    lastEditRef.current = next;
+    setEdit(next);
   }
 
   const lowConf = edit.confidence < 0.5;
@@ -620,11 +651,10 @@ function PreviewStep({
       <SheetField label="1회 제공량" required>
         <div className="flex gap-2">
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
-            value={edit.serving_amount}
+            value={editText.serving_amount ?? ""}
             onChange={(e) => num("serving_amount", e.target.value)}
-            min={0}
             className="flex-1 h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
           />
           <input
@@ -637,11 +667,10 @@ function PreviewStep({
         <div className="mt-2">
           <label className="text-xs text-neutral-500 block mb-1">그램 (g)</label>
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
-            value={edit.serving_g}
+            value={editText.serving_g ?? ""}
             onChange={(e) => num("serving_g", e.target.value)}
-            min={0}
             className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
           />
         </div>
@@ -656,11 +685,10 @@ function PreviewStep({
       {/* 열량 */}
       <SheetField label="열량 (kcal)">
         <input
-          type="number"
+          type="text"
           inputMode="decimal"
-          value={edit.kcal}
+          value={editText.kcal ?? ""}
           onChange={(e) => num("kcal", e.target.value)}
-          min={0}
           className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
         />
       </SheetField>
@@ -682,12 +710,10 @@ function PreviewStep({
               </span>
             </label>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              value={edit[row.key] as number}
+              value={editText[row.key] ?? ""}
               onChange={(e) => num(row.key, e.target.value)}
-              min={0}
-              step={0.1}
               className="w-full h-11 px-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
             />
           </div>
