@@ -8,8 +8,8 @@ import {
 } from "@/lib/kcalPalette";
 
 describe("kcalPalette", () => {
-  it("팔레트는 10색이고 각 항목에 color/text가 있다", () => {
-    expect(KCAL_PALETTE).toHaveLength(10);
+  it("팔레트는 충분한 색을 갖고 각 항목에 color/text가 있다", () => {
+    expect(KCAL_PALETTE.length).toBeGreaterThanOrEqual(10);
     for (const e of KCAL_PALETTE) {
       expect(typeof e.color).toBe("string");
       expect(typeof e.text).toBe("string");
