@@ -133,9 +133,11 @@ interface Props {
   onAdded: (log: FoodLogRow) => void;
   /** Date to log against (YYYY-MM-DD). Defaults to today (KST). */
   loggedDate?: string;
+  /** 홈 FAB — 이 영역과 겹친 칩 탭은 오탭 방지로 무시. */
+  fabRef?: RefObject<HTMLButtonElement | null>;
 }
 
-export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props) {
+export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate, fabRef }: Props) {
   const [favFoods, setFavFoods] = useState<FoodRow[]>([]);
   /** 즐겨찾기 food_id Set — QuantitySheet의 ⭐ 토글 상태 표시·갱신용 */
   const [favFoodIds, setFavFoodIds] = useState<Set<string>>(new Set());
@@ -364,6 +366,15 @@ export function QuickAddTray({ bubbleContainerRef, onAdded, loggedDate }: Props)
   }
 
   async function handleTap(food: FoodRow, chipEl: HTMLElement) {
+    // FAB 영역과 일부라도 겹친 칩이면 오탭 방지 — 무시.
+    const fab = fabRef?.current;
+    if (fab) {
+      const c = chipEl.getBoundingClientRect();
+      const f = fab.getBoundingClientRect();
+      const overlaps = c.left < f.right && c.right > f.left && c.top < f.bottom && c.bottom > f.top;
+      if (overlaps) return;
+    }
+
     const last = lastQtyMap[food.name];
     const mode = last?.mode ?? "serving";
     const qty = last?.qty ?? 1;

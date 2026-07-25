@@ -215,6 +215,8 @@ function Index() {
   // Maps logId → pending cloud DELETE so we can cancel on undo
   const pendingDeleteRef = useRef<Map<string, { log: FoodLogRow; timerId: ReturnType<typeof setTimeout> }>>(new Map());
   const bowlRef = useRef<HTMLDivElement>(null);
+  // FAB 영역과 겹친 트레이 칩의 오탭 방지용 — QuickAddTray에 전달.
+  const fabRef = useRef<HTMLButtonElement>(null);
   const [openResetDialog, setOpenResetDialog] = useState(false);
 
   // Flush all pending deletes on unmount
@@ -603,6 +605,7 @@ function Index() {
         {/* Quick add tray */}
         <QuickAddTray
           bubbleContainerRef={bowlRef}
+          fabRef={fabRef}
           loggedDate={selectedDate}
           onAdded={(log) => {
             setLogs((prev) => [...prev, log]);
@@ -648,6 +651,7 @@ function Index() {
 
       {/* FAB — AI 시트 트리거. Material Design FAB 표준 (56pt button + 24pt icon) */}
       <button
+        ref={fabRef}
         onClick={() => setAiSheetOpen(true)}
         aria-label="AI로 음식 추가"
         className="fixed z-40 flex items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg active:scale-95 transition hover:bg-neutral-800"
